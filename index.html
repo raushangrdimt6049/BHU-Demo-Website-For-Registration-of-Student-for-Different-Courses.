@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAV PG College, Varanasi - Student Registration</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            user-select: none; /* Prevent text selection */
+        }
+
+        .submit-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="logo-container">
+            <!-- DAV PG College Logo -->
+            <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+        </div>
+        <div class="header-text">
+            <h1>Banaras Hindu University</h1>
+            <h2>DAV PG College, Varanasi</h2>
+        </div>
+        <div class="logo-container">
+            <!-- BHU Logo -->
+            <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
+        </div>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+    </header>
+
+    <main>
+        <form id="registrationForm" class="registration-form" novalidate>
+            <h3>Student Registration Form</h3>
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required>
+                <small id="email-error" class="error-message"></small>
+            </div>
+            <div class="form-group">
+                <label for="rollNumber">Roll Number</label>
+                <input type="text" id="rollNumber" name="rollNumber" required>
+            </div>
+            <div class="form-group">
+                <label for="dob">Date of Birth</label>
+                <input type="text" id="dob" name="dob" required maxlength="10" placeholder="DD-MM-YYYY">
+            </div>
+            <div class="form-group">
+                <small id="dob-error" class="error-message"></small>
+            </div>
+
+            <div class="form-group">
+                <label for="age">Age</label>
+                <input type="number" id="age" name="age" readonly placeholder="Calculated from DOB">
+            </div>
+            <div class="form-group">
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender" required>
+                    <option value="" disabled selected>-- Select Gender --</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="mobileNumber">Mobile Number</label>
+                <input type="tel" id="mobileNumber" name="mobileNumber" required pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" maxlength="10">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="password" name="password" required minlength="8">
+                    <span id="togglePassword" class="password-toggle">👁️</span>
+                </div>
+                <small class="form-hint">Must be 8+ characters, with uppercase, lowercase, number, and special character.</small>
+            </div>
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="confirmPassword" name="confirmPassword" required>
+                    <span id="toggleConfirmPassword" class="password-toggle">👁️</span>
+                </div>
+                <small id="password-error" class="error-message"></small>
+            </div>
+            <div class="form-group">
+                <label for="securityQuestion">Security Question</label>
+                <select id="securityQuestion" name="securityQuestion" required>
+                    <option value="" disabled selected>-- Select a question --</option>
+                    <option value="first_pet">What was your first pet's name?</option>
+                    <option value="mother_maiden">What is your mother's maiden name?</option>
+                    <option value="birth_city">In what city were you born?</option>
+                    <option value="favorite_book">What is your favorite book?</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="securityAnswer">Security Answer</label>
+                <input type="text" id="securityAnswer" name="securityAnswer" required>
+            </div>
+            <div class="form-group captcha-group">
+                <label for="captchaInput">Enter Captcha</label>
+                <div class="captcha-container" style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                    <span id="captcha-text" class="captcha-display" style="font-family: monospace; letter-spacing: 5px; text-decoration: line-through; padding: 10px 12px; border: 1px solid #ccc; background-color: #f0f0f0; user-select: none; font-size: 1.5rem;"></span>
+                    <button type="button" id="reload-captcha" class="reload-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">🔄</button>
+                </div>
+                <input type="text" id="captchaInput" name="captchaInput" required autocomplete="off">
+                <small id="captcha-error" class="error-message"></small>
+            </div>
+            <button type="submit" class="submit-btn" id="submitBtn">
+                <span class="button-text">Submit</span>
+                <span class="spinner" style="display: none;"></span>
+            </button>
+            <p class="login-link">
+                Already have an account? <a href="login.html">Sign In</a>
+            </p>
+        </form>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="script.js"></script>
+
+</body>
+</html>

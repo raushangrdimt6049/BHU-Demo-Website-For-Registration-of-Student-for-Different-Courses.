@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admission Summary - DAV PG College</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="home.css"> <!-- Re-use styles -->
+    <script>
+        // --- Immediate Security Check ---
+        if (!sessionStorage.getItem('currentStudent')) {
+            window.location.replace('login.html');
+        }
+    </script>
+    <style>
+        /* Re-using preview styles for consistency */
+        .preview-section { margin-bottom: 2rem; border-bottom: 1px solid var(--input-border); padding-bottom: 1rem; }
+        .preview-section h4 { font-size: 1.5rem; color: var(--btn-bg); margin-bottom: 1.5rem; border-bottom: 2px solid var(--btn-bg); padding-bottom: 0.5rem; }
+        .preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+        .preview-field { display: flex; flex-direction: column; }
+        .preview-field label { font-weight: 600; font-size: 0.9rem; color: var(--text-color); opacity: 0.8; margin-bottom: 0.25rem; }
+        .preview-field span { font-size: 1.1rem; min-height: 24px; }
+        .summary-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; gap: 1.5rem; }
+        .summary-actions .back-btn, .summary-actions .submit-btn { flex: 1; width: auto; margin-top: 0; text-align: center; text-decoration: none; }
+        .summary-actions .submit-btn { background-color: var(--btn-success-bg); }
+        .summary-actions .submit-btn:hover { background-color: var(--btn-success-hover-bg); }
+        @media print {
+            body, main, .details-container { margin: 0; padding: 0; box-shadow: none; }
+            .main-header, .summary-actions, #themeToggleBtn { display: none; }
+            .details-container { max-width: 100%; border: none; }
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo-container"><img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo"></div>
+        <div class="header-text"><h1>Banaras Hindu University</h1><h2>DAV PG College, Varanasi</h2></div>
+        <div class="logo-container"><img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo"></div>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+    </header>
+
+    <main>
+        <div class="details-container" style="max-width: 900px;">
+            <h3>Admission Summary</h3>
+            <p style="text-align: center; margin-bottom: 2rem;">Your application and payment have been successfully processed. You can print this summary for your records.</p>
+
+            <div class="profile-picture-container" style="border: 3px solid var(--btn-success-bg);">
+                <img src="default-avatar.png" alt="Profile Picture" id="profilePicture" class="profile-picture">
+            </div>
+
+            <!-- Personal Details -->
+            <div class="preview-section">
+                <h4>Personal Details</h4>
+                <div class="preview-grid">
+                    <div class="preview-field"><label>Full Name</label><span id="summaryName"></span></div>
+                    <div class="preview-field"><label>Email</label><span id="summaryEmail"></span></div>
+                    <div class="preview-field"><label>Roll Number</label><span id="summaryRollNumber"></span></div>
+                    <div class="preview-field"><label>Enrollment Number</label><span id="summaryEnrollmentNumber"></span></div>
+                    <div class="preview-field"><label>Mobile Number</label><span id="summaryMobileNumber"></span></div>
+                    <div class="preview-field"><label>Date of Birth</label><span id="summaryDob"></span></div>
+                    <div class="preview-field"><label>Age</label><span id="summaryAge"></span></div>
+                    <div class="preview-field"><label>Gender</label><span id="summaryGender"></span></div>
+                </div>
+            </div>
+
+            <!-- Address & Parents Detail -->
+            <div class="preview-section">
+                <h4>Address & Parents Detail</h4>
+                <div class="preview-grid">
+                    <div class="preview-field"><label>Address</label><span id="summaryAddress"></span></div>
+                    <div class="preview-field"><label>City</label><span id="summaryCity"></span></div>
+                    <div class="preview-field"><label>State</label><span id="summaryState"></span></div>
+                    <div class="preview-field"><label>Pincode</label><span id="summaryPincode"></span></div>
+                    <div class="preview-field"><label>Father's Name</label><span id="summaryFatherName"></span></div>
+                    <div class="preview-field"><label>Father's Occupation</label><span id="summaryFatherOccupation"></span></div>
+                    <div class="preview-field"><label>Mother's Name</label><span id="summaryMotherName"></span></div>
+                    <div class="preview-field"><label>Mother's Occupation</label><span id="summaryMotherOccupation"></span></div>
+                    <div class="preview-field"><label>Parent's Mobile</label><span id="summaryParentMobile"></span></div>
+                </div>
+            </div>
+
+            <!-- Academic Details -->
+            <div class="preview-section">
+                <h4>Academic Details</h4>
+                <div class="preview-grid">
+                    <div class="preview-field"><label>10th Board</label><span id="summaryBoard10"></span></div>
+                    <div class="preview-field"><label>10th Percentage</label><span id="summaryPercentage10"></span></div>
+                    <div class="preview-field"><label>10th Passing Year</label><span id="summaryYear10"></span></div>
+                    <div class="preview-field"><label>12th Board</label><span id="summaryBoard12"></span></div>
+                    <div class="preview-field"><label>12th Percentage</label><span id="summaryPercentage12"></span></div>
+                    <div class="preview-field"><label>12th Passing Year</label><span id="summaryYear12"></span></div>
+                </div>
+            </div>
+
+            <!-- Payment & Course Details -->
+            <div class="preview-section">
+                <h4>Payment & Course Details</h4>
+                <div class="preview-grid">
+                    <div class="preview-field"><label>Course Enrolled</label><span id="summaryCourseName"></span></div>
+                    <div class="preview-field"><label>Amount Paid</label><span id="summaryPaymentAmount"></span></div>
+                    <div class="preview-field"><label>Payment Status</label><span id="summaryPaymentStatus">Successful</span></div>
+                    <div class="preview-field"><label>Transaction Date</label><span id="summaryTransactionDate"></span></div>
+                </div>
+            </div>
+
+            <div class="summary-actions">
+                <a href="home.html" class="back-btn">Back to Home</a>
+                <button id="printSummaryBtn" class="submit-btn">Print Summary</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="payment-summary.js"></script>
+</body>
+</html>

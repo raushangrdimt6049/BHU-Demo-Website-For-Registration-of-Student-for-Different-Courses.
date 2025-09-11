@@ -1,0 +1,87 @@
+.preview-container {
+    background: var(--bg-main);
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px var(--header-shadow);
+    width: 100%;
+    max-width: 900px;
+}
+
+.preview-container h3 {
+    text-align: center;
+    font-size: 2rem;
+    color: var(--header-text-color);
+}
+
+.preview-container > p {
+    text-align: center;
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.summary-section {
+    margin-bottom: 1.5rem;
+    padding: 1.5rem;
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+}
+
+.summary-section h4 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+    border-bottom: 1px solid var(--input-border);
+    padding-bottom: 0.5rem;
+}
+
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 0.75rem 2rem;
+}
+
+.details-grid p {
+    font-size: 1.05rem;
+}
+
+.course-summary p {
+    font-size: 1.2rem;
+}
+
+.total-amount {
+    font-weight: 700;
+    color: var(--btn-success-bg);
+}
+
+.confirmation-section {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--input-border);
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.checkbox-group input[type="checkbox"] {
+    margin-top: 5px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.checkbox-group label {
+    font-size: 1rem;
+    font-style: italic;
+    opacity: 0.9;
+}
+
+.button-group .submit-btn:disabled {
+    background-color: var(--btn-secondary-bg);
+    cursor: not-allowed;
+    transform: none;
+}

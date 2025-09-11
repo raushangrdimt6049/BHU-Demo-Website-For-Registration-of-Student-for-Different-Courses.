@@ -1,0 +1,42 @@
+.payment-container {
+    background: var(--bg-main);
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px var(--header-shadow);
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+}
+
+.summary-details {
+    text-align: left;
+    margin: 2rem 0;
+    border-top: 1px solid var(--input-border);
+    border-bottom: 1px solid var(--input-border);
+    padding: 1.5rem 0;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    font-size: 1.1rem;
+}
+
+.detail-item:nth-child(odd) {
+    background-color: var(--readonly-bg);
+}
+
+.detail-item span:first-child {
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.total-amount {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.total-amount span:last-child {
+    color: var(--btn-success-bg);
+}

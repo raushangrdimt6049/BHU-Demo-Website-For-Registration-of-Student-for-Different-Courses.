@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Home - DAV PG College, Varanasi</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="home.css">
+    <script>
+        // --- Immediate Security Check ---
+        // This script runs in the <head> to block rendering if the user is not logged in.
+        // It prevents any flash of content on protected pages by redirecting before
+        // the body is parsed.
+        if (!sessionStorage.getItem('currentStudent')) {
+            window.location.replace('login.html');
+        }
+    </script>
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="logo-container">
+            <!-- DAV PG College Logo -->
+            <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+        </div>
+        <div class="header-text">
+            <h1>Banaras Hindu University</h1>
+            <h2>DAV PG College, Varanasi</h2>
+        </div>
+        <div class="logo-container">
+            <!-- BHU Logo -->
+            <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
+        </div>
+        <div class="user-menu-container">
+            <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+            <button id="userMenuBtn" class="user-menu-btn" title="User Menu">☰</button>
+            <div id="userMenuDropdown" class="user-menu-dropdown">
+                <ul>
+                    <li><a href="dashboard.html">Payment History</a></li>
+                    <li><a href="#" id="viewProfileBtn">View Profile</a></li>
+                    <li><a href="#" id="editDetailsBtn">Edit Details</a></li>
+                    <li><a href="change-password.html">Change Password</a></li>
+                    <li class="separator"></li>
+                    <li><a href="#" id="logoutBtnMenu">Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="details-container">
+            <h3>Student Details</h3>
+            <!-- Profile Picture Section -->
+            <div class="profile-picture-container">
+                <img src="default-avatar.png" alt="Profile Picture" id="profilePicture" class="profile-picture">
+                <div class="edit-picture-overlay">
+                    <label for="editProfilePicture" class="edit-picture-btn">Change Picture</label>
+                    <!-- This input is visually hidden but triggered by the label -->
+                    <input type="file" id="editProfilePicture" accept="image/*" style="display: none;">
+                </div>
+            </div>
+
+            <div class="detail-group">
+                <label>Full Name</label>
+                <span class="display-field" id="displayName"></span>
+                <input type="text" class="edit-field" id="editName">
+            </div>
+            <div class="detail-group">
+                <label>Email Address</label>
+                <span class="display-field" id="displayEmail"></span>
+                <input type="email" class="edit-field" id="editEmail">
+            </div>
+            <div class="detail-group">
+                <label>Roll Number</label>
+                <span class="display-field" id="displayRollNumber"></span>
+                <input type="text" class="edit-field" id="editRollNumber" readonly title="Roll Number cannot be changed.">
+            </div>
+            <div class="detail-group">
+                <label>Enrollment Number</label>
+                <span class="display-field" id="displayEnrollmentNumber"></span>
+                <input type="text" class="edit-field" id="editEnrollmentNumber" readonly title="Enrollment Number is auto-generated.">
+            </div>
+            <div class="detail-group">
+                <label>Mobile Number</label>
+                <span class="display-field" id="displayMobileNumber"></span>
+                <input type="tel" class="edit-field" id="editMobileNumber" pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" maxlength="10">
+            </div>
+            <div class="detail-group full-profile-only">
+                <label>Date of Birth</label>
+                <span class="display-field" id="displayDob"></span>
+                <input type="text" class="edit-field" id="editDob" maxlength="10" placeholder="DD-MM-YYYY">
+            </div>
+            <div class="detail-group full-profile-only">
+                <label>Age</label>
+                <span class="display-field" id="displayAge"></span>
+                <input type="number" class="edit-field" id="editAge" readonly placeholder="Calculated from DOB">
+            </div>
+            <div class="detail-group full-profile-only">
+                <label>Gender</label>
+                <span class="display-field" id="displayGender"></span>
+                <select class="edit-field" id="editGender" name="gender">
+                    <option value="" disabled>-- Select Gender --</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="button-group">
+                <!-- Edit and Logout buttons are now in the user menu -->
+                <button id="saveBtn" class="submit-btn" style="display: none;">Save Changes</button>
+                <button id="cancelBtn" class="logout-btn" style="display: none;">Cancel</button>
+            </div>
+            <div class="proceed-section">
+                <p>Please provide your address and parent details to continue.</p>
+                <a href="contact-details.html" class="submit-btn proceed-btn">Add Address & Parents Detail</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="home.js"></script>
+</body>
+</html>

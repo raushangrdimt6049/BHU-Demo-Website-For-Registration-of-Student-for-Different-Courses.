@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Preview - DAV PG College</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="login.css"> <!-- Re-use styles -->
+    <link rel="stylesheet" href="home.css"> <!-- Re-use styles for preview -->
+    <script>
+        // --- Immediate Security Check ---
+        if (!sessionStorage.getItem('currentStudent') || !sessionStorage.getItem('selectedCourse')) {
+            alert('Required data not found. Redirecting to home.');
+            window.location.replace('home.html');
+        }
+    </script>
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo-container">
+            <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+        </div>
+        <div class="header-text">
+            <h1>Banaras Hindu University</h1>
+            <h2>DAV PG College, Varanasi</h2>
+        </div>
+        <div class="logo-container">
+            <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
+        </div>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+    </header>
+
+    <main class="login-main">
+        <div class="welcome-container" style="max-width: 600px;">
+            <h3>Application Preview & Payment</h3>
+            <p>Please review your details below before proceeding to payment.</p>
+            
+            <div class="preview-details">
+                <div class="preview-item">
+                    <span class="preview-label">Student Name:</span>
+                    <span id="studentName" class="preview-value"></span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Roll Number:</span>
+                    <span id="rollNumber" class="preview-value"></span>
+                </div>
+                <div class="preview-item">
+                    <span class="preview-label">Selected Course:</span>
+                    <span id="courseName" class="preview-value"></span>
+                </div>
+                <div class="preview-item total-amount">
+                    <span class="preview-label">Amount to Pay:</span>
+                    <span id="paymentAmount" class="preview-value"></span>
+                </div>
+            </div>
+
+            <button id="payNowBtn" class="submit-btn">Pay Now</button>
+            <a href="home.html" class="back-btn" style="text-align: center; margin-top: 1rem;">Back to Home</a>
+        </div>
+    </main>
+
+    <!-- Razorpay Checkout Script -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    
+    <script src="theme.js"></script>
+    <script src="payment.js"></script>
+</body>
+</html>

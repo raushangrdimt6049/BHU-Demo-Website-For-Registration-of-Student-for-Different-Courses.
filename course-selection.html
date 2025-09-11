@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Selection - DAV PG College</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="login.css"> <!-- Re-use some login styles for consistency -->
+    <script>
+        // --- Immediate Security Check ---
+        if (!sessionStorage.getItem('currentStudent')) {
+            window.location.replace('login.html');
+        }
+    </script>
+    <style>
+        .radio-group-container {
+            display: grid;
+            /* Create responsive columns: as many 300px columns as fit, otherwise wrap */
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 0.75rem;
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            padding: 1rem;
+            max-height: 350px;
+            overflow-y: auto;
+            background-color: var(--input-bg);
+        }
+        .radio-option {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            color: var(--text-color);
+            border: 1px solid transparent;
+        }
+        .radio-option:hover {
+            background-color: var(--readonly-bg);
+        }
+        .radio-option.selected {
+             background-color: var(--input-focus-shadow);
+             border-color: var(--input-focus-border);
+        }
+        .radio-option input[type="radio"] {
+            margin-right: 12px;
+            flex-shrink: 0;
+            transform: scale(1.2);
+            accent-color: var(--btn-bg);
+        }
+        .radio-option .course-name {
+            flex-grow: 1;
+        }
+        .radio-option .course-fee {
+            font-weight: bold;
+            color: var(--btn-success-bg);
+            margin-left: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo-container"><img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo"></div>
+        <div class="header-text"><h1>Banaras Hindu University</h1><h2>DAV PG College, Varanasi</h2></div>
+        <div class="logo-container"><img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo"></div>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+    </header>
+
+    <main class="login-main">
+        <div class="welcome-container">
+            <form id="courseSelectionForm" class="login-form">
+                <h3>Step 3: Select Your Course</h3>
+                <p>Please select your desired Honours Subject to proceed with the application.</p>
+                <div class="form-group">
+                    <label>Honours Subject</label>
+                    <div id="honsSubjectContainer" class="radio-group-container"></div>
+                </div>
+                <button type="submit" class="submit-btn">Save and Go to Home</button>
+            </form>
+        </div>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="course-selection.js"></script>
+</body>
+</html>

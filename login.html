@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAV PG College - Welcome</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="login.css">
+    <style>
+        .password-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            user-select: none; /* Prevent text selection */
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo-container">
+            <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+        </div>
+        <div class="header-text">
+            <h1>Banaras Hindu University</h1>
+            <h2>DAV PG College, Varanasi</h2>
+        </div>
+        <div class="logo-container">
+            <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
+        </div>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+    </header>
+
+    <main class="login-main">
+        <div class="welcome-container">
+            <h2>Welcome, Student!</h2>
+            <p>Please sign in to view your details or sign up if you are a new user.</p>
+
+            <form id="loginForm" class="login-form" autocomplete="off">
+                <h3>Sign In</h3>
+                <div class="form-group">
+                    <label for="rollNumber">Roll Number</label>
+                    <input type="text" id="rollNumber" name="rollNumber" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="password" name="password" required autocomplete="new-password">
+                        <span id="togglePassword" class="password-toggle">👁️</span>
+                    </div>
+                </div>
+                <button type="submit" class="submit-btn sign-in-btn">Sign In</button>
+            </form>
+
+            <div class="forgot-password-section">
+                <a href="forgot.html">Forgot Password?</a>
+            </div>
+
+            <div class="signup-section">
+                <p>New User?</p>
+                <a href="index.html" class="submit-btn sign-up-btn">Sign Up</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="login.js"></script>
+</body>
+</html>

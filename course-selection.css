@@ -1,0 +1,53 @@
+.course-container {
+    background: var(--bg-main);
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px var(--header-shadow);
+    width: 100%;
+    max-width: 700px;
+    text-align: center;
+}
+
+.course-list {
+    text-align: left;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+}
+
+.course-option {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+.course-option:hover,
+.course-option.selected {
+    background-color: var(--readonly-bg);
+    border-color: var(--input-focus-border);
+}
+
+.course-option input[type="radio"] {
+    margin-right: 1rem;
+    width: 20px;
+    height: 20px;
+}
+
+.course-details {
+    flex-grow: 1;
+}
+
+.course-details .course-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.course-fee {
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--btn-success-bg);
+}

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - DAV PG College</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="payment-success.css">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo-container">
+            <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+        </div>
+        <div class="header-text">
+            <h1>Banaras Hindu University</h1>
+            <h2>DAV PG College, Varanasi</h2>
+        </div>
+        <div class="logo-container">
+            <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
+        </div>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+    </header>
+
+    <main>
+        <div class="receipt-container">
+            <h2>Payment Successful!</h2>
+            <p>Thank you for your payment. Your transaction has been completed successfully.</p>
+            
+            <div class="receipt-details">
+                <h3>Payment Receipt</h3>
+                <div class="detail-item">
+                    <span>Order ID:</span>
+                    <span id="orderId"></span>
+                </div>
+                <div class="detail-item">
+                    <span>Payment Date:</span>
+                    <span id="paymentDate"></span>
+                </div>
+                <div class="detail-item">
+                    <span>Amount Paid:</span>
+                    <span id="amountPaid"></span>
+                </div>
+                 <div class="detail-item">
+                    <span>Course Details:</span>
+                    <span id="courseDetails"></span>
+                </div>
+            </div>
+
+            <div class="button-group no-print">
+                <button onclick="window.print()" class="submit-btn">Print Receipt</button>
+                <a href="home.html" class="logout-btn">Back to Home</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="payment-success.js"></script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Preview - DAV PG College</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="home.css"> <!-- Re-use home styles for details view -->
+    <script>
+        // --- Immediate Security Check ---
+        if (!sessionStorage.getItem('currentStudent') || !sessionStorage.getItem('selectedCourse')) {
+            alert('Required application data not found. Redirecting to home.');
+            window.location.replace('home.html');
+        }
+    </script>
+    <style>
+        .preview-section {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--input-border);
+            padding-bottom: 1rem;
+        }
+        .preview-section h4 {
+            font-size: 1.5rem;
+            color: var(--btn-bg);
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--btn-bg);
+            padding-bottom: 0.5rem;
+        }
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        .preview-field {
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-field label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-color);
+            opacity: 0.8;
+            margin-bottom: 0.25rem;
+        }
+        .preview-field span {
+            font-size: 1.1rem;
+            min-height: 24px;
+        }
+        .preview-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+            gap: 1.5rem; /* Add spacing between buttons */
+        }
+        .preview-actions .back-btn,
+        .preview-actions .submit-btn {
+            flex: 1; /* Make both buttons take up equal space */
+            width: auto; /* Override the 100% width from .submit-btn */
+            margin-top: 0; /* Override margin from .submit-btn */
+            text-align: center;
+            text-decoration: none; /* Ensure it looks like a button */
+        }
+        .preview-actions .submit-btn {
+            background-color: var(--btn-success-bg); /* Make it stand out */
+        }
+        .preview-actions .submit-btn:hover {
+            background-color: var(--btn-success-hover-bg);
+        }
+        .terms-box {
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid var(--input-border);
+            padding: 1rem;
+            border-radius: 6px;
+            background-color: var(--readonly-bg);
+            font-size: 0.9rem;
+        }
+        .terms-box p {
+            margin-bottom: 0.5rem;
+        }
+        .submit-btn.disabled {
+            background-color: var(--btn-secondary-bg);
+            cursor: not-allowed;
+            pointer-events: none;
+            opacity: 0.65;
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <!-- Header content from other pages -->
+        <div class="logo-container"><img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo"></div>
+        <div class="header-text"><h1>Banaras Hindu University</h1><h2>DAV PG College, Varanasi</h2></div>
+        <div class="logo-container"><img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo"></div>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+    </header>
+
+    <main>
+        <div class="details-container" style="max-width: 900px;">
+            <h3>Application Preview</h3>
+            <p style="text-align: center; margin-bottom: 2rem;">Please review all your details carefully. If anything is incorrect, go back to the home page to edit the specific section.</p>
+
+            <!-- Personal Details -->
+            <div class="preview-section">
+                <h4>Personal Details</h4>
+                <div class="preview-grid">
+                    <div class="preview-field"><label>Full Name</label><span id="previewName"></span></div>
+                    <div class="preview-field"><label>Email</label><span id="previewEmail"></span></div>
+                    <div class="preview-field"><label>Roll Number</label><span id="previewRollNumber"></span></div>
+                    <div class="preview-field"><label>Enrollment Number</label><span id="previewEnrollmentNumber"></span></div>
+                    <div class="preview-field"><label>Mobile Number</label><span id="previewMobileNumber"></span></div>
+                    <div class="preview-field"><label>Date of Birth</label><span id="previewDob"></span></div>
+                    <div class="preview-field"><label>Age</label><span id="previewAge"></span></div>
+                    <div class="preview-field"><label>Gender</label><span id="previewGender"></span></div>
+                </div>
+            </div>
+
+            <!-- Address & Parents Detail -->
+            <div class="preview-section">
+                <h4>Address & Parents Detail</h4>
+                <div class="preview-grid">
+                    <div class="preview-field"><label>Address</label><span id="previewAddress"></span></div>
+                    <div class="preview-field"><label>City</label><span id="previewCity"></span></div>
+                    <div class="preview-field"><label>State</label><span id="previewState"></span></div>
+                    <div class="preview-field"><label>Pincode</label><span id="previewPincode"></span></div>
+                    <div class="preview-field"><label>Father's Name</label><span id="previewFatherName"></span></div>
+                    <div class="preview-field"><label>Father's Occupation</label><span id="previewFatherOccupation"></span></div>
+                    <div class="preview-field"><label>Mother's Name</label><span id="previewMotherName"></span></div>
+                    <div class="preview-field"><label>Mother's Occupation</label><span id="previewMotherOccupation"></span></div>
+                    <div class="preview-field"><label>Parent's Mobile</label><span id="previewParentMobile"></span></div>
+                </div>
+            </div>
+
+            <!-- Academic Details -->
+            <div class="preview-section">
+                <h4>Academic Details</h4>
+                <div class="preview-grid">
+                    <div class="preview-field"><label>10th Board</label><span id="previewBoard10"></span></div>
+                    <div class="preview-field"><label>10th Percentage</label><span id="previewPercentage10"></span></div>
+                    <div class="preview-field"><label>10th Passing Year</label><span id="previewYear10"></span></div>
+                    <div class="preview-field"><label>12th Board</label><span id="previewBoard12"></span></div>
+                    <div class="preview-field"><label>12th Percentage</label><span id="previewPercentage12"></span></div>
+                    <div class="preview-field"><label>12th Passing Year</label><span id="previewYear12"></span></div>
+                </div>
+            </div>
+
+            <!-- Course Selection -->
+            <div class="preview-section">
+                <h4>Course Selection</h4>
+                <div class="preview-grid">
+                    <div class="preview-field"><label>Honours Subject</label><span id="previewHonsSubject"></span></div>
+                    <div class="preview-field"><label>Admission Fee</label><span id="previewFee"></span></div>
+                </div>
+            </div>
+
+            <!-- Terms and Conditions -->
+            <div class="preview-section">
+                <h4>Terms & Conditions</h4>
+                <div class="terms-box">
+                    <p>1. I hereby declare that all the information provided by me in this application is true and correct to the best of my knowledge.</p>
+                    <p>2. I understand that any false information will lead to the cancellation of my admission at any stage.</p>
+                    <p>3. The admission fee once paid is non-refundable under any circumstances.</p>
+                </div>
+                <div class="form-group" style="margin-top: 1rem; display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="termsCheckbox" style="width: auto; margin: 0;">
+                    <label for="termsCheckbox" style="margin-bottom: 0; font-weight: normal;">I have read and agree to the terms and conditions.</label>
+                </div>
+            </div>
+
+            <div class="preview-actions">
+                <a href="home.html" class="back-btn">Back & Edit</a>
+                <a href="payment.html" id="proceedToPaymentBtn" class="submit-btn">Proceed to Payment</a>
+            </div>
+        </div>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="preview.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+.receipt-container {
+    background: var(--bg-main);
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px var(--header-shadow);
+    width: 100%;
+    max-width: 700px;
+    text-align: center;
+}
+
+.receipt-container h2 {
+    color: var(--btn-success-bg);
+    margin-bottom: 1rem;
+    font-size: 2rem;
+}
+
+.receipt-details {
+    text-align: left;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+    border-top: 1px solid var(--input-border);
+    border-bottom: 1px solid var(--input-border);
+    padding: 1.5rem 0;
+}
+
+.receipt-details h3 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    font-size: 1.1rem;
+}
+
+.detail-item:nth-child(odd) {
+    background-color: var(--readonly-bg);
+}
+
+.detail-item span:first-child {
+    font-weight: 600;
+}
+
+.button-group {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+/* Print-specific styles */
+@media print {
+    body {
+        background-color: #fff !important; /* Ensure background is white for printing */
+        padding: 0;
+    }
+
+    .main-header {
+        position: static;
+        box-shadow: none;
+        border-bottom: 2px solid #000;
+        background-color: #fff !important; /* Override theme */
+    }
+
+    .main-header .header-text h1,
+    .main-header .header-text h2,
+    .receipt-container h2,
+    .receipt-container p,
+    .receipt-details,
+    .detail-item span {
+        color: #000 !important; /* Ensure all text is black */
+    }
+
+    .receipt-container {
+        box-shadow: none;
+        border: 2px solid #ccc;
+        padding: 1.5rem;
+    }
+
+    .no-print, .theme-toggle-btn {
+        display: none !important;
+    }
+}

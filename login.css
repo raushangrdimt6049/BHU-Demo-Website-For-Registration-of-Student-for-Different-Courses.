@@ -1,0 +1,73 @@
+.login-main {
+    padding-top: 4rem;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.welcome-container {
+    background: var(--bg-main);
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px var(--header-shadow);
+    width: 100%;
+    max-width: 500px;
+    text-align: center;
+}
+
+.welcome-container h2 {
+    margin-bottom: 1rem;
+    font-size: 2rem;
+}
+
+.welcome-container p {
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+    color: var(--text-color);
+}
+
+.login-form {
+    text-align: left;
+    margin-bottom: 2rem;
+}
+
+.login-form h3 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.sign-in-btn {
+    background-color: var(--btn-success-bg);
+}
+
+.sign-in-btn:hover {
+    background-color: var(--btn-success-hover-bg);
+}
+
+.signup-section {
+    border-top: 1px solid var(--input-border);
+    padding-top: 1.5rem;
+}
+
+.sign-up-btn {
+    background-color: var(--btn-danger-bg);
+    display: inline-block;
+    width: auto;
+    padding: 0.8rem 2rem;
+    text-decoration: none;
+    color: white;
+}
+
+.sign-up-btn:hover {
+    background-color: var(--btn-danger-hover-bg);
+}
+
+.forgot-password-section {
+    padding-bottom: 1.5rem;
+    text-align: center;
+}
+
+.forgot-password-section a {
+    color: var(--link-color);
+    text-decoration: none;
+}
