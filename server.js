@@ -92,6 +92,37 @@ app.get('/api/status', (req, res) => {
     res.json({ serverStartTime });
 });
 
+// New endpoint to check for email existence
+app.post('/check-email', jsonParser, (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ message: 'Email is required.' });
+    }
+
+    if (!fs.existsSync(excelFilePath)) {
+        // If the file doesn't exist, no emails are registered yet.
+        return res.json({ exists: false });
+    }
+
+    try {
+        const workbook = xlsx.readFile(excelFilePath);
+        const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet) {
+            return res.json({ exists: false });
+        }
+        const students = xlsx.utils.sheet_to_json(worksheet);
+
+        const existingStudent = students.find(s => String(s.email).toLowerCase() === String(email).toLowerCase());
+
+        res.json({ exists: !!existingStudent });
+
+    } catch (error) {
+        console.error('Error checking email:', error);
+        res.status(500).json({ message: 'Server error while checking email.' });
+    }
+});
+
 
 const excelFilePath = path.join(__dirname, 'students.xlsx');
 const sheetName = 'Registrations';

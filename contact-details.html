@@ -12,6 +12,20 @@
             window.location.replace('login.html');
         }
     </script>
+    <style>
+        .form-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        .form-actions .submit-btn,
+        .form-actions .back-btn {
+            flex: 1;
+            width: auto;
+            margin-top: 0;
+        }
+    </style>
 </head>
 <body>
     <header class="main-header">
@@ -78,7 +92,10 @@
                     <input type="tel" id="parentMobile" name="parentMobile" required pattern="[0-9]{10}" maxlength="10">
                 </div>
 
-                <button type="submit" class="submit-btn">Save and Go to Home</button>
+                <div class="form-actions">
+                    <a href="home.html" class="back-btn">Back to Home</a>
+                    <button type="submit" class="submit-btn">Save</button>
+                </div>
             </form>
         </div>
     </main>

@@ -31,6 +31,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentCaptcha = '';
 
+    // --- Debounce function ---
+    // This function limits the rate at which a function gets called.
+    const debounce = (func, delay) => {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                func.apply(this, args);
+            }, delay);
+        };
+    };
+
     // --- Function to generate and display captcha ---
     const generateCaptcha = () => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -109,23 +121,92 @@ document.addEventListener('DOMContentLoaded', () => {
     dobMonth.addEventListener('change', updateAge);
     dobYear.addEventListener('change', updateAge);
 
-    // --- Real-time validation ---
-    const validateEmail = () => {
+    // --- Real-time email validation (format and existence) ---
+    const checkEmail = async () => {
+        const email = emailInput.value;
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(emailInput.value)) {
+
+        if (!email) {
+            emailError.textContent = '';
+            emailError.style.display = 'none';
+            return true; // Not an error state if empty
+        }
+
+        if (!emailRegex.test(email)) {
             emailError.textContent = 'Please enter a valid email address.';
             emailError.style.display = 'block';
+            return false; // Invalid format
+        }
+
+        // If format is valid, clear the format error and check existence
+        emailError.style.display = 'none';
+
+        try {
+            const response = await fetch('/check-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+
+            if (!response.ok) {
+                console.error('Server error while checking email.');
+                return true; // Assume valid if server check fails, to not block user
+            }
+
+            const data = await response.json();
+            if (data.exists) {
+                emailError.textContent = 'This email address is already in use.';
+                emailError.style.display = 'block';
+                return false; // Invalid because it exists
+            }
+        } catch (error) {
+            console.error('Fetch error while checking email:', error);
+            return true; // Assume valid if fetch fails
+        }
+
+        return true; // Valid format and does not exist
+    };
+
+    // --- Real-time password validation ---
+    const validatePasswords = () => {
+        const password = passwordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+        // If both are empty, there's no error to show.
+        if (!password && !confirmPassword) {
+            passwordError.style.display = 'none';
+            return true;
+        }
+
+        // Check password complexity. This is the primary check.
+        if (!passwordRegex.test(password)) {
+            passwordError.innerHTML = 'Password must be at least 8 characters and include:<br>- one uppercase letter<br>- one lowercase letter<br>- one number<br>- and one special character (@$!%*?&).';
+            passwordError.style.display = 'block';
             return false;
         }
-        emailError.style.display = 'none';
+
+        // If complexity is fine, check for match, but only if confirm password has content.
+        if (confirmPassword && password !== confirmPassword) {
+            passwordError.textContent = 'Passwords do not match.';
+            passwordError.style.display = 'block';
+            return false;
+        }
+
+        // If we reach here, complexity is fine and passwords match (or confirm is empty).
+        passwordError.style.display = 'none';
         return true;
     };
 
     // Reload captcha on button click
     reloadCaptchaButton.addEventListener('click', generateCaptcha);
 
-    // Validate email on blur (when user leaves the input field)
-    emailInput.addEventListener('blur', validateEmail);
+    // Check email existence as user types (with a 500ms delay)
+    emailInput.addEventListener('input', debounce(checkEmail, 500));
+
+    // Validate passwords as user types
+    passwordInput.addEventListener('input', validatePasswords);
+    confirmPasswordInput.addEventListener('input', validatePasswords);
 
     // --- Password Visibility Toggle ---
     const setupPasswordToggle = (input, toggle) => {
@@ -143,10 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // Form submission handler
-    registrationForm.addEventListener('submit', (event) => {
+    registrationForm.addEventListener('submit', async (event) => { // Make handler async
         event.preventDefault(); // Prevent default form submission
-
-        emailError.style.display = 'none'; // Clear previous email error
 
         // --- Validation ---
         let isValid = true;
@@ -163,12 +242,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // The `required` attribute on selects should prevent this, but it's a good fallback.
             alert('Please select your full date of birth.');
-            isValid = false;
-        }
-
-        // Email validation
-        if (!validateEmail()) {
-            emailInput.focus();
             isValid = false;
         }
 
@@ -189,25 +262,28 @@ document.addEventListener('DOMContentLoaded', () => {
             isValid = false;
         }
 
-        passwordError.style.display = 'none';
-        passwordError.textContent = '';
-
-        // Password validation
-        const password = passwordInput.value;
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        if (!passwordRegex.test(password)) {
-            passwordError.innerHTML = 'Password must be at least 8 characters and include:<br>- one uppercase letter<br>- one lowercase letter<br>- one number<br>- and one special character (@$!%*?&).';
-            passwordError.style.display = 'block';
-            passwordInput.focus();
+        // Password validation on submit
+        if (!validatePasswords()) {
+            if (isValid) { // Only focus if this is the first validation error
+                if (passwordInput.value && confirmPasswordInput.value && passwordInput.value !== confirmPasswordInput.value) {
+                    confirmPasswordInput.focus();
+                } else {
+                    passwordInput.focus();
+                }
+            }
             isValid = false;
-        } else if (password !== confirmPasswordInput.value) {
-            passwordError.textContent = 'Passwords do not match.';
-            passwordError.style.display = 'block';
-            confirmPasswordInput.focus();
+        }
+        
+        // --- Final Email Validation on Submit ---
+        // This runs after sync checks and awaits the final result from the server.
+        const isEmailValid = await checkEmail();
+        if (!isEmailValid) {
+            // Only focus if other fields were valid, to not override other focus events.
+            if (isValid) emailInput.focus();
             isValid = false;
         }
 
-        if (!isValid) return; // Stop if initial checks fail
+        if (!isValid) return; // Stop if any validation failed
 
         // Regenerate captcha after every submit attempt to prevent re-use
         generateCaptcha();
