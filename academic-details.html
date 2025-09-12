@@ -39,16 +39,11 @@
 </head>
 <body>
     <header class="main-header">
-        <div class="logo-container">
-            <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
-        </div>
+        
         <div class="header-text">
             <h1>Banaras Hindu University</h1>
-            <h2>DAV PG College, Varanasi</h2>
         </div>
-        <div class="logo-container">
-            <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
-        </div>
+        
         <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
     </header>
 
@@ -76,11 +71,11 @@
                 </div>
                 <div class="form-group">
                     <label for="marks10">Marks Obtained</label>
-                    <input type="number" id="marks10" name="marks10" required min="0">
+                    <input type="number" id="marks10" name="marks10" required min="0" max="600" inputmode="numeric" pattern="[0-9]*">
                 </div>
                 <div class="form-group">
                     <label for="totalMarks10">Total Marks</label>
-                    <input type="number" id="totalMarks10" name="totalMarks10" required min="1">
+                    <input type="number" id="totalMarks10" name="totalMarks10" required min="0" max="600" inputmode="numeric" pattern="[0-9]*">
                 </div>
                 <div class="form-group">
                     <label>Calculated Percentage (%)</label>
@@ -143,11 +138,11 @@
                 </div>
                 <div class="form-group">
                     <label for="marks12">Marks Obtained</label>
-                    <input type="number" id="marks12" name="marks12" required min="0">
+                    <input type="number" id="marks12" name="marks12" required min="0" max="600" inputmode="numeric" pattern="[0-9]*">
                 </div>
                 <div class="form-group">
                     <label for="totalMarks12">Total Marks</label>
-                    <input type="number" id="totalMarks12" name="totalMarks12" required min="1">
+                    <input type="number" id="totalMarks12" name="totalMarks12" required min="0" max="600" inputmode="numeric" pattern="[0-9]*">
                 </div>
                 <div class="form-group">
                     <label>Calculated Percentage (%)</label>

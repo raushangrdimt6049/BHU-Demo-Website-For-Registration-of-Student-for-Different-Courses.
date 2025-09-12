@@ -80,6 +80,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // --- Helper function to allow only digits ---
+    const allowOnlyDigits = (input) => {
+        // This regex removes any character that is not a digit.
+        input.value = input.value.replace(/\D/g, '');
+    };
+
+    // --- Helper function to prevent typing more than 3 digits in marks fields ---
+    const limitInputLength = (input) => {
+        if (input.value.length > 3) {
+            input.value = input.value.slice(0, 3);
+        }
+    };
+
     // --- Helper function to calculate and display percentage ---
     const updatePercentage = (marksInput, totalMarksInput, displayElement, hiddenInput) => {
         const marks = parseFloat(marksInput.value);
@@ -88,11 +101,28 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset any previous error state
         displayElement.style.color = '';
         marksInput.setCustomValidity(''); // Clear previous custom error
+        totalMarksInput.setCustomValidity(''); // Clear previous custom error for total marks
 
         if (isNaN(marks) || isNaN(totalMarks) || totalMarks <= 0 || marks < 0) {
             displayElement.textContent = '--';
             hiddenInput.value = '';
             return; // Not enough valid info to calculate
+        }
+
+        if (marks > 600) {
+            displayElement.textContent = 'Marks cannot exceed 600.';
+            displayElement.style.color = 'red';
+            hiddenInput.value = '';
+            marksInput.setCustomValidity('Marks cannot exceed 600.');
+            return;
+        }
+
+        if (totalMarks > 600) {
+            displayElement.textContent = 'Total marks cannot exceed 600.';
+            displayElement.style.color = 'red';
+            hiddenInput.value = '';
+            totalMarksInput.setCustomValidity('Total marks cannot exceed 600.');
+            return;
         }
 
         if (marks > totalMarks) {
@@ -114,10 +144,26 @@ document.addEventListener('DOMContentLoaded', () => {
     board12Select.addEventListener('change', () => handleOtherBoard(board12Select, otherBoard12Container, otherBoard12Input));
 
     // --- Add event listeners for automatic percentage calculation ---
-    marks10Input.addEventListener('input', () => updatePercentage(marks10Input, totalMarks10Input, displayPercentage10, hiddenPercentage10));
-    totalMarks10Input.addEventListener('input', () => updatePercentage(marks10Input, totalMarks10Input, displayPercentage10, hiddenPercentage10));
-    marks12Input.addEventListener('input', () => updatePercentage(marks12Input, totalMarks12Input, displayPercentage12, hiddenPercentage12));
-    totalMarks12Input.addEventListener('input', () => updatePercentage(marks12Input, totalMarks12Input, displayPercentage12, hiddenPercentage12));
+    marks10Input.addEventListener('input', () => {
+        allowOnlyDigits(marks10Input);
+        limitInputLength(marks10Input);
+        updatePercentage(marks10Input, totalMarks10Input, displayPercentage10, hiddenPercentage10);
+    });
+    totalMarks10Input.addEventListener('input', () => {
+        allowOnlyDigits(totalMarks10Input);
+        limitInputLength(totalMarks10Input);
+        updatePercentage(marks10Input, totalMarks10Input, displayPercentage10, hiddenPercentage10);
+    });
+    marks12Input.addEventListener('input', () => {
+        allowOnlyDigits(marks12Input);
+        limitInputLength(marks12Input);
+        updatePercentage(marks12Input, totalMarks12Input, displayPercentage12, hiddenPercentage12);
+    });
+    totalMarks12Input.addEventListener('input', () => {
+        allowOnlyDigits(totalMarks12Input);
+        limitInputLength(totalMarks12Input);
+        updatePercentage(marks12Input, totalMarks12Input, displayPercentage12, hiddenPercentage12);
+    });
 
     // --- Pre-fill form with existing data ---
     if (studentData) {

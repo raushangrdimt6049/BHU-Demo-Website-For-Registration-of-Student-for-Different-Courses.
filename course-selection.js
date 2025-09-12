@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        courseForm.addEventListener('submit', (event) => {
+        courseForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const selectedCheckboxes = courseForm.querySelectorAll('input[name="subjects"]:checked');
             if (selectedCheckboxes.length === 0) {
@@ -145,9 +145,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 amount: totalFee
             };
 
-            sessionStorage.setItem('selectedCourse', JSON.stringify(selectionData));
-            alert('Course selection saved. You will now be returned to the home page to proceed.');
-            window.location.href = 'home.html';
+            // --- Save selection to the backend to persist it across sessions ---
+            try {
+                const response = await fetch('/add-course-selection', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rollNumber: studentData.rollNumber,
+                        selectionData: selectionData
+                    }),
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Failed to save course selection.');
+
+                // Update the main student object in session storage with the new data from the server
+                sessionStorage.setItem('currentStudent', JSON.stringify(data.studentData));
+                alert('Course selection saved. You will now be returned to the home page to proceed.');
+                window.location.href = 'home.html';
+            } catch (error) {
+                console.error('Error saving course selection:', error);
+                alert(`Error: ${error.message}`);
+            }
         });
     };
 

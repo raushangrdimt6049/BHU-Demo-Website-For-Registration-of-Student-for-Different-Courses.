@@ -544,6 +544,54 @@ app.post('/add-contact-details', jsonParser, (req, res) => {
     }
 });
 
+// New endpoint to save course selection (pre-payment)
+app.post('/add-course-selection', jsonParser, (req, res) => {
+    console.log("Received a request at /add-course-selection endpoint.");
+    const { rollNumber, selectionData } = req.body;
+
+    if (!rollNumber || !selectionData) {
+        return res.status(400).json({ message: 'Roll Number and selection data are required.' });
+    }
+
+    if (!fs.existsSync(excelFilePath)) {
+        return res.status(404).json({ message: 'Data file not found. Cannot update.' });
+    }
+
+    try {
+        const workbook = xlsx.readFile(excelFilePath);
+        const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet) {
+            return res.status(404).json({ message: 'Registrations sheet not found.' });
+        }
+        const students = xlsx.utils.sheet_to_json(worksheet);
+
+        let studentFound = false;
+        const updatedStudents = students.map(student => {
+            if (String(student.rollNumber) === String(rollNumber)) {
+                studentFound = true;
+                // Save the selection data as a stringified JSON.
+                return { ...student, selectedCourse: JSON.stringify(selectionData) };
+            }
+            return student;
+        });
+
+        if (!studentFound) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+
+        const newWorksheet = xlsx.utils.json_to_sheet(updatedStudents, { header: ALL_STUDENT_HEADERS });
+        workbook.Sheets[sheetName] = newWorksheet;
+        xlsx.writeFile(workbook, excelFilePath);
+
+        const finalUpdatedStudent = updatedStudents.find(s => String(s.rollNumber) === String(rollNumber));
+        console.log('Course selection saved for roll number:', rollNumber);
+        res.status(200).json({ message: 'Course selection saved successfully.', studentData: finalUpdatedStudent });
+    } catch (error) {
+        console.error('Error updating course selection:', error);
+        res.status(500).json({ message: 'Failed to save course selection on the server.' });
+    }
+});
+
 // --- PAYMENT GATEWAY ENDPOINTS ---
 
 // POST endpoint to create a Razorpay order
@@ -614,8 +662,10 @@ app.post('/verify-payment', jsonParser, (req, res) => {
                 const students = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
                 updatedStudents = students.map(student => {
                     if (String(student.rollNumber) === String(rollNumber)) {
-                        // Store the entire course object as a JSON string for later retrieval
-                        return { ...student, selectedCourse: JSON.stringify(course) };
+                        // Add a payment status flag to the course object before saving
+                        const courseWithStatus = { ...course, paymentStatus: 'paid' };
+                        // Store the updated course object as a JSON string
+                        return { ...student, selectedCourse: JSON.stringify(courseWithStatus) };
                     }
                     return student;
                 });

@@ -119,8 +119,25 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear the proceed section before populating
         proceedSection.innerHTML = '';
 
-        // Check if course details are filled (i.e., payment is done) and lock editing.
+        // --- Determine Application State (Selected vs. Paid) ---
+        let parsedCourse = {};
+        let isPaid = false;
         if (studentData.selectedCourse && studentData.selectedCourse.trim().startsWith('{')) {
+            try {
+                parsedCourse = JSON.parse(studentData.selectedCourse);
+                if (parsedCourse.paymentStatus === 'paid') {
+                    isPaid = true;
+                } else {
+                    // Course is selected but not paid. Set it in sessionStorage for the preview/payment pages.
+                    sessionStorage.setItem('selectedCourse', studentData.selectedCourse);
+                }
+            } catch (e) {
+                console.error("Could not parse selectedCourse from studentData", e);
+            }
+        }
+
+        // --- Render Page Based on Payment Status ---
+        if (isPaid) {
             // --- POST-PAYMENT VIEW (LOCKED) ---
             proceedSection.innerHTML = `
                 <p>Your admission process is complete.</p>
@@ -139,7 +156,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const contactDone = studentData.addressLine1 && studentData.addressLine1.trim() !== '';
             const academicDone = studentData.board10 && studentData.board10.trim() !== '';
-            const courseSelected = sessionStorage.getItem('selectedCourse') !== null;
+            // A course is considered "selected" if a valid course object (with an amount) was parsed from the student data.
+            const courseSelected = !!parsedCourse.amount;
 
             const stepsContainer = document.createElement('div');
             stepsContainer.className = 'application-steps';
