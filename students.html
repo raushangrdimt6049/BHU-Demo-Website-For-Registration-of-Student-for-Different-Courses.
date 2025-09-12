@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Records</title>
+    <link rel="stylesheet" href="students.css">
+</head>
+<body>
+    <header>
+        <h1>Student Records</h1>
+        <p>This table displays all student records from the PostgreSQL database.</p>
+    </header>
+    <main>
+        <div id="loading">Loading student data...</div>
+        <div id="error" style="display: none;"></div>
+        <div class="table-container">
+            <table id="students-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Roll Number</th>
+                        <th>Gender</th>
+                        <th>Mobile Number</th>
+                        <th>City</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be inserted here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+    <script src="students.js"></script>
+</body>
+</html>

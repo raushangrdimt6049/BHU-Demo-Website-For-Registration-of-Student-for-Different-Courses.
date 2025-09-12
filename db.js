@@ -3,11 +3,10 @@ require('dotenv').config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // Render's PostgreSQL databases require SSL.
-  // We enable SSL if the app is in production (on Render) OR if
-  // the connection string is for an external Render DB (for local development).
-  ssl: process.env.NODE_ENV === 'production' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('render.com'))
-    ? { rejectUnauthorized: false }
+  // Render requires SSL for its PostgreSQL databases.
+  // For local development, you might not need SSL.
+  ssl: process.env.NODE_ENV === 'production' 
+    ? { rejectUnauthorized: false } 
     : false,
 });
 
@@ -22,5 +21,4 @@ pool.query('SELECT NOW()', (err, res) => {
 
 module.exports = {
   query: (text, params) => pool.query(text, params),
-  pool: pool, // Export the pool for transactions and direct access
 };

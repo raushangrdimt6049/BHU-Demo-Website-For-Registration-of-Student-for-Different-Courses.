@@ -95,22 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const fullProfileFields = document.querySelectorAll('.full-profile-only');
         const proceedSection = document.querySelector('.proceed-section');
 
-        // --- Add Admin Link to Menu ---
-        // In a real application, you would check if the user has admin privileges.
-        // For this demo, we will add it for all users.
-        const adminListItem = document.createElement('li');
-        const adminLink = document.createElement('a');
-        adminLink.href = '/admin/students.html';
-        adminLink.id = 'viewAllStudentsBtn';
-        adminLink.textContent = 'View All Students';
-        adminLink.target = '_blank'; // Open in a new tab to not disrupt the user's session
-        adminListItem.appendChild(adminLink);
-
-        // Insert the new link into the user menu, right before the logout button.
-        if (logoutBtnMenu && logoutBtnMenu.parentElement && userMenuDropdown) {
-            userMenuDropdown.insertBefore(adminListItem, logoutBtnMenu.parentElement);
-        }
-
         // Helper function to generate HTML for each application step
         function createStepHTML(title, description, link, isDone, isEnabled) {
             const statusText = isDone ? '✓ Completed' : 'Pending';

@@ -7,13 +7,10 @@ const nodemailer = require('nodemailer'); // Import nodemailer
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const path = require('path');
-const bcrypt = require('bcrypt');
 require('dotenv').config(); // Load environment variables from .env file
-const db = require('./db'); // Import and initialize the database connection
 
-const saltRounds = 10; // For password hashing
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
 // Store server start time
 const serverStartTime = new Date();
@@ -91,116 +88,116 @@ function generateRollNumber() {
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Serve the admin dashboard files
-app.use('/admin', express.static(path.join(__dirname, 'admin')));
-
 // API endpoint to check server status
 app.get('/api/status', (req, res) => {
     res.json({ serverStartTime });
 });
 
 // New endpoint to check for email existence
-app.post('/check-email', jsonParser, async (req, res) => {
+app.post('/check-email', jsonParser, (req, res) => {
     const { email } = req.body;
 
     if (!email) {
         return res.status(400).json({ message: 'Email is required.' });
     }
 
-    try {
-        const { rows } = await db.query('SELECT email FROM students WHERE email = $1', [email.toLowerCase()]);
-        res.json({ exists: rows.length > 0 });
-    } catch (error) {
-        console.error('Error checking email in database:', error);
-        res.status(500).json({ message: 'Server error while checking email.' });
+    if (!fs.existsSync(excelFilePath)) {
+        // If the file doesn't exist, no emails are registered yet.
+        return res.json({ exists: false });
     }
-});
 
-// API endpoint to get all students from the database
-app.get('/api/students', async (req, res) => {
     try {
-        // Query the database for all students, ordering by name.
-        // It's good practice to select only the columns you need and avoid sending sensitive data.
-        const { rows } = await db.query(`
-            SELECT 
-                id, name, email, roll_number, enrollment_number, dob, age, gender, 
-                mobile_number, city, state, pincode, created_at
-            FROM students 
-            ORDER BY name ASC
-        `);
-        res.json(rows);
-    } catch (err) {
-        console.error('Error fetching students from database:', err.message);
-        res.status(500).send('Server Error');
+        const workbook = xlsx.readFile(excelFilePath);
+        const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet) {
+            return res.json({ exists: false });
+        }
+        const students = xlsx.utils.sheet_to_json(worksheet);
+
+        const existingStudent = students.find(s => String(s.email).toLowerCase() === String(email).toLowerCase());
+
+        res.json({ exists: !!existingStudent });
+
+    } catch (error) {
+        console.error('Error checking email:', error);
+        res.status(500).json({ message: 'Server error while checking email.' });
     }
 });
 
 
 const excelFilePath = path.join(__dirname, 'students.xlsx');
+const sheetName = 'Registrations';
 
 // POST endpoint to handle registration data
-app.post('/register', jsonParser, async (req, res) => {
+app.post('/register', jsonParser, (req, res) => {
     console.log("Received a request at /register endpoint.");
     const studentData = req.body;
+    studentData.profilePicture = ''; // Add an empty profile picture field for new users
     console.log('Received registration data:', studentData);
 
     try {
-        // 1. Hash the password for secure storage
-        const hashedPassword = await bcrypt.hash(studentData.password, saltRounds);
+        let workbook;
+        let worksheet;
+        let students = []; // Initialize students array
 
-        // 2. Generate unique Roll Number and Enrollment Number
-        const rollNumber = generateRollNumber();
-        const enrollmentNumber = generateEnrollmentNumber();
-
-        // 3. Prepare the SQL INSERT statement
-        const insertQuery = `
-            INSERT INTO students (
-                name, email, roll_number, enrollment_number, dob, age, gender,
-                mobile_number, password, security_question, security_answer
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            RETURNING *;
-        `;
-
-        const values = [
-            studentData.name,
-            studentData.email.toLowerCase(),
-            rollNumber,
-            enrollmentNumber,
-            studentData.dob,
-            studentData.age,
-            studentData.gender,
-            studentData.mobileNumber,
-            hashedPassword,
-            studentData.securityQuestion,
-            studentData.securityAnswer,
-        ];
-
-        // 4. Execute the query
-        const { rows } = await db.query(insertQuery, values);
-        const newStudent = rows[0];
-
-        console.log('Student successfully registered in the database:', newStudent.email);
-
-        // 5. Send welcome email
-        sendWelcomeEmail(newStudent.email, newStudent.name);
-
-        // 6. Respond to the client with the new student data (excluding the password)
-        const { password, ...studentDataForClient } = newStudent;
-        res.status(200).json({ message: 'Registration successful and data saved.', studentData: studentDataForClient });
-
-    } catch (error) {
-        console.error('Error during registration:', error);
-
-        // Check for unique constraint violation
-        if (error.code === '23505') { // PostgreSQL unique violation error code
-            if (error.constraint === 'students_email_key') {
-                return res.status(409).json({ message: `Email ${studentData.email} is already registered.` });
+        // Check if the Excel file exists
+        if (fs.existsSync(excelFilePath)) {
+            // If it exists, read it
+            workbook = xlsx.readFile(excelFilePath);
+            worksheet = workbook.Sheets[sheetName];
+            
+            if (worksheet) {
+                students = xlsx.utils.sheet_to_json(worksheet);
+                // Check for duplicate Email or Mobile Number
+                const existingStudentByEmail = students.find(s => String(s.email).toLowerCase() === String(studentData.email).toLowerCase());
+                if (existingStudentByEmail) {
+                    return res.status(409).json({ message: `Email ${studentData.email} is already registered.` });
+                }
+                const existingStudentByMobile = students.find(s => String(s.mobileNumber) === String(studentData.mobileNumber));
+                if (existingStudentByMobile) {
+                    return res.status(409).json({ message: `Mobile Number ${studentData.mobileNumber} is already registered.` });
+                }
             }
-            if (error.constraint === 'students_mobile_number_key') {
-                return res.status(409).json({ message: `Mobile Number ${studentData.mobileNumber} is already registered.` });
-            }
+        } else {
+            // If it doesn't exist, create a new workbook and worksheet with headers
+            workbook = xlsx.utils.book_new();
+            worksheet = xlsx.utils.json_to_sheet([], { header: ALL_STUDENT_HEADERS });
+            xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
         }
 
+        // Note: The Roll Number and Enrollment Number are not submitted by the client during registration.
+        // They are generated here on the server to ensure uniqueness and proper formatting.
+        // Any 'rollNumber' field sent from the client would be overwritten here.
+
+        // Generate a unique Roll Number
+        let newRollNumber;
+        let isUnique = false;
+        while (!isUnique) {
+            newRollNumber = generateRollNumber();
+            // Check against the students list to ensure uniqueness
+            const existingStudent = students.find(s => String(s.rollNumber) === String(newRollNumber));
+            if (!existingStudent) {
+                isUnique = true;
+            }
+        }
+        studentData.rollNumber = newRollNumber;
+        studentData.enrollmentNumber = generateEnrollmentNumber();
+
+        // Append the new student data to the worksheet
+        xlsx.utils.sheet_add_json(worksheet, [studentData], {
+            skipHeader: true, // Don't add headers again
+            origin: -1,       // Append to the end of the sheet
+            header: ALL_STUDENT_HEADERS   // Ensure consistent column order
+        });
+
+        // Write the updated workbook back to the file
+        xlsx.writeFile(workbook, excelFilePath);
+
+        console.log('Data successfully written to students.xlsx');
+        sendWelcomeEmail(studentData.email, studentData.name); // Send welcome email
+        res.status(200).json({ message: 'Registration successful and data saved.', studentData: studentData });
+    } catch (error) {
+        console.error('Error writing to Excel file:', error);
         res.status(500).json({ message: 'Failed to save data to the server.' });
     }
 });
@@ -230,71 +227,72 @@ async function sendWelcomeEmail(toEmail, studentName) {
 }
 
 // POST endpoint to handle updating registration data
-app.post('/update', upload.single('profilePicture'), async (req, res) => {
+app.post('/update', upload.single('profilePicture'), (req, res) => {
     console.log("Received a request at /update endpoint.");
-    const { rollNumber, ...fieldsToUpdate } = req.body;
-    console.log('Received update for roll number:', rollNumber);
+    const updatedStudentData = req.body;
+    console.log('Received update for roll number:', updatedStudentData.rollNumber);
 
-    if (!rollNumber) {
-        if (req.file) fs.unlinkSync(req.file.path); // Clean up uploaded file
-        return res.status(400).json({ message: 'Roll number is required for an update.' });
+    // If a file was uploaded, add its path to the data to be saved
+    if (req.file) {
+        const rollNumber = updatedStudentData.rollNumber;
+        if (!rollNumber) {
+            // Clean up the temporary file if roll number is missing
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ message: 'Roll number is required to upload a picture.' });
+        }
+
+        // Construct the new path and rename the file
+        const newFileName = `${rollNumber}${path.extname(req.file.originalname)}`;
+        const newPath = path.join(path.dirname(req.file.path), newFileName);
+
+        try {
+            fs.renameSync(req.file.path, newPath);
+            // Save the web-compatible path to the student data
+            updatedStudentData.profilePicture = newPath.replace(/\\/g, "/");
+            console.log('Profile picture renamed and saved to:', updatedStudentData.profilePicture);
+        } catch (renameError) {
+            console.error('Error renaming uploaded file:', renameError);
+            fs.unlinkSync(req.file.path); // Clean up temp file
+            return res.status(500).json({ message: 'Could not process file upload.' });
+        }
+    }
+
+    if (!fs.existsSync(excelFilePath)) {
+        return res.status(404).json({ message: 'Excel file not found. Cannot update.' });
     }
 
     try {
-        // 1. Handle file upload if it exists
-        if (req.file) {
-            const newFileName = `${rollNumber}${path.extname(req.file.originalname)}`;
-            const newPath = path.join(path.dirname(req.file.path), newFileName);
+        const workbook = xlsx.readFile(excelFilePath);
+        const worksheet = workbook.Sheets[sheetName];
+        const students = xlsx.utils.sheet_to_json(worksheet);
 
-            // Before renaming, check if an old picture exists and delete it
-            const { rows } = await db.query('SELECT profile_picture FROM students WHERE roll_number = $1', [rollNumber]);
-            if (rows.length > 0 && rows[0].profile_picture) {
-                const oldPicPath = path.join(__dirname, rows[0].profile_picture);
-                if (fs.existsSync(oldPicPath)) {
-                    fs.unlinkSync(oldPicPath);
-                    console.log('Deleted old profile picture:', oldPicPath);
-                }
+        // Find the student and update their data
+        let studentFound = false;
+        const updatedStudents = students.map(student => {
+            // Convert both to string for reliable comparison
+            if (String(student.rollNumber) === String(updatedStudentData.rollNumber)) {
+                studentFound = true;
+                // Merge existing student data with new data from the form
+                return { ...student, ...updatedStudentData };
             }
+            return student;
+        });
 
-            fs.renameSync(req.file.path, newPath);
-            // Save the web-compatible path to the fields that will be updated
-            fieldsToUpdate.profile_picture = newPath.replace(/\\/g, "/");
-            console.log('Profile picture saved to:', fieldsToUpdate.profile_picture);
-        }
-
-        // 2. Dynamically build the UPDATE query
-        const fieldEntries = Object.entries(fieldsToUpdate);
-        if (fieldEntries.length === 0) {
-            // If only a roll number was sent with no fields to update, just fetch the latest data.
-            const { rows } = await db.query('SELECT * FROM students WHERE roll_number = $1', [rollNumber]);
-            if (rows.length === 0) return res.status(404).json({ message: 'Student not found.' });
-            const { password, ...studentData } = rows[0];
-            return res.status(200).json({ message: 'No fields to update.', studentData });
-        }
-
-        const setClauses = fieldEntries.map(([key], index) => `${key} = $${index + 1}`).join(', ');
-        const values = fieldEntries.map(([, value]) => value);
-
-        const query = `
-            UPDATE students 
-            SET ${setClauses}, updated_at = NOW()
-            WHERE roll_number = $${values.length + 1}
-            RETURNING *;
-        `;
-        values.push(rollNumber);
-
-        // 3. Execute the query
-        const { rows } = await db.query(query, values);
-
-        if (rows.length === 0) {
+        if (!studentFound) {
             return res.status(404).json({ message: 'Student with that roll number not found.' });
         }
 
-        // 4. Return the updated student data (without the password)
-        const { password, ...updatedStudent } = rows[0];
-        console.log('Data successfully updated in database for roll number:', rollNumber);
-        res.status(200).json({ message: 'Update successful.', studentData: updatedStudent });
+        // Create a new worksheet with the updated data and replace the old one
+        // Ensure consistent header order
+        const newWorksheet = xlsx.utils.json_to_sheet(updatedStudents, { header: ALL_STUDENT_HEADERS });
+        workbook.Sheets[sheetName] = newWorksheet;
 
+        // Write the changes back to the file
+        xlsx.writeFile(workbook, excelFilePath);
+
+        const finalUpdatedStudent = updatedStudents.find(s => String(s.rollNumber) === String(updatedStudentData.rollNumber));
+        console.log('Data successfully updated for roll number:', updatedStudentData.rollNumber);
+        res.status(200).json({ message: 'Update successful.', studentData: finalUpdatedStudent });
     } catch (error) {
         console.error('Error updating Excel file:', error);
         res.status(500).json({ message: 'Failed to update data on the server.' });
@@ -302,36 +300,39 @@ app.post('/update', upload.single('profilePicture'), async (req, res) => {
 });
 
 // POST endpoint to handle login
-app.post('/login', jsonParser, async (req, res) => {
+app.post('/login', jsonParser, (req, res) => {
     console.log("Received a request at /login endpoint.");
     const { loginIdentifier, password } = req.body;
     console.log(`Login attempt for identifier: ${loginIdentifier}`);
 
-    try {
-        // Find the student by email OR mobile number
-        const query = `
-            SELECT * FROM students 
-            WHERE email = $1 OR mobile_number = $1
-        `;
-        const { rows } = await db.query(query, [loginIdentifier.toLowerCase()]);
+    if (!fs.existsSync(excelFilePath)) {
+        return res.status(404).json({ message: 'No student data found. Please register first.' });
+    }
 
-        if (rows.length === 0) {
+    try {
+        const workbook = xlsx.readFile(excelFilePath);
+        const worksheet = workbook.Sheets[sheetName];
+        if (!worksheet) {
+            return res.status(404).json({ message: 'Registration sheet not found.' });
+        }
+        const students = xlsx.utils.sheet_to_json(worksheet);
+
+        // Find the student by email OR mobile number
+        const student = students.find(s =>
+            (String(s.email).toLowerCase() === String(loginIdentifier).toLowerCase()) ||
+            (String(s.mobileNumber) === String(loginIdentifier))
+        );
+
+        if (!student) {
             return res.status(401).json({ message: 'Email or Mobile Number not found.' });
         }
 
-        const student = rows[0];
-
-        // Check if the password matches using bcrypt
-        const passwordMatch = await bcrypt.compare(password, student.password);
-
-        if (!passwordMatch) {
+        // Check if the password matches
+        if (String(student.password) !== String(password)) {
             return res.status(401).json({ message: 'Incorrect password.' });
         }
 
-        // On success, return student data (excluding the password)
-        const { password: _, ...studentDataForClient } = student;
-        res.status(200).json({ message: 'Login successful', studentData: studentDataForClient });
-
+        res.status(200).json({ message: 'Login successful', studentData: student });
     } catch (error) {
         console.error('Error during login:', error);
         res.status(500).json({ message: 'Server error during login.' });
