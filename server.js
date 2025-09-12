@@ -7,6 +7,8 @@ const nodemailer = require('nodemailer'); // Import nodemailer
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const path = require('path');
+require('dotenv').config(); // Load environment variables from .env file
+const db = require('./db'); // Import and initialize the database connection
 
 const app = express();
 const port = 3000;
@@ -26,18 +28,18 @@ const jsonParser = express.json();
 // IMPORTANT: Replace with your actual Razorpay Key ID and Key Secret from your dashboard.
 // It's best practice to store these in environment variables for production.
 const razorpay = new Razorpay({
-    key_id: 'rzp_test_R9gu7rbC2p8saU', // <-- Replace with your Key ID from Razorpay Dashboard
-    key_secret: 'jnAvO1J3CbF3ZCACmxR1bNtP' // <-- Replace with your Key Secret from Razorpay Dashboard
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
 // --- Nodemailer Transporter Setup ---
 // Configure your email service. Example uses Gmail.
 // For production, use environment variables for user and pass.
 const transporter = nodemailer.createTransport({
-    service: 'gmail', // You can use other services like 'Outlook', 'SendGrid', etc.
+    service: process.env.EMAIL_SERVICE || 'gmail',
     auth: {
-        user: 'raushanphotobackup.20@gmail.com', // Replace with your email address
-        pass: 'R@u$h@n6049'   // Replace with your email password or app-specific password
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
     }
 });
 
@@ -204,7 +206,7 @@ app.post('/register', jsonParser, (req, res) => {
 // --- Email Sending Function ---
 async function sendWelcomeEmail(toEmail, studentName) {
     const mailOptions = {
-        from: 'YOUR_EMAIL@gmail.com', // Your email address
+        from: process.env.EMAIL_USER, // Your email address from environment variables
         to: toEmail,
         subject: 'Welcome to DAV PG College!',
         html: `
