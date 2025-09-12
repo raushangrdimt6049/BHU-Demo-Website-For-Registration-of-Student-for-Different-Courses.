@@ -77,6 +77,13 @@ function generateEnrollmentNumber() {
     return `DAV${year}${randomPart}`;
 }
 
+// A simple function to generate a unique roll number
+function generateRollNumber() {
+    const year = new Date().getFullYear();
+    const randomPart = Math.floor(100000 + Math.random() * 900000); // 6-digit random number
+    return `R${year}${randomPart}`;
+}
+
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -93,28 +100,30 @@ const sheetName = 'Registrations';
 app.post('/register', jsonParser, (req, res) => {
     console.log("Received a request at /register endpoint.");
     const studentData = req.body;
-    studentData.enrollmentNumber = generateEnrollmentNumber(); // Generate and add enrollment number
     studentData.profilePicture = ''; // Add an empty profile picture field for new users
     console.log('Received registration data:', studentData);
 
     try {
         let workbook;
         let worksheet;
+        let students = []; // Initialize students array
 
         // Check if the Excel file exists
         if (fs.existsSync(excelFilePath)) {
             // If it exists, read it
             workbook = xlsx.readFile(excelFilePath);
             worksheet = workbook.Sheets[sheetName];
-
-            // Check for duplicate Roll Number
+            
             if (worksheet) {
-                const students = xlsx.utils.sheet_to_json(worksheet);
-                const existingStudent = students.find(s => String(s.rollNumber) === String(studentData.rollNumber));
-                if (existingStudent) {
-                    console.log(`Registration failed: Roll Number ${studentData.rollNumber} already exists.`);
-                    // 409 Conflict is a good status code for duplicates
-                    return res.status(409).json({ message: `Roll Number ${studentData.rollNumber} is already registered.` });
+                students = xlsx.utils.sheet_to_json(worksheet);
+                // Check for duplicate Email or Mobile Number
+                const existingStudentByEmail = students.find(s => String(s.email).toLowerCase() === String(studentData.email).toLowerCase());
+                if (existingStudentByEmail) {
+                    return res.status(409).json({ message: `Email ${studentData.email} is already registered.` });
+                }
+                const existingStudentByMobile = students.find(s => String(s.mobileNumber) === String(studentData.mobileNumber));
+                if (existingStudentByMobile) {
+                    return res.status(409).json({ message: `Mobile Number ${studentData.mobileNumber} is already registered.` });
                 }
             }
         } else {
@@ -123,6 +132,24 @@ app.post('/register', jsonParser, (req, res) => {
             worksheet = xlsx.utils.json_to_sheet([], { header: ALL_STUDENT_HEADERS });
             xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
         }
+
+        // Note: The Roll Number and Enrollment Number are not submitted by the client during registration.
+        // They are generated here on the server to ensure uniqueness and proper formatting.
+        // Any 'rollNumber' field sent from the client would be overwritten here.
+
+        // Generate a unique Roll Number
+        let newRollNumber;
+        let isUnique = false;
+        while (!isUnique) {
+            newRollNumber = generateRollNumber();
+            // Check against the students list to ensure uniqueness
+            const existingStudent = students.find(s => String(s.rollNumber) === String(newRollNumber));
+            if (!existingStudent) {
+                isUnique = true;
+            }
+        }
+        studentData.rollNumber = newRollNumber;
+        studentData.enrollmentNumber = generateEnrollmentNumber();
 
         // Append the new student data to the worksheet
         xlsx.utils.sheet_add_json(worksheet, [studentData], {
@@ -243,8 +270,8 @@ app.post('/update', upload.single('profilePicture'), (req, res) => {
 // POST endpoint to handle login
 app.post('/login', jsonParser, (req, res) => {
     console.log("Received a request at /login endpoint.");
-    const { rollNumber, password } = req.body;
-    console.log(`Login attempt for roll number: ${rollNumber}`);
+    const { loginIdentifier, password } = req.body;
+    console.log(`Login attempt for identifier: ${loginIdentifier}`);
 
     if (!fs.existsSync(excelFilePath)) {
         return res.status(404).json({ message: 'No student data found. Please register first.' });
@@ -258,11 +285,14 @@ app.post('/login', jsonParser, (req, res) => {
         }
         const students = xlsx.utils.sheet_to_json(worksheet);
 
-        // Find the student by roll number
-        const student = students.find(s => String(s.rollNumber) === String(rollNumber));
+        // Find the student by email OR mobile number
+        const student = students.find(s =>
+            (String(s.email).toLowerCase() === String(loginIdentifier).toLowerCase()) ||
+            (String(s.mobileNumber) === String(loginIdentifier))
+        );
 
         if (!student) {
-            return res.status(401).json({ message: 'Roll Number not found.' });
+            return res.status(401).json({ message: 'Email or Mobile Number not found.' });
         }
 
         // Check if the password matches
@@ -293,7 +323,15 @@ app.post('/change-password', jsonParser, (req, res) => {
             return res.status(404).json({ message: 'Registration sheet not found.' });
         }
         const students = xlsx.utils.sheet_to_json(worksheet);
+        // Find the student by email OR mobile number
+        const student = students.find(s =>
+            (String(s.email).toLowerCase() === String(loginIdentifier).toLowerCase()) ||
+            (String(s.mobileNumber) === String(loginIdentifier))
+        );
 
+        if (!student) {
+            return res.status(401).json({ message: 'Email or Mobile Number not found.' });
+        }
         let studentFound = false;
         const updatedStudents = students.map(student => {
             if (String(student.rollNumber) === String(rollNumber)) {
@@ -328,8 +366,8 @@ app.post('/change-password', jsonParser, (req, res) => {
 // POST endpoint to handle password reset
 app.post('/reset-password', jsonParser, (req, res) => {
     console.log("Received a request at /reset-password endpoint.");
-    const { rollNumber, securityQuestion, securityAnswer, newPassword } = req.body;
-    console.log(`Password reset attempt for roll number: ${rollNumber}`);
+    const { identifier, securityQuestion, securityAnswer, newPassword } = req.body;
+    console.log(`Password reset attempt for identifier: ${identifier}`);
 
     if (!fs.existsSync(excelFilePath)) {
         return res.status(404).json({ message: 'No student data found. Please register first.' });
@@ -343,15 +381,15 @@ app.post('/reset-password', jsonParser, (req, res) => {
         }
         const students = xlsx.utils.sheet_to_json(worksheet);
 
-        // Find the student by roll number and security question/answer
+        // Find the student by email/mobile and security question/answer
         const student = students.find(s =>
-            String(s.rollNumber) === String(rollNumber) &&
+            ((String(s.email).toLowerCase() === String(identifier).toLowerCase()) || (String(s.mobileNumber) === String(identifier))) &&
             String(s.securityQuestion) === String(securityQuestion) &&
             String(s.securityAnswer).toLowerCase() === String(securityAnswer).toLowerCase() // Case-insensitive answer check
         );
 
         if (!student) {
-            return res.status(401).json({ message: 'Invalid roll number, security question, or answer.' });
+            return res.status(401).json({ message: 'Invalid identifier, security question, or answer.' });
         }
 
         // Update the password
@@ -365,7 +403,7 @@ app.post('/reset-password', jsonParser, (req, res) => {
         // Write the changes back to the file
         xlsx.writeFile(workbook, excelFilePath);
 
-        console.log('Password successfully reset for roll number:', rollNumber);
+        console.log('Password successfully reset for roll number:', student.rollNumber);
         res.status(200).json({ message: 'Password reset successful' });
 
     } catch (error) {

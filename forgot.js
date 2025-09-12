@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formError.textContent = '';
         }
 
-        const rollNumber = document.getElementById('rollNumber').value;
+        const identifier = document.getElementById('identifier').value;
         const newPassword = newPasswordInput.value;
         const confirmPassword = confirmPasswordInput.value;
         const securityQuestion = document.getElementById('securityQuestion').value;
@@ -70,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ rollNumber, securityQuestion, securityAnswer, newPassword }),
+            body: JSON.stringify({ identifier, securityQuestion, securityAnswer, newPassword }),
         })
         .then(response => {
             const contentType = response.headers.get('content-type');

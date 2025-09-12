@@ -30,6 +30,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Helper function to calculate age
+    const calculateAge = (dobString) => {
+        if (!dobString) return '';
+        const dob = new Date(dobString);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDifference = today.getMonth() - dob.getMonth();
+        if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < dob.getDate())) {
+            age--;
+        }
+        return age >= 0 ? age : '';
+    };
+
     try {
         const selectedCourse = JSON.parse(studentData.selectedCourse);
 
@@ -58,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             populateField('summaryDob', 'N/A');
         }
-        populateField('summaryAge', studentData.age);
+        populateField('summaryAge', calculateAge(studentData.dob));
         populateField('summaryGender', studentData.gender);
 
         // --- Populate Address & Parents Detail ---

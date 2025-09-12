@@ -6,6 +6,7 @@
     <title>Application Preview - DAV PG College</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="home.css"> <!-- Re-use home styles for details view -->
+    <link rel="stylesheet" href="preview.css">
     <script>
         // --- Immediate Security Check ---
         if (!sessionStorage.getItem('currentStudent') || !sessionStorage.getItem('selectedCourse')) {
@@ -13,78 +14,6 @@
             window.location.replace('home.html');
         }
     </script>
-    <style>
-        .preview-section {
-            margin-bottom: 2rem;
-            border-bottom: 1px solid var(--input-border);
-            padding-bottom: 1rem;
-        }
-        .preview-section h4 {
-            font-size: 1.5rem;
-            color: var(--btn-bg);
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid var(--btn-bg);
-            padding-bottom: 0.5rem;
-        }
-        .preview-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-        }
-        .preview-field {
-            display: flex;
-            flex-direction: column;
-        }
-        .preview-field label {
-            font-weight: 600;
-            font-size: 0.9rem;
-            color: var(--text-color);
-            opacity: 0.8;
-            margin-bottom: 0.25rem;
-        }
-        .preview-field span {
-            font-size: 1.1rem;
-            min-height: 24px;
-        }
-        .preview-actions {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 2rem;
-            gap: 1.5rem; /* Add spacing between buttons */
-        }
-        .preview-actions .back-btn,
-        .preview-actions .submit-btn {
-            flex: 1; /* Make both buttons take up equal space */
-            width: auto; /* Override the 100% width from .submit-btn */
-            margin-top: 0; /* Override margin from .submit-btn */
-            text-align: center;
-            text-decoration: none; /* Ensure it looks like a button */
-        }
-        .preview-actions .submit-btn {
-            background-color: var(--btn-success-bg); /* Make it stand out */
-        }
-        .preview-actions .submit-btn:hover {
-            background-color: var(--btn-success-hover-bg);
-        }
-        .terms-box {
-            max-height: 150px;
-            overflow-y: auto;
-            border: 1px solid var(--input-border);
-            padding: 1rem;
-            border-radius: 6px;
-            background-color: var(--readonly-bg);
-            font-size: 0.9rem;
-        }
-        .terms-box p {
-            margin-bottom: 0.5rem;
-        }
-        .submit-btn.disabled {
-            background-color: var(--btn-secondary-bg);
-            cursor: not-allowed;
-            pointer-events: none;
-            opacity: 0.65;
-        }
-    </style>
 </head>
 <body>
     <header class="main-header">

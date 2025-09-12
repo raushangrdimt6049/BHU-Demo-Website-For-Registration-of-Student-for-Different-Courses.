@@ -13,9 +13,9 @@ if (sessionStorage.getItem('currentStudent')) {
 window.addEventListener('pageshow', (event) => {
     // We only clear fields if the user is NOT logged in.
     if (!sessionStorage.getItem('currentStudent')) {
-        const rollNumberInput = document.getElementById('rollNumber');
+        const loginIdentifierInput = document.getElementById('loginIdentifier');
         const passwordInput = document.getElementById('password');
-        if (rollNumberInput) rollNumberInput.value = '';
+        if (loginIdentifierInput) loginIdentifierInput.value = '';
         if (passwordInput) passwordInput.value = '';
     }
 });
@@ -40,14 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const rollNumber = document.getElementById('rollNumber').value;
+        const loginIdentifier = document.getElementById('loginIdentifier').value;
         const password = document.getElementById('password').value;
 
         try {
             const response = await fetch('/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rollNumber, password }),
+                body: JSON.stringify({ loginIdentifier, password }),
             });
 
             const data = await response.json();

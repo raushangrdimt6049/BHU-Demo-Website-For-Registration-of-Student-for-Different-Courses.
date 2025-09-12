@@ -68,12 +68,12 @@
             <div class="detail-group">
                 <label>Email Address</label>
                 <span class="display-field" id="displayEmail"></span>
-                <input type="email" class="edit-field" id="editEmail">
+                <input type="email" class="edit-field" id="editEmail" readonly title="Email cannot be changed after registration.">
             </div>
             <div class="detail-group">
                 <label>Roll Number</label>
                 <span class="display-field" id="displayRollNumber"></span>
-                <input type="text" class="edit-field" id="editRollNumber" readonly title="Roll Number cannot be changed.">
+                <input type="text" class="edit-field" id="editRollNumber" readonly title="Roll Number is auto-generated and cannot be changed.">
             </div>
             <div class="detail-group">
                 <label>Enrollment Number</label>
@@ -83,7 +83,7 @@
             <div class="detail-group">
                 <label>Mobile Number</label>
                 <span class="display-field" id="displayMobileNumber"></span>
-                <input type="tel" class="edit-field" id="editMobileNumber" pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" maxlength="10">
+                <input type="tel" class="edit-field" id="editMobileNumber" readonly title="Mobile Number cannot be changed after registration.">
             </div>
             <div class="detail-group full-profile-only">
                 <label>Date of Birth</label>

@@ -124,3 +124,13 @@ main {
     .print-header, .print-header * { color: #000 !important; }
     .summary-section { page-break-inside: avoid; }
 }
+
+@media (max-width: 768px) {
+    .profile-section {
+        flex-direction: column;
+        text-align: center;
+    }
+    .details-grid {
+        text-align: left;
+    }
+}

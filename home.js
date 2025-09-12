@@ -333,13 +333,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 formattedDobForSave = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-                // Mobile number validation
-                if (!fields.mobileNumber.edit.value.match(/^[0-9]{10}$/)) {
-                    alert('Please enter a valid 10-digit mobile number.');
-                    fields.mobileNumber.edit.focus();
-                    return; // Stop the save process
-                }
-
                 // Use FormData to send both text and file data
                 const formData = new FormData();
 

@@ -10,14 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const registrationForm = document.getElementById('registrationForm');
     const emailInput = document.getElementById('email');
     const emailError = document.getElementById('email-error');
-    const dobInput = document.getElementById('dob');
-    const ageInput = document.getElementById('age');
     const passwordInput = document.getElementById('password');
     const confirmPasswordInput = document.getElementById('confirmPassword');
     const togglePassword = document.getElementById('togglePassword');
     const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
     const passwordError = document.getElementById('password-error');
-    const dobError = document.getElementById('dob-error');
     const mobileNumberInput = document.getElementById('mobileNumber');
     const captchaTextElement = document.getElementById('captcha-text');
     const captchaInputElement = document.getElementById('captchaInput');
@@ -26,65 +23,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitButton = document.getElementById('submitBtn');
     const buttonText = submitButton.querySelector('.button-text');
     const spinner = submitButton.querySelector('.spinner');
+    const dobDay = document.getElementById('dob-day');
+    const dobMonth = document.getElementById('dob-month');
+    const dobYear = document.getElementById('dob-year');
+    const dobHiddenInput = document.getElementById('dob');
+    const ageInput = document.getElementById('age');
 
     let currentCaptcha = '';
-
-    // --- Function to auto-format DOB input ---
-    const autoformatDob = (event) => {
-        const input = event.target;
-        // 1. Remove all non-digit characters
-        let value = input.value.replace(/\D/g, '');
-        let formattedValue = '';
-
-        // 2. Add hyphens at the correct positions
-        if (value.length > 0) {
-            formattedValue = value.substring(0, 2);
-        }
-        if (value.length > 2) {
-            formattedValue += '-' + value.substring(2, 4);
-        }
-        if (value.length > 4) {
-            formattedValue += '-' + value.substring(4, 8);
-        }
-        // 3. Update the input field value
-        input.value = formattedValue;
-    };
-
-    // --- Function to calculate age from DOB ---
-    const calculateAge = (dobString) => {
-        if (!dobString) return '';
-        const dob = new Date(dobString);
-        const today = new Date();
-        let age = today.getFullYear() - dob.getFullYear();
-        const monthDifference = today.getMonth() - dob.getMonth();
-        
-        if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < dob.getDate())) {
-            age--;
-        }
-        return age; // Returns calculated age, validation for 18+ happens in submit handler
-    };
-
-    /**
-     * Parses a date string in YYYYMMDD format and validates it.
-     * @param {string} dateString The date string to parse.
-     * @returns {string|null} The date in YYYY-MM-DD format, or null if invalid.
-     */
-    const parseAndValidateDate = (dateString) => {
-        if (!/^\d{2}-\d{2}-\d{4}$/.test(dateString)) return null;
-        const parts = dateString.split('-');
-        const day = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10);
-        const year = parseInt(parts[2], 10);
-
-        // Basic sanity check for year
-        if (year < 1900 || year > new Date().getFullYear()) return null;
-
-        const date = new Date(year, month - 1, day);
-        if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
-            return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        }
-        return null;
-    };
 
     // --- Function to generate and display captcha ---
     const generateCaptcha = () => {
@@ -98,9 +43,71 @@ document.addEventListener('DOMContentLoaded', () => {
         captchaInputElement.value = ''; // Clear previous input
     };
 
+    // --- Function to calculate age from a date string (YYYY-MM-DD) ---
+    const calculateAge = (dobString) => {
+        if (!dobString) return '';
+        const dob = new Date(dobString);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDifference = today.getMonth() - dob.getMonth();
+        if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < dob.getDate())) {
+            age--;
+        }
+        return age >= 0 ? age : '';
+    };
+
+    // --- Function to update the age field based on DOB selection ---
+    const updateAge = () => {
+        if (!dobDay.value || !dobMonth.value || !dobYear.value) {
+            ageInput.value = '';
+            return;
+        }
+        const dobString = `${dobYear.value}-${dobMonth.value}-${dobDay.value}`;
+        ageInput.value = calculateAge(dobString);
+    };
+
+    // --- Function to populate date of birth dropdowns ---
+    const populateDobDropdowns = () => {
+        if (!dobDay || !dobMonth || !dobYear) return;
+
+        // Populate Days
+        for (let i = 1; i <= 31; i++) {
+            const option = document.createElement('option');
+            option.value = String(i).padStart(2, '0');
+            option.textContent = i;
+            dobDay.appendChild(option);
+        }
+
+        // Populate Months
+        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        months.forEach((month, index) => {
+            const option = document.createElement('option');
+            option.value = String(index + 1).padStart(2, '0');
+            option.textContent = month;
+            dobMonth.appendChild(option);
+        });
+
+        // Populate Years (assuming minimum age of 18 for registration)
+        const currentYear = new Date().getFullYear();
+        const startYear = 1950;
+        const endYear = currentYear - 5;
+        for (let i = endYear; i >= startYear; i--) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            dobYear.appendChild(option);
+        }
+    };
+
     // --- Event Listeners ---
 
     generateCaptcha(); // Generate initial captcha
+    populateDobDropdowns(); // Populate DOB dropdowns
+
+    // Add listeners to DOB dropdowns to calculate age
+    dobDay.addEventListener('change', updateAge);
+    dobMonth.addEventListener('change', updateAge);
+    dobYear.addEventListener('change', updateAge);
 
     // --- Real-time validation ---
     const validateEmail = () => {
@@ -113,16 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
         emailError.style.display = 'none';
         return true;
     };
-
-    // Update age when DOB changes
-    dobInput.addEventListener('change', () => {
-        const formattedDate = parseAndValidateDate(dobInput.value);
-        const age = calculateAge(formattedDate);
-        ageInput.value = age >= 0 ? age : ''; // Only show age if date is valid
-    });
-
-    // Auto-format DOB as user types
-    dobInput.addEventListener('input', autoformatDob);
 
     // Reload captcha on button click
     reloadCaptchaButton.addEventListener('click', generateCaptcha);
@@ -149,13 +146,25 @@ document.addEventListener('DOMContentLoaded', () => {
     registrationForm.addEventListener('submit', (event) => {
         event.preventDefault(); // Prevent default form submission
 
-        dobError.style.display = 'none'; // Clear previous DOB error
         emailError.style.display = 'none'; // Clear previous email error
 
         // --- Validation ---
         let isValid = true;
         captchaError.style.display = 'none';
         captchaError.textContent = '';
+
+        // --- Combine DOB fields and validate ---
+        const day = dobDay.value;
+        const month = dobMonth.value;
+        const year = dobYear.value;
+
+        if (day && month && year) {
+            dobHiddenInput.value = `${year}-${month}-${day}`;
+        } else {
+            // The `required` attribute on selects should prevent this, but it's a good fallback.
+            alert('Please select your full date of birth.');
+            isValid = false;
+        }
 
         // Email validation
         if (!validateEmail()) {
@@ -169,24 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
             captchaError.style.display = 'block';
             captchaInputElement.focus();
             generateCaptcha(); // Generate a new captcha
-            isValid = false;
-        }
-
-        // DOB validation
-        const formattedDob = parseAndValidateDate(dobInput.value);
-        if (!formattedDob) {
-            dobError.textContent = 'Please enter a valid date in DD-MM-YYYY format.';
-            dobError.style.display = 'block';
-            dobInput.focus();
-            isValid = false;
-        }
-
-        // Age validation (must be 18+)
-        const calculatedAge = calculateAge(formattedDob);
-        if (formattedDob && calculatedAge < 18) {
-            dobError.textContent = 'You must be at least 18 years old to register.';
-            dobError.style.display = 'block';
-            dobInput.focus();
             isValid = false;
         }
 
@@ -229,12 +220,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Data Collection ---
         const formData = new FormData(registrationForm);
         const studentData = Object.fromEntries(formData.entries());
-        studentData.dob = formattedDob; // Overwrite with the validated, standard format
         studentData.mobileNumber = mobileNumberInput.value; // Ensure mobile number is included
-        studentData.age = ageInput.value; // Add calculated age
 
+        // For security, ensure no roll number is sent from the client. The server generates it.
+        delete studentData.rollNumber;
         // For security, don't send the confirmation password to the backend
         delete studentData.confirmPassword;
+        // Clean up individual DOB fields, leaving only the combined 'dob' field
+        delete studentData['dob-day'];
+        delete studentData['dob-month'];
+        delete studentData['dob-year'];
+        // The age field is not needed for submission, it's for display only
+        delete studentData.age;
 
         // --- Process Data: Send to backend server ---
         fetch('/register', {

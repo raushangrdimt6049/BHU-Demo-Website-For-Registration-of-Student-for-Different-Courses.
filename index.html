@@ -5,36 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DAV PG College, Varanasi - Student Registration</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .password-wrapper {
-            position: relative;
-            width: 100%;
-        }
-        .password-toggle {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            cursor: pointer;
-            user-select: none; /* Prevent text selection */
-        }
-
-        .submit-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            width: 16px;
-            height: 16px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
 </head>
 <body>
 
@@ -67,22 +37,6 @@
                 <small id="email-error" class="error-message"></small>
             </div>
             <div class="form-group">
-                <label for="rollNumber">Roll Number</label>
-                <input type="text" id="rollNumber" name="rollNumber" required>
-            </div>
-            <div class="form-group">
-                <label for="dob">Date of Birth</label>
-                <input type="text" id="dob" name="dob" required maxlength="10" placeholder="DD-MM-YYYY">
-            </div>
-            <div class="form-group">
-                <small id="dob-error" class="error-message"></small>
-            </div>
-
-            <div class="form-group">
-                <label for="age">Age</label>
-                <input type="number" id="age" name="age" readonly placeholder="Calculated from DOB">
-            </div>
-            <div class="form-group">
                 <label for="gender">Gender</label>
                 <select id="gender" name="gender" required>
                     <option value="" disabled selected>-- Select Gender --</option>
@@ -90,6 +44,28 @@
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label>Date of Birth</label>
+                <div class="dob-group">
+                    <select id="dob-day" name="dob-day" required>
+                        <option value="" disabled selected>Day</option>
+                        <!-- Days will be populated by JS -->
+                    </select>
+                    <select id="dob-month" name="dob-month" required>
+                        <option value="" disabled selected>Month</option>
+                        <!-- Months will be populated by JS -->
+                    </select>
+                    <select id="dob-year" name="dob-year" required>
+                        <option value="" disabled selected>Year</option>
+                        <!-- Years will be populated by JS -->
+                    </select>
+                </div>
+                <input type="hidden" id="dob" name="dob">
+            </div>
+            <div class="form-group">
+                <label for="age">Age</label>
+                <input type="text" id="age" name="age" readonly placeholder="Calculated from DOB">
             </div>
             <div class="form-group">
                 <label for="mobileNumber">Mobile Number</label>
@@ -127,11 +103,13 @@
             </div>
             <div class="form-group captcha-group">
                 <label for="captchaInput">Enter Captcha</label>
-                <div class="captcha-container" style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
-                    <span id="captcha-text" class="captcha-display" style="font-family: monospace; letter-spacing: 5px; text-decoration: line-through; padding: 10px 12px; border: 1px solid #ccc; background-color: #f0f0f0; user-select: none; font-size: 1.5rem;"></span>
-                    <button type="button" id="reload-captcha" class="reload-btn" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">🔄</button>
+                <div class="captcha-wrapper">
+                    <div class="captcha-container">
+                        <span id="captcha-text" class="captcha-display"></span>
+                        <button type="button" id="reload-captcha" class="reload-btn">🔄</button>
+                    </div>
+                    <input type="text" id="captchaInput" name="captchaInput" required autocomplete="off">
                 </div>
-                <input type="text" id="captchaInput" name="captchaInput" required autocomplete="off">
                 <small id="captcha-error" class="error-message"></small>
             </div>
             <button type="submit" class="submit-btn" id="submitBtn">
