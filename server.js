@@ -355,23 +355,15 @@ app.post('/change-password', jsonParser, (req, res) => {
             return res.status(404).json({ message: 'Registration sheet not found.' });
         }
         const students = xlsx.utils.sheet_to_json(worksheet);
-        // Find the student by email OR mobile number
-        const student = students.find(s =>
-            (String(s.email).toLowerCase() === String(loginIdentifier).toLowerCase()) ||
-            (String(s.mobileNumber) === String(loginIdentifier))
-        );
-
-        if (!student) {
-            return res.status(401).json({ message: 'Email or Mobile Number not found.' });
-        }
         let studentFound = false;
+        let passwordIncorrect = false;
         const updatedStudents = students.map(student => {
             if (String(student.rollNumber) === String(rollNumber)) {
                 studentFound = true;
                 // Verify current password
                 if (String(student.password) !== String(currentPassword)) {
-                    // Throw an error that will be caught and sent as a 401 response
-                    throw new Error('Incorrect current password.');
+                    passwordIncorrect = true;
+                    return student; // Return original student data without changes
                 }
                 // Update to the new password
                 student.password = newPassword;
@@ -383,6 +375,10 @@ app.post('/change-password', jsonParser, (req, res) => {
             return res.status(404).json({ message: 'Student not found.' });
         }
 
+        if (passwordIncorrect) {
+            return res.status(401).json({ message: 'Incorrect current password.' });
+        }
+
         // Use a consistent header order to prevent column scrambling
         const newWorksheet = xlsx.utils.json_to_sheet(updatedStudents, { header: ALL_STUDENT_HEADERS });
         workbook.Sheets[sheetName] = newWorksheet;
@@ -391,7 +387,7 @@ app.post('/change-password', jsonParser, (req, res) => {
         res.status(200).json({ message: 'Password changed successfully.' });
     } catch (error) {
         console.error('Error during password change:', error);
-        res.status(error.message.includes('Incorrect') ? 401 : 500).json({ message: error.message || 'Server error during password change.' });
+        res.status(500).json({ message: 'Server error during password change.' });
     }
 });
 
