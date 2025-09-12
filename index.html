@@ -102,14 +102,12 @@
                 <input type="text" id="securityAnswer" name="securityAnswer" required>
             </div>
             <div class="form-group captcha-group">
-                <label for="captchaInput">Enter Captcha</label>
-                <div class="captcha-wrapper">
-                    <div class="captcha-container">
-                        <span id="captcha-text" class="captcha-display"></span>
-                        <button type="button" id="reload-captcha" class="reload-btn">🔄</button>
-                    </div>
-                    <input type="text" id="captchaInput" name="captchaInput" required autocomplete="off">
+                <label for="captchaInput">Captcha Verification</label>
+                <div class="captcha-container">
+                    <span id="captcha-text" class="captcha-display"></span>
+                    <button type="button" id="reload-captcha" class="reload-btn">🔄</button>
                 </div>
+                <input type="text" id="captchaInput" name="captchaInput" required autocomplete="off" placeholder="Enter text from the image above">
                 <small id="captcha-error" class="error-message"></small>
             </div>
             <button type="submit" class="submit-btn" id="submitBtn">

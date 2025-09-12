@@ -1,41 +1,201 @@
-// This script should be included in academic-details.html
+// This script is included in academic-details.html
 
-// --- Immediate Security Check ---
-if (!sessionStorage.getItem('currentStudent')) {
-    window.location.replace('login.html');
-}
-
-// Also check if contact details have been filled first
-const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
-if (!studentData || !studentData.addressLine1) {
-    alert('Please complete your Address & Parents Detail first.');
-    window.location.href = 'home.html';
-}
+// This listener handles scenarios where a page is restored from the browser's
+// back-forward cache (bfcache) after a logout, ensuring the user is redirected.
+window.addEventListener('pageshow', (event) => {
+    if (!sessionStorage.getItem('currentStudent')) {
+        window.location.replace('login.html');
+    }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
-    const academicForm = document.getElementById('academicDetailsForm');
+    // This function checks if the server has restarted since the user logged in.
+    // If so, it logs the user out for security.
+    const checkServerStatus = async () => {
+        const loginTimeString = sessionStorage.getItem('loginTime');
+        if (!loginTimeString) return; // Can't check if we don't know when we logged in
 
-    if (!academicForm) {
-        console.error('The academic details form with ID "academicDetailsForm" was not found.');
-        return;
-    }
+        try {
+            const response = await fetch('/api/status');
+            if (!response.ok) return; // Don't logout if status check fails
+
+            const data = await response.json();
+            const serverStartTime = new Date(data.serverStartTime);
+            const loginTime = new Date(loginTimeString);
+
+            if (serverStartTime > loginTime) {
+                alert('The server has been updated. Please log in again for security.');
+                sessionStorage.clear();
+                window.location.replace('login.html');
+            }
+        } catch (error) {
+            console.warn('Could not check server status:', error);
+        }
+    };
+
+    // This function contains the main logic for setting up the page.
+    const initializePage = () => {
+        const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
+        if (!studentData || !studentData.addressLine1) {
+            alert('Please complete your Address & Parents Detail first.');
+            window.location.href = 'home.html';
+            return;
+        }
+
+        const academicForm = document.getElementById('academicDetailsForm');
+        if (!academicForm) {
+            console.error('The academic details form with ID "academicDetailsForm" was not found.');
+            return;
+        }
+
+    // --- Get references to board elements ---
+    const board10Select = document.getElementById('board10');
+    const otherBoard10Container = document.getElementById('otherBoard10Container');
+    const otherBoard10Input = document.getElementById('otherBoard10');
+
+    const board12Select = document.getElementById('board12');
+    const otherBoard12Container = document.getElementById('otherBoard12Container');
+    const otherBoard12Input = document.getElementById('otherBoard12');
+
+    // --- Get references to marks and percentage elements ---
+    const marks10Input = document.getElementById('marks10');
+    const totalMarks10Input = document.getElementById('totalMarks10');
+    const displayPercentage10 = document.getElementById('displayPercentage10');
+    const hiddenPercentage10 = document.getElementById('percentage10');
+
+    const marks12Input = document.getElementById('marks12');
+    const totalMarks12Input = document.getElementById('totalMarks12');
+    const displayPercentage12 = document.getElementById('displayPercentage12');
+    const hiddenPercentage12 = document.getElementById('percentage12');
+
+    // --- Helper function to toggle 'Other' input visibility ---
+    const handleOtherBoard = (selectElement, otherContainer, otherInput) => {
+        if (selectElement.value === 'Other') {
+            otherContainer.style.display = 'block';
+            otherInput.required = true;
+        } else {
+            otherContainer.style.display = 'none';
+            otherInput.required = false;
+            otherInput.value = '';
+        }
+    };
+
+    // --- Helper function to calculate and display percentage ---
+    const updatePercentage = (marksInput, totalMarksInput, displayElement, hiddenInput) => {
+        const marks = parseFloat(marksInput.value);
+        const totalMarks = parseFloat(totalMarksInput.value);
+
+        // Reset any previous error state
+        displayElement.style.color = '';
+        marksInput.setCustomValidity(''); // Clear previous custom error
+
+        if (isNaN(marks) || isNaN(totalMarks) || totalMarks <= 0 || marks < 0) {
+            displayElement.textContent = '--';
+            hiddenInput.value = '';
+            return; // Not enough valid info to calculate
+        }
+
+        if (marks > totalMarks) {
+            displayElement.textContent = 'Marks obtained cannot exceed total marks.';
+            displayElement.style.color = 'red';
+            hiddenInput.value = '';
+            marksInput.setCustomValidity('Marks obtained cannot exceed total marks.');
+            return;
+        }
+
+        const percentage = (marks / totalMarks) * 100;
+        const formattedPercentage = percentage.toFixed(2);
+        displayElement.textContent = `${formattedPercentage} %`;
+        hiddenInput.value = formattedPercentage;
+    };
+
+    // --- Add event listeners to board dropdowns ---
+    board10Select.addEventListener('change', () => handleOtherBoard(board10Select, otherBoard10Container, otherBoard10Input));
+    board12Select.addEventListener('change', () => handleOtherBoard(board12Select, otherBoard12Container, otherBoard12Input));
+
+    // --- Add event listeners for automatic percentage calculation ---
+    marks10Input.addEventListener('input', () => updatePercentage(marks10Input, totalMarks10Input, displayPercentage10, hiddenPercentage10));
+    totalMarks10Input.addEventListener('input', () => updatePercentage(marks10Input, totalMarks10Input, displayPercentage10, hiddenPercentage10));
+    marks12Input.addEventListener('input', () => updatePercentage(marks12Input, totalMarks12Input, displayPercentage12, hiddenPercentage12));
+    totalMarks12Input.addEventListener('input', () => updatePercentage(marks12Input, totalMarks12Input, displayPercentage12, hiddenPercentage12));
 
     // --- Pre-fill form with existing data ---
-    // This is the key part that ensures data is shown on "Edit"
     if (studentData) {
+        // Handle standard fields first
         Object.keys(studentData).forEach(key => {
+            // Skip board fields, we'll handle them separately
+            if (key === 'board10' || key === 'board12' || key === 'percentage10' || key === 'percentage12') return;
+
             const input = academicForm.querySelector(`[name="${key}"]`);
-            if (input && studentData[key]) { // Check if studentData[key] is not null/undefined
+            if (input && studentData[key]) {
                 input.value = studentData[key];
             }
         });
+
+        // Special handling for board10
+        if (studentData.board10) {
+            const optionExists = Array.from(board10Select.options).some(opt => opt.value === studentData.board10);
+            if (optionExists) {
+                board10Select.value = studentData.board10;
+            } else {
+                board10Select.value = 'Other';
+                otherBoard10Input.value = studentData.board10;
+            }
+            // Trigger the change handler to show/hide the 'other' field if necessary
+            handleOtherBoard(board10Select, otherBoard10Container, otherBoard10Input);
+        }
+
+        // Special handling for board12
+        if (studentData.board12) {
+            const optionExists = Array.from(board12Select.options).some(opt => opt.value === studentData.board12);
+            if (optionExists) {
+                board12Select.value = studentData.board12;
+            } else {
+                board12Select.value = 'Other';
+                otherBoard12Input.value = studentData.board12;
+            }
+            // Trigger the change handler to show/hide the 'other' field if necessary
+            handleOtherBoard(board12Select, otherBoard12Container, otherBoard12Input);
+        }
+
+        // Trigger initial percentage calculation if data is pre-filled
+        updatePercentage(marks10Input, totalMarks10Input, displayPercentage10, hiddenPercentage10);
+        updatePercentage(marks12Input, totalMarks12Input, displayPercentage12, hiddenPercentage12);
     }
 
     academicForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
+        // Re-run validation to set custom validity messages
+        updatePercentage(marks10Input, totalMarks10Input, displayPercentage10, hiddenPercentage10);
+        updatePercentage(marks12Input, totalMarks12Input, displayPercentage12, hiddenPercentage12);
+
+        // Check if the form is valid (including our custom validity)
+        if (!academicForm.checkValidity()) {
+            // Create a temporary submit button to trigger the browser's validation UI
+            const tempSubmit = document.createElement('button');
+            tempSubmit.type = 'submit';
+            tempSubmit.style.display = 'none';
+            academicForm.appendChild(tempSubmit);
+            tempSubmit.click();
+            academicForm.removeChild(tempSubmit);
+            return; // Stop the async submission
+        }
+
         const formData = new FormData(academicForm);
         const academicData = Object.fromEntries(formData.entries());
+
+        // Consolidate 'Other' board values before sending to server
+        if (academicData.board10 === 'Other') {
+            academicData.board10 = academicData.otherBoard10;
+        }
+        delete academicData.otherBoard10;
+
+        if (academicData.board12 === 'Other') {
+            academicData.board12 = academicData.otherBoard12;
+        }
+        delete academicData.otherBoard12;
+
         academicData.rollNumber = studentData.rollNumber; // Ensure roll number is included
 
         try {
@@ -58,4 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(`Error: ${error.message}`);
         }
     });
+    };
+
+    // Run the server status check first, then initialize the page logic.
+    checkServerStatus().then(initializePage);
 });

@@ -13,6 +13,18 @@
         }
     </script>
     <style>
+        .form-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        .form-actions .submit-btn,
+        .form-actions .back-btn {
+            flex: 1;
+            width: auto;
+            margin-top: 0;
+        }
         .radio-group-container {
             display: grid;
             /* Create responsive columns: as many 300px columns as fit, otherwise wrap */
@@ -69,13 +81,16 @@
     <main class="login-main">
         <div class="welcome-container">
             <form id="courseSelectionForm" class="login-form">
-                <h3>Step 3: Select Your Course</h3>
-                <p>Please select your desired Honours Subject to proceed with the application.</p>
+                <h3>Step 3: Select Your Subjects</h3>
+                <p>Please select up to three desired subjects to proceed with the application.</p>
                 <div class="form-group">
-                    <label>Honours Subject</label>
+                    <label>Available Subjects (Select up to 3)</label>
                     <div id="honsSubjectContainer" class="radio-group-container"></div>
                 </div>
-                <button type="submit" class="submit-btn">Save and Go to Home</button>
+                <div class="form-actions">
+                    <a href="home.html" class="back-btn">Back to Home</a>
+                    <button type="submit" class="submit-btn">Save Selection</button>
+                </div>
             </form>
         </div>
     </main>

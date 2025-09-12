@@ -1,16 +1,12 @@
-// This script should be included in course-selection.html
+// This script is included in course-selection.html
 
-// --- Immediate Security Check ---
-if (!sessionStorage.getItem('currentStudent')) {
-    window.location.replace('login.html');
-}
-
-// Also check if previous steps have been filled first
-const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
-if (!studentData || !studentData.board10) {
-    alert('Please complete your Academic Details first.');
-    window.location.href = 'home.html';
-}
+// This listener handles scenarios where a page is restored from the browser's
+// back-forward cache (bfcache) after a logout, ensuring the user is redirected.
+window.addEventListener('pageshow', (event) => {
+    if (!sessionStorage.getItem('currentStudent')) {
+        window.location.replace('login.html');
+    }
+});
 
 // --- Course Data with Fees ---
 // In a real application, this would likely come from a server API call.
@@ -30,67 +26,131 @@ const COURSES = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    const courseForm = document.getElementById('courseSelectionForm');
-    const honsSubjectContainer = document.getElementById('honsSubjectContainer');
+    // This function checks if the server has restarted since the user logged in.
+    // If so, it logs the user out for security.
+    const checkServerStatus = async () => {
+        const loginTimeString = sessionStorage.getItem('loginTime');
+        if (!loginTimeString) return; // Can't check if we don't know when we logged in
 
-    if (!courseForm || !honsSubjectContainer) {
-        console.error('The required form or container element was not found.');
-        return;
-    }
+        try {
+            const response = await fetch('/api/status');
+            if (!response.ok) return; // Don't logout if status check fails
 
-    // --- Dynamically populate the course list with radio buttons ---
-    Object.keys(COURSES).forEach(key => {
-        const course = COURSES[key];
-        const radioId = `course-${key.replace(/\s+/g, '-')}`;
+            const data = await response.json();
+            const serverStartTime = new Date(data.serverStartTime);
+            const loginTime = new Date(loginTimeString);
 
-        const radioWrapper = document.createElement('label');
-        radioWrapper.className = 'radio-option';
-        radioWrapper.htmlFor = radioId;
-
-        const radioInput = document.createElement('input');
-        radioInput.type = 'radio';
-        radioInput.name = 'honsSubject';
-        radioInput.value = key;
-        radioInput.id = radioId;
-        radioInput.required = true;
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'course-name';
-        nameSpan.textContent = course.name;
-
-        const feeSpan = document.createElement('span');
-        feeSpan.className = 'course-fee';
-        feeSpan.textContent = `₹${(course.fee / 100).toLocaleString('en-IN')}`;
-
-        radioWrapper.appendChild(radioInput);
-        radioWrapper.appendChild(nameSpan);
-        radioWrapper.appendChild(feeSpan);
-
-        honsSubjectContainer.appendChild(radioWrapper);
-    });
-
-    // --- Highlight selected option ---
-    honsSubjectContainer.addEventListener('change', (event) => {
-        if (event.target.name === 'honsSubject') {
-            honsSubjectContainer.querySelectorAll('.radio-option').forEach(label => {
-                label.classList.remove('selected');
-            });
-            event.target.closest('.radio-option').classList.add('selected');
+            if (serverStartTime > loginTime) {
+                alert('The server has been updated. Please log in again for security.');
+                sessionStorage.clear();
+                window.location.replace('login.html');
+            }
+        } catch (error) {
+            console.warn('Could not check server status:', error);
         }
-    });
+    };
 
-    courseForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-        const selectedRadio = courseForm.querySelector('input[name="honsSubject"]:checked');
-        if (!selectedRadio) {
-            alert('Please select an Honours Subject.');
+    // This function contains the main logic for setting up the page.
+    const initializePage = () => {
+        // Also check if previous steps have been filled first
+        const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
+        if (!studentData || !studentData.board10) {
+            alert('Please complete your Academic Details first.');
+            window.location.href = 'home.html';
+            return; // Stop execution if prerequisites are not met
+        }
+
+        const courseForm = document.getElementById('courseSelectionForm');
+        const honsSubjectContainer = document.getElementById('honsSubjectContainer');
+
+        if (!courseForm || !honsSubjectContainer) {
+            console.error('The required form or container element was not found.');
             return;
         }
-        const selectedKey = selectedRadio.value;
-        const selectedCourseData = COURSES[selectedKey];
-        const selectedCourse = { level: "Undergraduate", branch: selectedCourseData.name, honsSubject: selectedKey, amount: selectedCourseData.fee };
-        sessionStorage.setItem('selectedCourse', JSON.stringify(selectedCourse));
-        alert('Course selection saved. You will now be returned to the home page to proceed.');
-        window.location.href = 'home.html';
-    });
+
+        // --- Dynamically populate the course list with checkboxes ---
+        Object.keys(COURSES).forEach(key => {
+            const course = COURSES[key];
+            const checkId = `course-${key.replace(/\s+/g, '-')}`;
+
+            const checkWrapper = document.createElement('label');
+            checkWrapper.className = 'radio-option';
+            checkWrapper.htmlFor = checkId;
+
+            const checkInput = document.createElement('input');
+            checkInput.type = 'checkbox';
+            checkInput.name = 'subjects';
+            checkInput.value = key;
+            checkInput.id = checkId;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'course-name';
+            nameSpan.textContent = course.name;
+
+            const feeSpan = document.createElement('span');
+            feeSpan.className = 'course-fee';
+            feeSpan.textContent = `₹${(course.fee / 100).toLocaleString('en-IN')}`;
+
+            checkWrapper.appendChild(checkInput);
+            checkWrapper.appendChild(nameSpan);
+            checkWrapper.appendChild(feeSpan);
+
+            honsSubjectContainer.appendChild(checkWrapper);
+        });
+
+        // --- Handle selection limit and highlighting ---
+        honsSubjectContainer.addEventListener('change', (event) => {
+            if (event.target.type === 'checkbox') {
+                const selectedCheckboxes = honsSubjectContainer.querySelectorAll('input[type="checkbox"]:checked');
+
+                // Enforce selection limit
+                if (selectedCheckboxes.length > 3) {
+                    alert('You can select a maximum of three subjects.');
+                    event.target.checked = false; // Revert the last selection
+                    return;
+                }
+
+                // Toggle 'selected' class for highlighting
+                const parentLabel = event.target.closest('.radio-option');
+                if (event.target.checked) {
+                    parentLabel.classList.add('selected');
+                } else {
+                    parentLabel.classList.remove('selected');
+                }
+            }
+        });
+
+        courseForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const selectedCheckboxes = courseForm.querySelectorAll('input[name="subjects"]:checked');
+            if (selectedCheckboxes.length === 0) {
+                alert('Please select at least one subject.');
+                return;
+            }
+
+            const selectedSubjects = [];
+            let totalFee = 0;
+
+            selectedCheckboxes.forEach(checkbox => {
+                const key = checkbox.value;
+                const courseData = COURSES[key];
+                selectedSubjects.push(courseData.name);
+                totalFee += courseData.fee;
+            });
+
+            const selectionData = {
+                level: "Undergraduate",
+                branch: selectedSubjects.join(', '), // For display on preview page
+                honsSubject: selectedSubjects, // Array of subjects for potential future use
+                amount: totalFee
+            };
+
+            sessionStorage.setItem('selectedCourse', JSON.stringify(selectionData));
+            alert('Course selection saved. You will now be returned to the home page to proceed.');
+            window.location.href = 'home.html';
+        });
+    };
+
+    // Run the server status check first, then initialize the page logic.
+    checkServerStatus().then(initializePage);
 });

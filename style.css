@@ -251,6 +251,7 @@ main {
     font-weight: 700;
     cursor: pointer;
     transition: background-color 0.3s, transform 0.2s;
+    text-align: center;
 }
 .back-btn:hover {
     background-color: var(--btn-secondary-hover-bg);
@@ -332,18 +333,9 @@ main {
     background-color: var(--readonly-bg);
 }
 
-/* Captcha Group Styling */
-.captcha-wrapper {
-    display: flex;
-    align-items: stretch;
-    gap: 1rem;
-}
-
 .captcha-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
+    position: relative;
+    margin-bottom: 0.75rem; /* Space between captcha image and input box */
 }
 
 .captcha-display {
@@ -357,6 +349,10 @@ main {
     font-size: 1.5rem;
     border-radius: 6px; /* Match other inputs */
     color: var(--text-color); /* Explicitly set color */
+    display: block;
+    width: 100%;
+    text-align: center;
+    padding-right: 50px; /* Add space for the reload button */
 }
 
 .reload-btn {
@@ -366,11 +362,10 @@ main {
     cursor: pointer;
     color: var(--text-color); /* Make it theme-aware */
     padding: 0;
-}
-
-.captcha-wrapper input {
-    width: auto;
-    flex-grow: 1;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 /* DOB Group */

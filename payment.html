@@ -14,6 +14,20 @@
             window.location.replace('home.html');
         }
     </script>
+    <style>
+        .form-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        .form-actions .submit-btn,
+        .form-actions .back-btn {
+            flex: 1;
+            width: auto;
+            margin-top: 0;
+        }
+    </style>
 </head>
 <body>
     <header class="main-header">
@@ -54,8 +68,10 @@
                 </div>
             </div>
 
-            <button id="payNowBtn" class="submit-btn">Pay Now</button>
-            <a href="home.html" class="back-btn" style="text-align: center; margin-top: 1rem;">Back to Home</a>
+            <div class="form-actions">
+                <a href="home.html" class="back-btn">Back to Home</a>
+                <button id="payNowBtn" class="submit-btn">Pay Now</button>
+            </div>
         </div>
     </main>
 
