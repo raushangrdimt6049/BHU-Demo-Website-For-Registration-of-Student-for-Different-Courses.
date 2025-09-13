@@ -13,6 +13,11 @@
         }
     </script>
     <style>
+        /* Ensure header scrolls with the page and doesn't overlap content */
+        .main-header {
+            position: static; /* Overrides potential 'fixed' or 'sticky' from style.css */
+        }
+
         /* Re-using preview styles for consistency */
         .preview-section { margin-bottom: 2rem; border-bottom: 1px solid var(--input-border); padding-bottom: 1rem; }
         .preview-section h4 { font-size: 1.5rem; color: var(--btn-bg); margin-bottom: 1.5rem; border-bottom: 2px solid var(--btn-bg); padding-bottom: 0.5rem; }
@@ -26,7 +31,8 @@
         .summary-actions .submit-btn:hover { background-color: var(--btn-success-hover-bg); }
         @media print {
             body, main, .details-container { margin: 0; padding: 0; box-shadow: none; }
-            .main-header, .summary-actions, #themeToggleBtn { display: none; }
+            /* Hide buttons but keep the header for printing */
+            .summary-actions, #themeToggleBtn { display: none; }
             .details-container { max-width: 100%; border: none; }
         }
     </style>

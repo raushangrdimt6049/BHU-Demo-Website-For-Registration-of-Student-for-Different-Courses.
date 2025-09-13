@@ -4,6 +4,7 @@ const xlsx = require('xlsx');
 const multer = require('multer');
 const fs = require('fs');
 const nodemailer = require('nodemailer'); // Import nodemailer
+const bcrypt = require('bcrypt');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const path = require('path');
@@ -11,6 +12,9 @@ require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
 const port = 3000;
+
+// --- Security Constants ---
+const saltRounds = 10; // For bcrypt password hashing
 
 // Store server start time
 const serverStartTime = new Date();
@@ -129,7 +133,7 @@ const excelFilePath = path.join(__dirname, 'students.xlsx');
 const sheetName = 'Registrations';
 
 // POST endpoint to handle registration data
-app.post('/register', jsonParser, (req, res) => {
+app.post('/register', jsonParser, async (req, res) => {
     console.log("Received a request at /register endpoint.");
     const studentData = req.body;
     studentData.profilePicture = ''; // Add an empty profile picture field for new users
@@ -182,6 +186,10 @@ app.post('/register', jsonParser, (req, res) => {
         }
         studentData.rollNumber = newRollNumber;
         studentData.enrollmentNumber = generateEnrollmentNumber();
+
+        // --- Password Hashing ---
+        // Never store passwords in plain text. Hash them before saving.
+        studentData.password = await bcrypt.hash(studentData.password, saltRounds);
 
         // Append the new student data to the worksheet
         xlsx.utils.sheet_add_json(worksheet, [studentData], {
@@ -300,7 +308,7 @@ app.post('/update', upload.single('profilePicture'), (req, res) => {
 });
 
 // POST endpoint to handle login
-app.post('/login', jsonParser, (req, res) => {
+app.post('/login', jsonParser, async (req, res) => {
     console.log("Received a request at /login endpoint.");
     const { loginIdentifier, password } = req.body;
     console.log(`Login attempt for identifier: ${loginIdentifier}`);
@@ -327,11 +335,15 @@ app.post('/login', jsonParser, (req, res) => {
             return res.status(401).json({ message: 'Email or Mobile Number not found.' });
         }
 
-        // Check if the password matches
-        if (String(student.password) !== String(password)) {
+        // --- Password Verification ---
+        // Compare the provided password with the stored hash.
+        const isPasswordMatch = await bcrypt.compare(password, student.password);
+        if (!isPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect password.' });
         }
 
+        // For security, do not send the password hash back to the client.
+        delete student.password;
         res.status(200).json({ message: 'Login successful', studentData: student });
     } catch (error) {
         console.error('Error during login:', error);
@@ -340,7 +352,7 @@ app.post('/login', jsonParser, (req, res) => {
 });
 
 // POST endpoint to handle password change from home page
-app.post('/change-password', jsonParser, (req, res) => {
+app.post('/change-password', jsonParser, async (req, res) => {
     console.log("Received a request at /change-password endpoint.");
     const { rollNumber, currentPassword, newPassword } = req.body;
 
@@ -355,32 +367,26 @@ app.post('/change-password', jsonParser, (req, res) => {
             return res.status(404).json({ message: 'Registration sheet not found.' });
         }
         const students = xlsx.utils.sheet_to_json(worksheet);
-        let studentFound = false;
-        let passwordIncorrect = false;
-        const updatedStudents = students.map(student => {
-            if (String(student.rollNumber) === String(rollNumber)) {
-                studentFound = true;
-                // Verify current password
-                if (String(student.password) !== String(currentPassword)) {
-                    passwordIncorrect = true;
-                    return student; // Return original student data without changes
-                }
-                // Update to the new password
-                student.password = newPassword;
-            }
-            return student;
-        });
+        
+        const studentIndex = students.findIndex(s => String(s.rollNumber) === String(rollNumber));
 
-        if (!studentFound) {
+        if (studentIndex === -1) {
             return res.status(404).json({ message: 'Student not found.' });
         }
 
-        if (passwordIncorrect) {
+        const student = students[studentIndex];
+
+        // Verify current password
+        const isPasswordMatch = await bcrypt.compare(currentPassword, student.password);
+        if (!isPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect current password.' });
         }
 
+        // Hash and update to the new password
+        students[studentIndex].password = await bcrypt.hash(newPassword, saltRounds);
+
         // Use a consistent header order to prevent column scrambling
-        const newWorksheet = xlsx.utils.json_to_sheet(updatedStudents, { header: ALL_STUDENT_HEADERS });
+        const newWorksheet = xlsx.utils.json_to_sheet(students, { header: ALL_STUDENT_HEADERS });
         workbook.Sheets[sheetName] = newWorksheet;
         xlsx.writeFile(workbook, excelFilePath);
 
@@ -392,7 +398,7 @@ app.post('/change-password', jsonParser, (req, res) => {
 });
 
 // POST endpoint to handle password reset
-app.post('/reset-password', jsonParser, (req, res) => {
+app.post('/reset-password', jsonParser, async (req, res) => {
     console.log("Received a request at /reset-password endpoint.");
     const { identifier, securityQuestion, securityAnswer, newPassword } = req.body;
     console.log(`Password reset attempt for identifier: ${identifier}`);
@@ -420,8 +426,9 @@ app.post('/reset-password', jsonParser, (req, res) => {
             return res.status(401).json({ message: 'Invalid identifier, security question, or answer.' });
         }
 
-        // Update the password
-        student.password = newPassword;
+        // --- Password Hashing ---
+        // Hash the new password before saving it.
+        student.password = await bcrypt.hash(newPassword, saltRounds);
 
         // Create a new worksheet with the updated data and replace the old one
         // Use a consistent header order to prevent column scrambling
