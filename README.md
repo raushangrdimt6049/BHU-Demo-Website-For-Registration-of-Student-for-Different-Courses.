@@ -3,6 +3,7 @@ BHU Demo Website For Registration of Student for Different Courses.
 
 Based on the files provided, the project is a web application designed to handle the entire student registration and application process, from creating an account to making a payment.
 Here is a breakdown of how it's made, step-by-step:
+
 Step 1: The Foundation - Technology Stack
 The project is built using a combination of standard web technologies:
 •	Frontend (Client-Side): This is what the user sees and interacts with in their web browser.
@@ -11,6 +12,8 @@ o	CSS: Styles the pages to make them look professional and user-friendly (style.
 o	JavaScript (Vanilla JS): This is the "brain" of the frontend. It handles all the user interactions, like form validation, showing/hiding elements, and communicating with the backend. Key files include home.js, login.js, script.js, etc.
 •	Backend (Server-Side): This runs on a server and handles the "behind-the-scenes" logic.
 o	Node.js: A JavaScript runtime that allows JavaScript to be run outside of a browser.
+
+
 o	Express.js: A framework for Node.js that makes it much easier to build a web server and define API endpoints (like /login, /register, /update). This is all managed in the server.js file.
 •	Data Storage:
 o	Excel File (students.xlsx): Instead of a traditional database (like MySQL or MongoDB), this project cleverly uses an Excel file as its database. The xlsx library in Node.js is used to read from and write to this file, storing all student and payment data.
