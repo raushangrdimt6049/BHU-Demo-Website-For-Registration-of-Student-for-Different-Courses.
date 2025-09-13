@@ -1,10 +1,10 @@
 const express = require('express');
 const cors = require('cors');
-const xlsx = require('xlsx');
 const multer = require('multer');
 const fs = require('fs');
 const nodemailer = require('nodemailer'); // Import nodemailer
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
+const { Pool } = require('pg');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const path = require('path');
@@ -19,13 +19,18 @@ const saltRounds = 10; // For bcrypt password hashing
 // Store server start time
 const serverStartTime = new Date();
 
-// Define a single source of truth for student data headers to ensure consistency.
-const ALL_STUDENT_HEADERS = ['name', 'email', 'rollNumber', 'enrollmentNumber', 'dob', 'age', 'gender', 'mobileNumber', 'password', 'securityQuestion', 'securityAnswer', 'profilePicture', 'addressLine1', 'addressLine2', 'city', 'state', 'pincode', 'fatherName', 'fatherOccupation', 'motherName', 'motherOccupation', 'parentMobile', 'board10', 'percentage10', 'year10', 'board12', 'percentage12', 'year12', 'selectedCourse'];
-
 // Middleware
 app.use(cors()); // Allow requests from the frontend
 // Create a JSON parser middleware instance. We will apply it to specific routes.
 const jsonParser = express.json();
+
+// --- PostgreSQL Pool Setup ---
+// The pool will use connection information from the environment variables.
+// On Render, DATABASE_URL is automatically set for your web service.
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false } // Required for Render's internal connections
+});
 
 // --- Razorpay Instance ---
 // IMPORTANT: Replace with your actual Razorpay Key ID and Key Secret from your dashboard.
@@ -98,114 +103,83 @@ app.get('/api/status', (req, res) => {
 });
 
 // New endpoint to check for email existence
-app.post('/check-email', jsonParser, (req, res) => {
+app.post('/check-email', jsonParser, async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
         return res.status(400).json({ message: 'Email is required.' });
     }
 
-    if (!fs.existsSync(excelFilePath)) {
-        // If the file doesn't exist, no emails are registered yet.
-        return res.json({ exists: false });
-    }
-
     try {
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[sheetName];
-        if (!worksheet) {
-            return res.json({ exists: false });
-        }
-        const students = xlsx.utils.sheet_to_json(worksheet);
-
-        const existingStudent = students.find(s => String(s.email).toLowerCase() === String(email).toLowerCase());
-
-        res.json({ exists: !!existingStudent });
-
+        const { rows } = await pool.query('SELECT email FROM students WHERE email = $1', [email.toLowerCase()]);
+        res.json({ exists: rows.length > 0 });
     } catch (error) {
         console.error('Error checking email:', error);
         res.status(500).json({ message: 'Server error while checking email.' });
     }
 });
 
-
-const excelFilePath = path.join(__dirname, 'students.xlsx');
-const sheetName = 'Registrations';
-
 // POST endpoint to handle registration data
 app.post('/register', jsonParser, async (req, res) => {
     console.log("Received a request at /register endpoint.");
-    const studentData = req.body;
-    studentData.profilePicture = ''; // Add an empty profile picture field for new users
-    console.log('Received registration data:', studentData);
+    const { name, email, dob, password, securityQuestion, securityAnswer, mobileNumber, gender } = req.body;
+    console.log('Received registration data for email:', email);
 
     try {
-        let workbook;
-        let worksheet;
-        let students = []; // Initialize students array
-
-        // Check if the Excel file exists
-        if (fs.existsSync(excelFilePath)) {
-            // If it exists, read it
-            workbook = xlsx.readFile(excelFilePath);
-            worksheet = workbook.Sheets[sheetName];
-            
-            if (worksheet) {
-                students = xlsx.utils.sheet_to_json(worksheet);
-                // Check for duplicate Email or Mobile Number
-                const existingStudentByEmail = students.find(s => String(s.email).toLowerCase() === String(studentData.email).toLowerCase());
-                if (existingStudentByEmail) {
-                    return res.status(409).json({ message: `Email ${studentData.email} is already registered.` });
-                }
-                const existingStudentByMobile = students.find(s => String(s.mobileNumber) === String(studentData.mobileNumber));
-                if (existingStudentByMobile) {
-                    return res.status(409).json({ message: `Mobile Number ${studentData.mobileNumber} is already registered.` });
-                }
+        // 1. Check if user already exists
+        const userCheck = await pool.query('SELECT email, mobilenumber FROM students WHERE email = $1 OR mobilenumber = $2', [email.toLowerCase(), mobileNumber]);
+        if (userCheck.rows.length > 0) {
+            const existing = userCheck.rows[0];
+            if (existing.email === email.toLowerCase()) {
+                return res.status(409).json({ message: `Email ${email} is already registered.` });
             }
-        } else {
-            // If it doesn't exist, create a new workbook and worksheet with headers
-            workbook = xlsx.utils.book_new();
-            worksheet = xlsx.utils.json_to_sheet([], { header: ALL_STUDENT_HEADERS });
-            xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
-        }
-
-        // Note: The Roll Number and Enrollment Number are not submitted by the client during registration.
-        // They are generated here on the server to ensure uniqueness and proper formatting.
-        // Any 'rollNumber' field sent from the client would be overwritten here.
-
-        // Generate a unique Roll Number
-        let newRollNumber;
-        let isUnique = false;
-        while (!isUnique) {
-            newRollNumber = generateRollNumber();
-            // Check against the students list to ensure uniqueness
-            const existingStudent = students.find(s => String(s.rollNumber) === String(newRollNumber));
-            if (!existingStudent) {
-                isUnique = true;
+            if (existing.mobilenumber === mobileNumber) {
+                return res.status(409).json({ message: `Mobile Number ${mobileNumber} is already registered.` });
             }
         }
-        studentData.rollNumber = newRollNumber;
-        studentData.enrollmentNumber = generateEnrollmentNumber();
+
+        // 2. Generate unique IDs
+        const enrollmentNumber = generateEnrollmentNumber();
+        const rollNumber = generateRollNumber(); // Assuming these are sufficiently unique for now
 
         // --- Password Hashing ---
-        // Never store passwords in plain text. Hash them before saving.
-        studentData.password = await bcrypt.hash(studentData.password, saltRounds);
+        const passwordHash = await bcrypt.hash(password, saltRounds);
 
-        // Append the new student data to the worksheet
-        xlsx.utils.sheet_add_json(worksheet, [studentData], {
-            skipHeader: true, // Don't add headers again
-            origin: -1,       // Append to the end of the sheet
-            header: ALL_STUDENT_HEADERS   // Ensure consistent column order
-        });
+        // 4. Insert the new user into the database
+        // Note: Column names are lowercase as PostgreSQL folds unquoted identifiers to lowercase.
+        const newUserQuery = `
+            INSERT INTO students(enrollmentnumber, rollnumber, name, email, passwordhash, dob, mobilenumber, gender, securityquestion, securityanswer)
+            VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            RETURNING *;
+        `;
+        const values = [enrollmentNumber, rollNumber, name, email.toLowerCase(), passwordHash, dob, mobileNumber, gender, securityQuestion, securityAnswer];
+        
+        const { rows } = await pool.query(newUserQuery, values);
+        const newStudent = rows[0];
 
-        // Write the updated workbook back to the file
-        xlsx.writeFile(workbook, excelFilePath);
+        // IMPORTANT: Never send the password hash back to the client!
+        delete newStudent.passwordhash;
 
-        console.log('Data successfully written to students.xlsx');
-        sendWelcomeEmail(studentData.email, studentData.name); // Send welcome email
-        res.status(200).json({ message: 'Registration successful and data saved.', studentData: studentData });
+        console.log('Data successfully written to database for roll number:', newStudent.rollnumber);
+        sendWelcomeEmail(newStudent.email, newStudent.name); // Send welcome email
+
+        // Map DB columns (lowercase) to JS-friendly camelCase for the client
+        const clientSafeStudentData = {
+            enrollmentNumber: newStudent.enrollmentnumber,
+            rollNumber: newStudent.rollnumber,
+            name: newStudent.name,
+            email: newStudent.email,
+            dob: newStudent.dob,
+            mobileNumber: newStudent.mobilenumber,
+            gender: newStudent.gender,
+            securityQuestion: newStudent.securityquestion,
+            securityAnswer: newStudent.securityanswer
+            // Add other fields as needed
+        };
+
+        res.status(201).json({ message: 'Registration successful!', studentData: clientSafeStudentData });
     } catch (error) {
-        console.error('Error writing to Excel file:', error);
+        console.error('Error during registration:', error);
         res.status(500).json({ message: 'Failed to save data to the server.' });
     }
 });
@@ -235,12 +209,12 @@ async function sendWelcomeEmail(toEmail, studentName) {
 }
 
 // POST endpoint to handle updating registration data
-app.post('/update', upload.single('profilePicture'), (req, res) => {
+app.post('/update', upload.single('profilePicture'), async (req, res) => {
     console.log("Received a request at /update endpoint.");
     const updatedStudentData = req.body;
     console.log('Received update for roll number:', updatedStudentData.rollNumber);
 
-    // If a file was uploaded, add its path to the data to be saved
+    let profilePictureUrl = null;
     if (req.file) {
         const rollNumber = updatedStudentData.rollNumber;
         if (!rollNumber) {
@@ -255,54 +229,49 @@ app.post('/update', upload.single('profilePicture'), (req, res) => {
 
         try {
             fs.renameSync(req.file.path, newPath);
-            // Save the web-compatible path to the student data
-            updatedStudentData.profilePicture = newPath.replace(/\\/g, "/");
-            console.log('Profile picture renamed and saved to:', updatedStudentData.profilePicture);
+            profilePictureUrl = newPath.replace(/\\/g, "/");
+            console.log('Profile picture renamed and saved to:', profilePictureUrl);
         } catch (renameError) {
             console.error('Error renaming uploaded file:', renameError);
             fs.unlinkSync(req.file.path); // Clean up temp file
             return res.status(500).json({ message: 'Could not process file upload.' });
         }
     }
-
-    if (!fs.existsSync(excelFilePath)) {
-        return res.status(404).json({ message: 'Excel file not found. Cannot update.' });
-    }
-
+    
     try {
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[sheetName];
-        const students = xlsx.utils.sheet_to_json(worksheet);
+        const { rollNumber, name, email, dob, gender, mobileNumber } = updatedStudentData;
 
-        // Find the student and update their data
-        let studentFound = false;
-        const updatedStudents = students.map(student => {
-            // Convert both to string for reliable comparison
-            if (String(student.rollNumber) === String(updatedStudentData.rollNumber)) {
-                studentFound = true;
-                // Merge existing student data with new data from the form
-                return { ...student, ...updatedStudentData };
-            }
-            return student;
-        });
+        // Dynamically build the update query to only change provided fields
+        const updateFields = [];
+        const values = [];
+        let paramIndex = 1;
 
-        if (!studentFound) {
+        if (name) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
+        if (email) { updateFields.push(`email = $${paramIndex++}`); values.push(email); }
+        if (dob) { updateFields.push(`dob = $${paramIndex++}`); values.push(dob); }
+        if (gender) { updateFields.push(`gender = $${paramIndex++}`); values.push(gender); }
+        if (mobileNumber) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
+        if (profilePictureUrl) { updateFields.push(`profilepicture = $${paramIndex++}`); values.push(profilePictureUrl); }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({ message: 'No fields to update.' });
+        }
+
+        values.push(rollNumber);
+        const query = `UPDATE students SET ${updateFields.join(', ')}, updatedat = CURRENT_TIMESTAMP WHERE rollnumber = $${paramIndex} RETURNING *`;
+
+        const { rows } = await pool.query(query, values);
+
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Student with that roll number not found.' });
         }
 
-        // Create a new worksheet with the updated data and replace the old one
-        // Ensure consistent header order
-        const newWorksheet = xlsx.utils.json_to_sheet(updatedStudents, { header: ALL_STUDENT_HEADERS });
-        workbook.Sheets[sheetName] = newWorksheet;
-
-        // Write the changes back to the file
-        xlsx.writeFile(workbook, excelFilePath);
-
-        const finalUpdatedStudent = updatedStudents.find(s => String(s.rollNumber) === String(updatedStudentData.rollNumber));
+        const finalUpdatedStudent = rows[0];
+        delete finalUpdatedStudent.passwordhash;
         console.log('Data successfully updated for roll number:', updatedStudentData.rollNumber);
-        res.status(200).json({ message: 'Update successful.', studentData: finalUpdatedStudent });
+        res.status(200).json({ message: 'Update successful.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
     } catch (error) {
-        console.error('Error updating Excel file:', error);
+        console.error('Error updating student data:', error);
         res.status(500).json({ message: 'Failed to update data on the server.' });
     }
 });
@@ -313,38 +282,28 @@ app.post('/login', jsonParser, async (req, res) => {
     const { loginIdentifier, password } = req.body;
     console.log(`Login attempt for identifier: ${loginIdentifier}`);
 
-    if (!fs.existsSync(excelFilePath)) {
-        return res.status(404).json({ message: 'No student data found. Please register first.' });
-    }
-
     try {
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[sheetName];
-        if (!worksheet) {
-            return res.status(404).json({ message: 'Registration sheet not found.' });
-        }
-        const students = xlsx.utils.sheet_to_json(worksheet);
+        const query = 'SELECT * FROM students WHERE email = $1 OR mobilenumber = $1';
+        const { rows } = await pool.query(query, [loginIdentifier.toLowerCase()]);
 
-        // Find the student by email OR mobile number
-        const student = students.find(s =>
-            (String(s.email).toLowerCase() === String(loginIdentifier).toLowerCase()) ||
-            (String(s.mobileNumber) === String(loginIdentifier))
-        );
-
-        if (!student) {
+        if (rows.length === 0) {
             return res.status(401).json({ message: 'Email or Mobile Number not found.' });
         }
 
+        const student = rows[0];
+
         // --- Password Verification ---
         // Compare the provided password with the stored hash.
-        const isPasswordMatch = await bcrypt.compare(password, student.password);
+        const isPasswordMatch = await bcrypt.compare(password, student.passwordhash);
         if (!isPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect password.' });
         }
 
         // For security, do not send the password hash back to the client.
-        delete student.password;
-        res.status(200).json({ message: 'Login successful', studentData: student });
+        delete student.passwordhash;
+
+        // Map DB fields to camelCase for frontend consistency
+        res.status(200).json({ message: 'Login successful', studentData: mapDbToCamelCase(student) });
     } catch (error) {
         console.error('Error during login:', error);
         res.status(500).json({ message: 'Server error during login.' });
@@ -356,39 +315,25 @@ app.post('/change-password', jsonParser, async (req, res) => {
     console.log("Received a request at /change-password endpoint.");
     const { rollNumber, currentPassword, newPassword } = req.body;
 
-    if (!fs.existsSync(excelFilePath)) {
-        return res.status(404).json({ message: 'No student data found.' });
-    }
-
     try {
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[sheetName];
-        if (!worksheet) {
-            return res.status(404).json({ message: 'Registration sheet not found.' });
-        }
-        const students = xlsx.utils.sheet_to_json(worksheet);
-        
-        const studentIndex = students.findIndex(s => String(s.rollNumber) === String(rollNumber));
+        // 1. Get the current password hash
+        const { rows } = await pool.query('SELECT passwordhash FROM students WHERE rollnumber = $1', [rollNumber]);
 
-        if (studentIndex === -1) {
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Student not found.' });
         }
 
-        const student = students[studentIndex];
+        const student = rows[0];
 
         // Verify current password
-        const isPasswordMatch = await bcrypt.compare(currentPassword, student.password);
+        const isPasswordMatch = await bcrypt.compare(currentPassword, student.passwordhash);
         if (!isPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect current password.' });
         }
 
-        // Hash and update to the new password
-        students[studentIndex].password = await bcrypt.hash(newPassword, saltRounds);
-
-        // Use a consistent header order to prevent column scrambling
-        const newWorksheet = xlsx.utils.json_to_sheet(students, { header: ALL_STUDENT_HEADERS });
-        workbook.Sheets[sheetName] = newWorksheet;
-        xlsx.writeFile(workbook, excelFilePath);
+        // 2. Hash and update to the new password
+        const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+        await pool.query('UPDATE students SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE rollnumber = $2', [newPasswordHash, rollNumber]);
 
         res.status(200).json({ message: 'Password changed successfully.' });
     } catch (error) {
@@ -403,42 +348,27 @@ app.post('/reset-password', jsonParser, async (req, res) => {
     const { identifier, securityQuestion, securityAnswer, newPassword } = req.body;
     console.log(`Password reset attempt for identifier: ${identifier}`);
 
-    if (!fs.existsSync(excelFilePath)) {
-        return res.status(404).json({ message: 'No student data found. Please register first.' });
-    }
-
     try {
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[sheetName];
-        if (!worksheet) {
-            return res.status(404).json({ message: 'Registration sheet not found.' });
+        const query = 'SELECT * FROM students WHERE (email = $1 OR mobilenumber = $1) AND securityquestion = $2';
+        const { rows } = await pool.query(query, [identifier.toLowerCase(), securityQuestion]);
+
+        if (rows.length === 0) {
+            return res.status(401).json({ message: 'Invalid identifier, security question, or answer.' });
         }
-        const students = xlsx.utils.sheet_to_json(worksheet);
 
-        // Find the student by email/mobile and security question/answer
-        const student = students.find(s =>
-            ((String(s.email).toLowerCase() === String(identifier).toLowerCase()) || (String(s.mobileNumber) === String(identifier))) &&
-            String(s.securityQuestion) === String(securityQuestion) &&
-            String(s.securityAnswer).toLowerCase() === String(securityAnswer).toLowerCase() // Case-insensitive answer check
-        );
-
-        if (!student) {
+        const student = rows[0];
+        // Case-insensitive answer check
+        if (student.securityanswer.toLowerCase() !== securityAnswer.toLowerCase()) {
             return res.status(401).json({ message: 'Invalid identifier, security question, or answer.' });
         }
 
         // --- Password Hashing ---
         // Hash the new password before saving it.
-        student.password = await bcrypt.hash(newPassword, saltRounds);
+        const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
-        // Create a new worksheet with the updated data and replace the old one
-        // Use a consistent header order to prevent column scrambling
-        const newWorksheet = xlsx.utils.json_to_sheet(students, { header: ALL_STUDENT_HEADERS });
-        workbook.Sheets[sheetName] = newWorksheet;
+        await pool.query('UPDATE students SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE rollnumber = $2', [newPasswordHash, student.rollnumber]);
 
-        // Write the changes back to the file
-        xlsx.writeFile(workbook, excelFilePath);
-
-        console.log('Password successfully reset for roll number:', student.rollNumber);
+        console.log('Password successfully reset for roll number:', student.rollnumber);
         res.status(200).json({ message: 'Password reset successful' });
 
     } catch (error) {
@@ -448,48 +378,32 @@ app.post('/reset-password', jsonParser, async (req, res) => {
 });
 
 // New endpoint to add academic details
-app.post('/add-academic-details', jsonParser, (req, res) => {
+app.post('/add-academic-details', jsonParser, async (req, res) => {
     console.log("Received a request at /add-academic-details endpoint.");
-    const academicData = req.body;
-    const rollNumber = academicData.rollNumber;
+    const { rollNumber, board10, percentage10, year10, board12, percentage12, year12 } = req.body;
 
     if (!rollNumber) {
         return res.status(400).json({ message: 'Roll Number is missing.' });
     }
 
-    if (!fs.existsSync(excelFilePath)) {
-        return res.status(404).json({ message: 'Data file not found. Cannot update.' });
-    }
-
     try {
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[sheetName];
-        if (!worksheet) {
-            return res.status(404).json({ message: 'Registrations sheet not found.' });
-        }
-        const students = xlsx.utils.sheet_to_json(worksheet);
+        const query = `
+            UPDATE students 
+            SET board10=$1, percentage10=$2, year10=$3, board12=$4, percentage12=$5, year12=$6, updatedat=CURRENT_TIMESTAMP
+            WHERE rollnumber = $7
+            RETURNING *;
+        `;
+        const values = [board10, percentage10, year10, board12, percentage12, year12, rollNumber];
+        const { rows } = await pool.query(query, values);
 
-        let studentFound = false;
-        const updatedStudents = students.map(student => {
-            if (String(student.rollNumber) === String(rollNumber)) {
-                studentFound = true;
-                return { ...student, ...academicData };
-            }
-            return student;
-        });
-
-        if (!studentFound) {
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Student not found.' });
         }
 
-        const newWorksheet = xlsx.utils.json_to_sheet(updatedStudents, { header: ALL_STUDENT_HEADERS });
-        workbook.Sheets[sheetName] = newWorksheet;
-        xlsx.writeFile(workbook, excelFilePath);
-
-        const finalUpdatedStudent = updatedStudents.find(s => String(s.rollNumber) === String(rollNumber));
+        const finalUpdatedStudent = rows[0];
+        delete finalUpdatedStudent.passwordhash;
         console.log('Academic details added for roll number:', rollNumber);
-        res.status(200).json({ message: 'Academic details saved successfully.', studentData: finalUpdatedStudent });
-
+        res.status(200).json({ message: 'Academic details saved successfully.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
     } catch (error) {
         console.error('Error updating academic details:', error);
         res.status(500).json({ message: 'Failed to save academic details on the server.' });
@@ -497,51 +411,32 @@ app.post('/add-academic-details', jsonParser, (req, res) => {
 });
 
 // New endpoint to add contact and parent details
-app.post('/add-contact-details', jsonParser, (req, res) => {
+app.post('/add-contact-details', jsonParser, async (req, res) => {
     console.log("Received a request at /add-contact-details endpoint.");
-    const contactData = req.body;
-    const rollNumber = contactData.rollNumber;
+    const { rollNumber, addressLine1, addressLine2, city, state, pincode, fatherName, fatherOccupation, motherName, motherOccupation, parentMobile } = req.body;
 
     if (!rollNumber) {
         return res.status(400).json({ message: 'Roll Number is missing.' });
     }
 
-    if (!fs.existsSync(excelFilePath)) {
-        return res.status(404).json({ message: 'Data file not found. Cannot update.' });
-    }
-
     try {
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[sheetName];
-        if (!worksheet) {
-            return res.status(404).json({ message: 'Registrations sheet not found.' });
-        }
-        const students = xlsx.utils.sheet_to_json(worksheet);
+        const query = `
+            UPDATE students 
+            SET addressline1=$1, addressline2=$2, city=$3, state=$4, pincode=$5, fathername=$6, fatheroccupation=$7, mothername=$8, motheroccupation=$9, parentmobile=$10, updatedat=CURRENT_TIMESTAMP
+            WHERE rollnumber = $11
+            RETURNING *;
+        `;
+        const values = [addressLine1, addressLine2, city, state, pincode, fatherName, fatherOccupation, motherName, motherOccupation, parentMobile, rollNumber];
+        const { rows } = await pool.query(query, values);
 
-        let studentFound = false;
-        const updatedStudents = students.map(student => {
-            if (String(student.rollNumber) === String(rollNumber)) {
-                studentFound = true;
-                // Merge new contact data into the existing student record
-                return { ...student, ...contactData };
-            }
-            return student;
-        });
-
-        if (!studentFound) {
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Student not found.' });
         }
 
-        // Define the complete, consistent header order
-        const newWorksheet = xlsx.utils.json_to_sheet(updatedStudents, { header: ALL_STUDENT_HEADERS });
-        workbook.Sheets[sheetName] = newWorksheet;
-
-        xlsx.writeFile(workbook, excelFilePath);
-
-        const finalUpdatedStudent = updatedStudents.find(s => String(s.rollNumber) === String(rollNumber));
+        const finalUpdatedStudent = rows[0];
+        delete finalUpdatedStudent.passwordhash;
         console.log('Contact details added for roll number:', rollNumber);
-        res.status(200).json({ message: 'Contact details saved successfully.', studentData: finalUpdatedStudent });
-
+        res.status(200).json({ message: 'Contact details saved successfully.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
     } catch (error) {
         console.error('Error updating contact details:', error);
         res.status(500).json({ message: 'Failed to save contact details on the server.' });
@@ -549,7 +444,7 @@ app.post('/add-contact-details', jsonParser, (req, res) => {
 });
 
 // New endpoint to save course selection (pre-payment)
-app.post('/add-course-selection', jsonParser, (req, res) => {
+app.post('/add-course-selection', jsonParser, async (req, res) => {
     console.log("Received a request at /add-course-selection endpoint.");
     const { rollNumber, selectionData } = req.body;
 
@@ -557,39 +452,23 @@ app.post('/add-course-selection', jsonParser, (req, res) => {
         return res.status(400).json({ message: 'Roll Number and selection data are required.' });
     }
 
-    if (!fs.existsSync(excelFilePath)) {
-        return res.status(404).json({ message: 'Data file not found. Cannot update.' });
-    }
-
     try {
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[sheetName];
-        if (!worksheet) {
-            return res.status(404).json({ message: 'Registrations sheet not found.' });
-        }
-        const students = xlsx.utils.sheet_to_json(worksheet);
+        const query = `
+            UPDATE students SET selectedcourse = $1, updatedat = CURRENT_TIMESTAMP 
+            WHERE rollnumber = $2 RETURNING *;
+        `;
+        const values = [JSON.stringify(selectionData), rollNumber];
+        const { rows } = await pool.query(query, values);
 
-        let studentFound = false;
-        const updatedStudents = students.map(student => {
-            if (String(student.rollNumber) === String(rollNumber)) {
-                studentFound = true;
-                // Save the selection data as a stringified JSON.
-                return { ...student, selectedCourse: JSON.stringify(selectionData) };
-            }
-            return student;
-        });
-
-        if (!studentFound) {
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Student not found.' });
         }
 
-        const newWorksheet = xlsx.utils.json_to_sheet(updatedStudents, { header: ALL_STUDENT_HEADERS });
-        workbook.Sheets[sheetName] = newWorksheet;
-        xlsx.writeFile(workbook, excelFilePath);
+        const finalUpdatedStudent = rows[0];
+        delete finalUpdatedStudent.passwordhash;
 
-        const finalUpdatedStudent = updatedStudents.find(s => String(s.rollNumber) === String(rollNumber));
         console.log('Course selection saved for roll number:', rollNumber);
-        res.status(200).json({ message: 'Course selection saved successfully.', studentData: finalUpdatedStudent });
+        res.status(200).json({ message: 'Course selection saved successfully.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
     } catch (error) {
         console.error('Error updating course selection:', error);
         res.status(500).json({ message: 'Failed to save course selection on the server.' });
@@ -621,7 +500,7 @@ app.post('/create-order', jsonParser, async (req, res) => {
 });
 
 // POST endpoint to verify payment signature
-app.post('/verify-payment', jsonParser, (req, res) => {
+app.post('/verify-payment', jsonParser, async (req, res) => {
     console.log("Received a request at /verify-payment endpoint.");
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, rollNumber, course } = req.body;
     const key_secret = razorpay.key_secret;
@@ -634,61 +513,48 @@ app.post('/verify-payment', jsonParser, (req, res) => {
     if (generated_signature === razorpay_signature) {
         console.log("Payment is successful and signature is valid.");
 
+        const client = await pool.connect();
         try {
-            const workbook = fs.existsSync(excelFilePath) ? xlsx.readFile(excelFilePath) : xlsx.utils.book_new();
-            
-            let updatedStudents = []; // Declare here to be accessible in the whole try block
+            await client.query('BEGIN');
+
             // --- Part 1: Save Payment History ---
-            let studentName = 'N/A';
-            if (workbook.Sheets[sheetName]) {
-                const students = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                const student = students.find(s => String(s.rollNumber) === String(rollNumber));
-                if (student) studentName = student.name;
-            }
+            const studentResult = await client.query('SELECT name FROM students WHERE rollnumber = $1', [rollNumber]);
+            const studentName = studentResult.rows.length > 0 ? studentResult.rows[0].name : 'N/A';
 
-            const paymentData = {
-                rollNumber, studentName, orderId: razorpay_order_id, paymentId: razorpay_payment_id,
-                amount: course.amount / 100, currency: 'INR', course: `${course.level} - ${course.branch}`,
-                paymentDate: new Date().toISOString()
-            };
-
-            const paymentSheetName = 'Payments';
-            const paymentHeaders = ['rollNumber', 'studentName', 'orderId', 'paymentId', 'amount', 'currency', 'course', 'paymentDate'];
-            let paymentWorksheet = workbook.Sheets[paymentSheetName];
-            if (!paymentWorksheet) {
-                paymentWorksheet = xlsx.utils.json_to_sheet([], { header: paymentHeaders });
-                xlsx.utils.book_append_sheet(workbook, paymentWorksheet, paymentSheetName);
-            }
-            xlsx.utils.sheet_add_json(paymentWorksheet, [paymentData], { skipHeader: true, origin: -1 });
+            const paymentQuery = `
+                INSERT INTO payments (paymentid, orderid, studentrollnumber, studentname, coursedetails, amount, currency, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+            `;
+            const paymentValues = [
+                razorpay_payment_id, razorpay_order_id, rollNumber, studentName,
+                `${course.level} - ${course.branch}`, course.amount / 100, 'INR', 'success'
+            ];
+            await client.query(paymentQuery, paymentValues);
 
             // --- Part 2: Update Student Record with Selected Course ---
-            if (workbook.Sheets[sheetName]) {
-                const students = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                updatedStudents = students.map(student => {
-                    if (String(student.rollNumber) === String(rollNumber)) {
-                        // Add a payment status flag to the course object before saving
-                        const courseWithStatus = { ...course, paymentStatus: 'paid' };
-                        // Store the updated course object as a JSON string
-                        return { ...student, selectedCourse: JSON.stringify(courseWithStatus) };
-                    }
-                    return student;
-                });
-                const newStudentSheet = xlsx.utils.json_to_sheet(updatedStudents, { header: ALL_STUDENT_HEADERS });
-                workbook.Sheets[sheetName] = newStudentSheet; // Replace the old sheet
-            }
+            const courseWithStatus = { ...course, paymentStatus: 'paid' };
+            const updateStudentQuery = `
+                UPDATE students 
+                SET selectedcourse = $1, updatedat = CURRENT_TIMESTAMP 
+                WHERE rollnumber = $2 
+                RETURNING *;
+            `;
+            const studentUpdateResult = await client.query(updateStudentQuery, [JSON.stringify(courseWithStatus), rollNumber]);
 
-            // --- Part 3: Write the updated workbook to file ---
-            xlsx.writeFile(workbook, excelFilePath);
+            await client.query('COMMIT');
+
             console.log('Payment history saved and student record updated for roll number:', rollNumber);
 
-            // Find the newly updated student data to return to the client
-            const finalUpdatedStudent = updatedStudents.find(s => String(s.rollNumber) === String(rollNumber));
-            const { password, ...studentDataWithoutPassword } = finalUpdatedStudent || {};
+            const finalUpdatedStudent = studentUpdateResult.rows[0];
+            delete finalUpdatedStudent.passwordhash;
 
-            res.json({ status: 'success', orderId: razorpay_order_id, studentData: studentDataWithoutPassword });
+            res.json({ status: 'success', orderId: razorpay_order_id, studentData: mapDbToCamelCase(finalUpdatedStudent) });
         } catch (error) {
+            await client.query('ROLLBACK');
             console.error('Error saving payment history:', error);
             res.status(500).json({ status: 'failure', message: 'Error saving payment details.' });
+        } finally {
+            client.release();
         }
     } else {
         console.error("Payment verification failed. Signature mismatch.");
@@ -696,57 +562,32 @@ app.post('/verify-payment', jsonParser, (req, res) => {
     }
 });
 
-app.get('/payment-history/:rollNumber', (req, res) => {
+app.get('/payment-history/:rollNumber', async (req, res) => {
     const { rollNumber } = req.params;
     console.log(`Fetching payment history for roll number: ${rollNumber}`);
 
-    if (!fs.existsSync(excelFilePath)) {
-        return res.status(404).json({ message: 'Data file not found.' });
-    }
-
     try {
-        const paymentSheetName = 'Payments';
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[paymentSheetName];
-
-        if (!worksheet) {
-            // If the sheet doesn't exist, it means no payments have been made yet.
-            return res.json([]);
-        }
-
-        const allPayments = xlsx.utils.sheet_to_json(worksheet);
-        const studentPayments = allPayments.filter(p => String(p.rollNumber) === String(rollNumber));
-
-        res.json(studentPayments);
+        const query = 'SELECT * FROM payments WHERE studentrollnumber = $1 ORDER BY paymentdate DESC';
+        const { rows } = await pool.query(query, [rollNumber]);
+        res.json(rows);
     } catch (error) {
         console.error('Error fetching payment history:', error);
         res.status(500).json({ message: 'Server error while fetching payment history.' });
     }
 });
 
-app.get('/student-data/:rollNumber', (req, res) => {
+app.get('/student-data/:rollNumber', async (req, res) => {
     const { rollNumber } = req.params;
     console.log(`Fetching latest data for roll number: ${rollNumber}`);
 
-    if (!fs.existsSync(excelFilePath)) {
-        return res.status(404).json({ message: 'Data file not found.' });
-    }
-
     try {
-        const workbook = xlsx.readFile(excelFilePath);
-        const worksheet = workbook.Sheets[sheetName];
+        const query = 'SELECT * FROM students WHERE rollnumber = $1';
+        const { rows } = await pool.query(query, [rollNumber]);
 
-        if (!worksheet) {
-            return res.status(404).json({ message: 'Registrations sheet not found.' });
-        }
-
-        const students = xlsx.utils.sheet_to_json(worksheet);
-        const student = students.find(s => String(s.rollNumber) === String(rollNumber));
-
-        if (student) {
-            // Return the student data, but omit the password for security.
-            const { password, ...studentDataWithoutPassword } = student;
-            res.json({ studentData: studentDataWithoutPassword });
+        if (rows.length > 0) {
+            const student = rows[0];
+            delete student.passwordhash;
+            res.json({ studentData: mapDbToCamelCase(student) });
         } else {
             res.status(404).json({ message: 'Student not found.' });
         }
@@ -755,6 +596,37 @@ app.get('/student-data/:rollNumber', (req, res) => {
         res.status(500).json({ message: 'Server error while fetching student data.' });
     }
 });
+
+/**
+ * Helper function to map database object (lowercase keys) to a frontend-friendly
+ * camelCase object.
+ * @param {object} dbObject The object with lowercase keys from the database.
+ * @returns {object} A new object with camelCase keys.
+ */
+function mapDbToCamelCase(dbObject) {
+    const camelCaseObject = {};
+    for (const key in dbObject) {
+        // A simple conversion: rollnumber -> rollNumber
+        const camelKey = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase()
+            .replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+        
+        // A more direct mapping for our specific schema
+        const keyMap = {
+            enrollmentnumber: 'enrollmentNumber', rollnumber: 'rollNumber',
+            passwordhash: 'passwordHash', securityquestion: 'securityQuestion',
+            securityanswer: 'securityAnswer', profilepicture: 'profilePicture',
+            addressline1: 'addressLine1', addressline2: 'addressLine2',
+            fathername: 'fatherName', fatheroccupation: 'fatherOccupation',
+            mothername: 'motherName', motheroccupation: 'motherOccupation',
+            parentmobile: 'parentMobile', percentage10: 'percentage10',
+            year10: 'year10', board10: 'board10', percentage12: 'percentage12',
+            year12: 'year12', board12: 'board12', selectedcourse: 'selectedCourse',
+            createdat: 'createdAt', updatedat: 'updatedAt', mobilenumber: 'mobileNumber'
+        };
+        camelCaseObject[keyMap[key] || key] = dbObject[key];
+    }
+    return camelCaseObject;
+}
 
 app.listen(port, () => {
     console.log("\n✅ Backend server is running!");
