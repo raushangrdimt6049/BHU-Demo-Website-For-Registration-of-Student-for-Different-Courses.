@@ -18,6 +18,8 @@ o	Session Storage (Browser): To keep a user logged in, their data is temporarily
 •	Third-Party Services:
 o	Razorpay: Integrated for handling online payments. The backend creates a payment order, and the frontend displays the Razorpay checkout form.
 o	Nodemailer: Used on the backend to send a welcome email to students after they register.
+
+
 Step 2: User Registration (index.html & script.js)
 This is the first interaction for a new user.
 1.	The Form: The user fills out a registration form with their name, email, DOB, password, and a security question.
@@ -33,6 +35,8 @@ o	It checks the students.xlsx file to see if the rollNumber already exists. If i
 o	If the user is new, it generates a unique enrollmentNumber, adds the new student's data as a new row in the Excel file, and sends a welcome email.
 o	It then sends the new student's data back to the browser.
 5.	Login: The browser receives the successful response, saves the student's data in sessionStorage, and redirects the user to the main home.html page.
+
+
 Step 3: User Login & Session Management (login.html & home.js)
 For returning users.
 1.	Login Form: The user enters their Roll Number and Password.
@@ -43,6 +47,8 @@ For returning users.
 o	Immediate Check: An inline script in the <head> of home.html checks for sessionStorage data. If it's missing, it redirects to login.html before the page even loads.
 o	Inactivity Timer: A 5-minute timer starts. If the user doesn't move the mouse, click, or type, they are automatically logged out.
 o	Server Restart Check: It compares the user's login time with the server's start time. If the server has restarted, the user is logged out for security.
+
+
 Step 4: The Home Page Dashboard (home.html & home.js)
 This is the central hub for the student.
 1.	Profile Display: The page reads the student's data from sessionStorage and displays their details (name, email, profile picture, etc.).
@@ -51,6 +57,8 @@ This is the central hub for the student.
 o	It checks which steps the student has completed by looking for specific data in their studentData object (e.g., addressLine1 for contact details, board10 for academic details).
 o	A step is only enabled (clickable) if the previous step is marked as "Completed". This forces the user to follow the correct sequence.
 o	The links direct the user to the appropriate pages (contact-details.html, academic-details.html, course-selection.html).
+
+
 Step 5: Completing the Application & Payment
 1.	Sub-Forms: Each step (Contact, Academic, Course Selection) has its own HTML page and a corresponding JavaScript file (contact-details.js, etc.). These pages work similarly:
 o	They pre-fill the form with existing data if the user is editing.
