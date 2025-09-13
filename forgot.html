@@ -6,6 +6,19 @@
     <title>Forgot Password - DAV PG College</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="login.css"> <!-- Re-use some login styles -->
+    <script>
+        // --- Immediate Theme Application (Flicker-Free) ---
+        // This script is placed in the <head> to run before the body is rendered.
+        (function() {
+            try {
+                // Only apply 'dark-mode' if it's explicitly saved in localStorage.
+                // The default is light mode (no class).
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+        })();
+    </script>
     <style>
         .password-wrapper {
             position: relative;

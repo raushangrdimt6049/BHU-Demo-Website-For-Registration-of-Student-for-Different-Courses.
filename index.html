@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DAV PG College, Varanasi - Student Registration</title>
     <link rel="stylesheet" href="style.css">
+    <script>
+        // --- Immediate Theme Application (Flicker-Free) ---
+        // This script is placed in the <head> to run before the body is rendered.
+        (function() {
+            try {
+                // Only apply 'dark-mode' if it's explicitly saved in localStorage.
+                // The default is light mode (no class).
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+        })();
+    </script>
 </head>
 <body>
 
@@ -69,12 +82,12 @@
             </div>
             <div class="form-group">
                 <label for="mobileNumber">Mobile Number</label>
-                <input type="tel" id="mobileNumber" name="mobileNumber" required pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" maxlength="10">
+                <input type="tel" id="mobileNumber" name="mobileNumber" required pattern="[0-9]{10}" title="Please enter a 10-digit mobile number" maxlength="10" autocomplete="username">
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
                 <div class="password-wrapper">
-                    <input type="password" id="password" name="password" required minlength="8">
+                    <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password">
                     <span id="togglePassword" class="password-toggle">👁️</span>
                 </div>
                 <small class="form-hint">Must be 8+ characters, with uppercase, lowercase, number, and special character.</small>
@@ -82,7 +95,7 @@
             <div class="form-group">
                 <label for="confirmPassword">Confirm Password</label>
                 <div class="password-wrapper">
-                    <input type="password" id="confirmPassword" name="confirmPassword" required>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required autocomplete="new-password">
                     <span id="toggleConfirmPassword" class="password-toggle">👁️</span>
                 </div>
                 <small id="password-error" class="error-message"></small>

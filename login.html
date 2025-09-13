@@ -6,6 +6,19 @@
     <title>DAV PG College - Welcome</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="login.css">
+    <script>
+        // --- Immediate Theme Application (Flicker-Free) ---
+        // This script is placed in the <head> to run before the body is rendered.
+        (function() {
+            try {
+                // Only apply 'dark-mode' if it's explicitly saved in localStorage.
+                // The default is light mode (no class).
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+        })();
+    </script>
     <style>
         .password-wrapper {
             position: relative;
@@ -41,16 +54,16 @@
             <h2>Welcome, Student!</h2>
             <p>Please sign in to view your details or sign up if you are a new user.</p>
 
-            <form id="loginForm" class="login-form" autocomplete="off">
+            <form id="loginForm" class="login-form">
                 <h3>Sign In</h3>
                 <div class="form-group">
                     <label for="loginIdentifier">Email or Mobile Number</label>
-                    <input type="text" id="loginIdentifier" name="loginIdentifier" required autocomplete="off">
+                    <input type="text" id="loginIdentifier" name="loginIdentifier" required autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" required autocomplete="new-password">
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
                         <span id="togglePassword" class="password-toggle">👁️</span>
                     </div>
                 </div>
