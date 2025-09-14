@@ -8,6 +8,7 @@ const { Pool } = require('pg');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const path = require('path');
+const puppeteer = require('puppeteer');
 require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
@@ -168,7 +169,7 @@ app.post('/register', jsonParser, async (req, res) => {
         
         // Asynchronously send welcome email and registration SMS
         sendWelcomeEmail(newStudent.email, newStudent.name);
-        sendRegistrationSms(newStudent.mobilenumber, newStudent.rollnumber, newStudent.enrollmentnumber, password);
+        sendRegistrationSms(newStudent.mobilenumber, newStudent.rollnumber, newStudent.enrollmentnumber);
 
         // Map DB columns (lowercase) to JS-friendly camelCase for the client
         const clientSafeStudentData = {
@@ -206,17 +207,41 @@ app.post('/register', jsonParser, async (req, res) => {
 
 // --- Email Sending Function ---
 async function sendWelcomeEmail(toEmail, studentName) {
+    // Construct the login URL, ensuring it works in both production and development
+    const loginUrl = `${process.env.BASE_URL || 'http://localhost:' + port}/login.html`;
+
     const mailOptions = {
         from: process.env.EMAIL_USER, // Your email address from environment variables
         to: toEmail,
-        subject: 'Welcome to DAV PG College!',
+        subject: 'Welcome to DAV PG College! Your Registration is Complete.',
         html: `
-            <p>Dear ${studentName},</p>
-            <p>Welcome to DAV PG College, Varanasi! We are thrilled to have you join our community.</p>
-            <p>Your registration was successful. You can now log in to your student portal using your Roll Number.</p>
-            <p>If you have any questions, feel free to contact us.</p>
-            <p>Best regards,</p>
-            <p>The DAV PG College Team</p>
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <h2 style="color: #0056b3;">Welcome to DAV PG College, Varanasi!</h2>
+                <p>Dear ${studentName},</p>
+                <p>We are thrilled to welcome you to our community! Your registration for the student admission portal has been successfully completed.</p>
+                
+                <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">How to Log In:</h3>
+                <p>You can now access your student dashboard to complete your application process. Here's how:</p>
+                <ol>
+                    <li>Go to the student login page by clicking the link below.</li>
+                    <li>Use your <strong>registered email address</strong> as the login identifier.</li>
+                    <li>Enter the <strong>password</strong> you created during registration.</li>
+                </ol>
+                
+                <p style="text-align: center; margin: 2rem 0;">
+                    <a href="${loginUrl}" style="background-color: #0056b3; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Go to Student Login</a>
+                </p>
+                
+                <p>Once logged in, you can fill out your academic details, upload documents, and complete the admission process.</p>
+                
+                <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                
+                <p>If you have any questions or need assistance, please do not hesitate to contact our support team.</p>
+                <p><strong>Support Contact:</strong> +91-542-2450722</p>
+                
+                <p>Best regards,</p>
+                <p><strong>The DAV PG College Admissions Team</strong></p>
+            </div>
         `
     };
 
@@ -229,10 +254,7 @@ async function sendWelcomeEmail(toEmail, studentName) {
 }
 
 // --- SMS Sending Function (using Twilio) ---
-async function sendRegistrationSms(toMobileNumber, rollNumber, enrollmentNumber, password) {
-    // IMPORTANT: Sending passwords in plain text via SMS is not a recommended security practice.
-    // This is implemented as requested. Consider sending a one-time link to set a password instead for better security.
-
+async function sendRegistrationSms(toMobileNumber, rollNumber, enrollmentNumber) {
     // Ensure you have TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in your .env file
     if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
         console.warn('Twilio credentials not found in .env file. Skipping SMS.');
@@ -246,7 +268,7 @@ async function sendRegistrationSms(toMobileNumber, rollNumber, enrollmentNumber,
     // This logic assumes a 10-digit Indian number. Adjust if needed for other countries.
     const formattedMobileNumber = `+91${toMobileNumber}`;
     const loginUrl = `${process.env.BASE_URL || 'http://localhost:' + port}/login.html`;
-    const messageBody = `Welcome to DAV PG College! Your registration is successful. Roll No: ${rollNumber}, Enrollment No: ${enrollmentNumber}, Password: ${password}. Login here: ${loginUrl}`;
+    const messageBody = `Welcome to DAV PG College! Your registration is successful. Your Roll No is ${rollNumber} and Enrollment No is ${enrollmentNumber}. Please log in with your email and the password you created. Login here: ${loginUrl}`;
 
     try {
         await twilioClient.messages.create({
@@ -259,6 +281,195 @@ async function sendRegistrationSms(toMobileNumber, rollNumber, enrollmentNumber,
         // Log the error but don't fail the entire registration process if SMS fails.
         // This could be due to an invalid number, DND, or Twilio account issues.
         console.error(`Error sending registration SMS to ${formattedMobileNumber}:`, error.message);
+    }
+}
+
+// --- Admission Summary PDF & Email Function ---
+async function sendAdmissionSummaryEmail(studentData, courseData) {
+    const toEmail = studentData.email;
+    const studentName = studentData.name;
+
+    // Helper to format date consistently
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        return `${day}-${month}-${year}`;
+    };
+    
+    // Helper to calculate age
+    const calculateAge = (dobString) => {
+        if (!dobString) return 'N/A';
+        const dob = new Date(dobString);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDifference = today.getMonth() - dob.getMonth();
+        if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < dob.getDate())) {
+            age--;
+        }
+        return age >= 0 ? age : 'N/A';
+    };
+
+    const fullAddress = [studentData.addressLine1, studentData.addressLine2].filter(Boolean).join(', ');
+
+    // Convert relative image path to an absolute file URI for Puppeteer
+    let profilePictureSrc = 'https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png'; // Fallback
+    if (studentData.profilePicture) {
+        const picPath = path.join(__dirname, studentData.profilePicture);
+        if (fs.existsSync(picPath)) {
+            profilePictureSrc = `file://${picPath}`;
+        }
+    }
+    
+    // HTML content for the PDF, with inlined styles for reliable rendering
+    const htmlContent = `
+        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Admission Summary</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #333; margin: 0; padding: 0; background-color: #fff; }
+            .main-header { display: flex; align-items: center; padding: 1rem 2rem; background-color: #fff; border-bottom: 2px solid #0056b3; gap: 1rem; }
+            .header-branding { display: flex; align-items: center; gap: 1rem; flex-grow: 1; }
+            .logo-container { flex: 0 1 80px; display: flex; justify-content: center; align-items: center; }
+            .logo { max-height: 60px; width: auto; }
+            .header-text { text-align: center; flex: 1; color: #002147; }
+            .header-text h1 { margin-bottom: 0.25rem; font-size: 1.8rem; }
+            .header-text h2 { font-size: 1.4rem; font-weight: 400; }
+            .main-container { max-width: 800px; margin: 20px auto; border: 1px solid #ddd; border-radius: 8px; padding: 30px; }
+            .main-container h3 { text-align: center; font-size: 1.75rem; margin-bottom: 1rem; color: #333; }
+            .profile-picture-container { text-align: center; margin-bottom: 20px; }
+            .profile-picture { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #28a745; }
+            .preview-section { margin-bottom: 25px; } .preview-section h4 { font-size: 18px; color: #0056b3; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+            .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px 25px; }
+            .preview-field { display: flex; flex-direction: column; } .preview-field label { font-weight: 600; font-size: 12px; color: #777; margin-bottom: 3px; text-transform: uppercase; }
+            .preview-field span { font-size: 15px; min-height: 20px; } .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #888; }
+        </style></head><body>
+            <header class="main-header">
+                <div class="header-branding">
+                    <div class="logo-container">
+                        <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+                    </div>
+                    <div class="header-text">
+                        <h1>Banaras Hindu University</h1>
+                        <h2>DAV PG College, Varanasi</h2>
+                    </div>
+                    <div class="logo-container">
+                        <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
+                    </div>
+                </div>
+            </header>
+            <main>
+                <div class="main-container">
+                    <h3>Admission Summary</h3>
+                    <p style="text-align: center; margin-bottom: 2rem; color: #555;">Your application and payment have been successfully processed. This document serves as your official admission summary.</p>
+                    <div class="profile-picture-container"><img src="${profilePictureSrc}" alt="Profile Picture" class="profile-picture"></div>
+                    <div class="preview-section"><h4>Personal Details</h4><div class="preview-grid">
+                        <div class="preview-field"><label>Full Name</label><span>${studentData.name || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Email</label><span>${studentData.email || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Roll Number</label><span>${studentData.rollNumber || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Enrollment Number</label><span>${studentData.enrollmentNumber || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Mobile Number</label><span>${studentData.mobileNumber || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Date of Birth</label><span>${formatDate(studentData.dob)}</span></div>
+                        <div class="preview-field"><label>Age</label><span>${calculateAge(studentData.dob)}</span></div>
+                        <div class="preview-field"><label>Gender</label><span>${studentData.gender || 'N/A'}</span></div>
+                    </div></div>
+                    <div class="preview-section"><h4>Address & Parents Detail</h4><div class="preview-grid">
+                        <div class="preview-field"><label>Address</label><span>${fullAddress || 'N/A'}</span></div>
+                        <div class="preview-field"><label>City</label><span>${studentData.city || 'N/A'}</span></div>
+                        <div class="preview-field"><label>State</label><span>${studentData.state || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Pincode</label><span>${studentData.pincode || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Father's Name</label><span>${studentData.fatherName || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Father's Occupation</label><span>${studentData.fatherOccupation || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Mother's Name</label><span>${studentData.motherName || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Mother's Occupation</label><span>${studentData.motherOccupation || 'N/A'}</span></div>
+                        <div class="preview-field"><label>Parent's Mobile</label><span>${studentData.parentMobile || 'N/A'}</span></div>
+                    </div></div>
+                    <div class="preview-section"><h4>Academic Details</h4><div class="preview-grid">
+                        <div class="preview-field"><label>10th Board</label><span>${studentData.board10 || 'N/A'}</span></div>
+                        <div class="preview-field"><label>10th Percentage</label><span>${studentData.percentage10 ? `${studentData.percentage10}%` : 'N/A'}</span></div>
+                        <div class="preview-field"><label>10th Passing Year</label><span>${studentData.year10 || 'N/A'}</span></div>
+                        <div class="preview-field"><label>12th Board</label><span>${studentData.board12 || 'N/A'}</span></div>
+                        <div class="preview-field"><label>12th Percentage</label><span>${studentData.percentage12 ? `${studentData.percentage12}%` : 'N/A'}</span></div>
+                        <div class="preview-field"><label>12th Passing Year</label><span>${studentData.year12 || 'N/A'}</span></div>
+                    </div></div>
+                    <div class="preview-section"><h4>Payment & Course Details</h4><div class="preview-grid">
+                        <div class="preview-field"><label>Course Enrolled</label><span>${courseData.level} - ${courseData.branch}</span></div>
+                        <div class="preview-field"><label>Amount Paid</label><span>₹ ${(courseData.amount / 100).toLocaleString('en-IN')}</span></div>
+                        <div class="preview-field"><label>Payment Status</label><span style="color: #28a745; font-weight: bold;">Successful</span></div>
+                        <div class="preview-field"><label>Transaction Date</label><span>${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
+                    </div></div>
+                    <div class="footer"><p>This is a computer-generated document and does not require a signature.</p></div>
+                </div>
+            </main>
+        </body></html>`;
+
+    try {
+        const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        const page = await browser.newPage();
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+        await browser.close();
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER, to: toEmail, subject: `Admission Summary for ${studentName}`,
+            html: `<p>Dear ${studentName},</p><p>Your admission process is complete and the payment has been successfully processed.</p><p>Please find your detailed Admission Summary attached to this email as a PDF for your records.</p><p>Best regards,</p><p><strong>The DAV PG College Admissions Team</strong></p>`,
+            attachments: [{ filename: `Admission_Summary_${studentData.rollNumber}.pdf`, content: pdfBuffer, contentType: 'application/pdf' }]
+        };
+        await transporter.sendMail(mailOptions);
+        console.log(`Admission summary email sent successfully to ${toEmail}`);
+    } catch (error) {
+        console.error(`Failed to send admission summary email to ${toEmail}:`, error);
+    }
+}
+
+// --- Payment Receipt PDF & Email Function ---
+async function sendPaymentReceiptEmail(studentData, courseData, orderId) {
+    const toEmail = studentData.email;
+    const studentName = studentData.name;
+
+    // HTML content for the receipt PDF, with inlined styles
+    const htmlContent = `
+        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Payment Receipt</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #333; margin: 0; padding: 20px; background-color: #f9f9f9; }
+            .receipt-container { max-width: 600px; margin: 20px auto; border: 1px solid #ddd; border-radius: 8px; padding: 30px; background-color: #fff; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+            h2 { text-align: center; color: #28a745; font-size: 24px; margin-bottom: 10px; }
+            p { text-align: center; color: #555; margin-bottom: 25px; }
+            .receipt-details { border-top: 2px dashed #ccc; padding-top: 20px; }
+            .receipt-details h3 { text-align: center; margin-bottom: 20px; font-size: 20px; color: #0056b3; }
+            .detail-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
+            .detail-item:last-child { border-bottom: none; }
+            .detail-item span:first-child { font-weight: 600; color: #444; }
+            .detail-item span:last-child { font-weight: 500; text-align: right; }
+            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #888; }
+        </style></head><body>
+            <div class="receipt-container">
+                <h2>Payment Successful!</h2>
+                <p>Thank you for your payment. Here is a summary of your transaction.</p>
+                <div class="receipt-details">
+                    <h3>Payment Receipt</h3>
+                    <div class="detail-item"><span>Order ID:</span><span>${orderId}</span></div>
+                    <div class="detail-item"><span>Payment Date:</span><span>${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
+                    <div class="detail-item"><span>Amount Paid:</span><span>₹ ${(courseData.amount / 100).toLocaleString('en-IN')}</span></div>
+                    <div class="detail-item"><span>Course Details:</span><span>${courseData.level} - ${courseData.branch}</span></div>
+                    <div class="detail-item"><span>Paid By:</span><span>${studentName}</span></div>
+                </div>
+                <div class="footer"><p>This is a computer-generated receipt.</p></div>
+            </div>
+        </body></html>`;
+
+    try {
+        const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        const page = await browser.newPage();
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+        await browser.close();
+
+        const mailOptions = { from: process.env.EMAIL_USER, to: toEmail, subject: `Payment Receipt for Your Admission Fee`, html: `<p>Dear ${studentName},</p><p>Thank you for your payment. Your transaction was successful.</p><p>Your payment receipt is attached to this email as a PDF for your records. You will receive a separate email with your full admission summary.</p><p>Best regards,</p><p><strong>The DAV PG College Admissions Team</strong></p>`, attachments: [{ filename: `Payment_Receipt_${orderId}.pdf`, content: pdfBuffer, contentType: 'application/pdf' }] };
+        await transporter.sendMail(mailOptions);
+        console.log(`Payment receipt email sent successfully to ${toEmail}`);
+    } catch (error) {
+        console.error(`Failed to send payment receipt email to ${toEmail}:`, error);
     }
 }
 
@@ -708,10 +919,16 @@ app.post('/verify-payment', jsonParser, async (req, res) => {
 
             await client.query('COMMIT');
 
-            console.log('Payment history saved and student record updated for roll number:', rollNumber);
-
             const finalUpdatedStudent = studentUpdateResult.rows[0];
             delete finalUpdatedStudent.passwordhash;
+            console.log('Payment history saved and student record updated for roll number:', rollNumber);
+
+            // Asynchronously send the admission summary email with PDF attachment
+            const studentDataForEmail = mapDbToCamelCase(finalUpdatedStudent);
+            sendAdmissionSummaryEmail(studentDataForEmail, course);
+            
+            // Also send the simple payment receipt email
+            sendPaymentReceiptEmail(studentDataForEmail, course, razorpay_order_id);
 
             res.json({ status: 'success', orderId: razorpay_order_id, studentData: mapDbToCamelCase(finalUpdatedStudent) });
         } catch (error) {
@@ -734,7 +951,19 @@ app.get('/payment-history/:rollNumber', async (req, res) => {
     try {
         const query = 'SELECT * FROM payments WHERE studentrollnumber = $1 ORDER BY paymentdate DESC';
         const { rows } = await pool.query(query, [rollNumber]);
-        res.json(rows);
+        // Map database keys (lowercase) to camelCase for frontend consistency
+        const mappedRows = rows.map(payment => ({
+            paymentId: payment.paymentid,
+            orderId: payment.orderid,
+            studentRollNumber: payment.studentrollnumber,
+            studentName: payment.studentname,
+            course: payment.coursedetails, // Rename for clarity on frontend
+            amount: payment.amount,
+            currency: payment.currency,
+            status: payment.status,
+            paymentDate: payment.paymentdate
+        }));
+        res.json(mappedRows);
     } catch (error) {
         console.error('Error fetching payment history:', error);
         res.status(500).json({ message: 'Server error while fetching payment history.' });
@@ -893,19 +1122,36 @@ app.put('/api/student/:rollNumber', jsonParser, async (req, res) => {
 function mapDbToCamelCase(dbObject) {
     const camelCaseObject = {};
     for (const key in dbObject) {
+        // This map defines conversions from snake_case or all-lowercase to camelCase.
+        // If a key from the DB isn't in this map, it will be added to the new object as-is.
         const keyMap = {
-            enrollmentnumber: 'enrollmentNumber', rollnumber: 'rollNumber',
-            passwordhash: 'passwordHash', securityquestion: 'securityQuestion',
-            securityanswer: 'securityAnswer', profilepicture: 'profilePicture',
-            addressline1: 'addressLine1', addressline2: 'addressLine2',
-            fathername: 'fatherName', fatheroccupation: 'fatherOccupation',
-            mothername: 'motherName', motheroccupation: 'motherOccupation',
-            parentmobile: 'parentMobile', percentage10: 'percentage10',
+            enrollmentnumber: 'enrollmentNumber',
+            rollnumber: 'rollNumber',
+            passwordhash: 'passwordHash',
+            mobilenumber: 'mobileNumber',
+            securityquestion: 'securityQuestion',
+            securityanswer: 'securityAnswer',
+            profilepicture: 'profilePicture',
+            addressline1: 'addressLine1',
+            addressline2: 'addressLine2',
+            fathername: 'fatherName',
+            fatheroccupation: 'fatherOccupation',
+            mothername: 'motherName',
+            motheroccupation: 'motherOccupation',
+            parentmobile: 'parentMobile',
+            board10: 'board10',
+            marks10: 'marks10',
             totalmarks10: 'totalMarks10',
-            year10: 'year10', board10: 'board10', percentage12: 'percentage12',
+            percentage10: 'percentage10',
+            year10: 'year10',
+            board12: 'board12',
+            marks12: 'marks12',
             totalmarks12: 'totalMarks12',
-            year12: 'year12', board12: 'board12', selectedcourse: 'selectedCourse',
-            createdat: 'createdAt', updatedat: 'updatedAt', mobilenumber: 'mobileNumber'
+            percentage12: 'percentage12',
+            year12: 'year12',
+            selectedcourse: 'selectedCourse',
+            createdat: 'createdAt',
+            updatedat: 'updatedAt'
         };
         camelCaseObject[keyMap[key] || key] = dbObject[key];
     }

@@ -46,7 +46,11 @@ document.addEventListener('DOMContentLoaded', () => {
     populateField('previewEnrollmentNumber', studentData.enrollmentNumber);
     populateField('previewMobileNumber', studentData.mobileNumber);
     if (studentData.dob) {
-        const [year, month, day] = studentData.dob.split('-');
+        // Use UTC methods to correctly parse date from ISO string without timezone shifts
+        const dobDate = new Date(studentData.dob);
+        const day = String(dobDate.getUTCDate()).padStart(2, '0');
+        const month = String(dobDate.getUTCMonth() + 1).padStart(2, '0');
+        const year = dobDate.getUTCFullYear();
         populateField('previewDob', `${day}-${month}-${year}`);
     } else {
         populateField('previewDob', 'N/A');

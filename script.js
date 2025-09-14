@@ -329,11 +329,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         })
         .then(data => {
-            // --- On success, save to session and redirect to home page ---
-            alert('Registration successful! You will now be redirected to the home page.');
-            sessionStorage.setItem('currentStudent', JSON.stringify(data.studentData));
-            sessionStorage.setItem('loginTime', new Date().toISOString());
-            window.location.href = 'home.html';
+            // --- On success, show message and redirect to main page for login ---
+            alert('Registration successful! Sign in to complete your admission form.');
+            // Don't log the user in automatically. They must now sign in.
+            window.location.href = 'index.html'; // Redirect to the main portal page
         })
         .catch(error => {
             console.error('Error during registration fetch:', error);

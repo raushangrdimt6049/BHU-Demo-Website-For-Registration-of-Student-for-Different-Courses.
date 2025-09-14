@@ -1,86 +1,82 @@
-# BHU-Demo-Website-For-Registration-of-Student-for-Different-Courses.
-BHU Demo Website For Registration of Student for Different Courses.
+# BHU Demo Website - Student Registration Portal
 
-Based on the files provided, the project is a web application designed to handle the entire student registration and application process, from creating an account to making a payment.
-Here is a breakdown of how it's made, step-by-step:
+A full-stack web application to handle the entire student registration and application process, from creating an account to making a payment and receiving an admission summary.
 
-Step 1: The Foundation - Technology Stack
+## How It's Made: A Step-by-Step Breakdown
+
+### Step 1: The Foundation - Technology Stack
+
 The project is built using a combination of standard web technologies:
-•	Frontend (Client-Side): This is what the user sees and interacts with in their web browser.
-o	HTML: Provides the structure for all the pages (login.html, home.html, etc.).
-o	CSS: Styles the pages to make them look professional and user-friendly (style.css, home.css).
-o	JavaScript (Vanilla JS): This is the "brain" of the frontend. It handles all the user interactions, like form validation, showing/hiding elements, and communicating with the backend. Key files include home.js, login.js, script.js, etc.
-•	Backend (Server-Side): This runs on a server and handles the "behind-the-scenes" logic.
-o	Node.js: A JavaScript runtime that allows JavaScript to be run outside of a browser.
 
+*   **Frontend (Client-Side):** What the user sees and interacts with in their web browser.
+    *   **HTML:** Provides the structure for all the pages (`login.html`, `home.html`, etc.).
+    *   **CSS:** Styles the pages for a professional and user-friendly interface (`style.css`, `home.css`).
+    *   **JavaScript (Vanilla JS):** The "brain" of the frontend. It handles all user interactions like form validation, showing/hiding elements, and communicating with the backend (`home.js`, `login.js`, `script.js`, etc.).
+*   **Backend (Server-Side):** Runs on a server and handles the "behind-the-scenes" logic.
+    *   **Node.js:** A JavaScript runtime that allows JavaScript to be run outside of a browser.
+    *   **Express.js:** A framework for Node.js that makes it much easier to build a web server and define API endpoints (like `/login`, `/register`, `/update`). This is all managed in the `server.js` file.
+*   **Data Storage:**
+    *   **PostgreSQL:** A powerful, open-source relational database used to store all student and payment data. The `pg` library in Node.js is used to connect to and query the database.
+    *   **Session Storage (Browser):** To keep a user logged in, their data is temporarily stored in the browser's `sessionStorage`. This data is cleared when the browser tab is closed.
+*   **Key Libraries & Services:**
+    *   **bcrypt.js:** For securely hashing and comparing user passwords.
+    *   **Multer:** For handling file uploads (profile pictures, documents).
+    *   **Razorpay:** Integrated for handling online payments.
+    *   **Nodemailer:** Used on the backend to send welcome emails and admission summaries.
+    *   **Twilio:** Used to send registration confirmation via SMS.
+    *   **Puppeteer:** A headless browser library used to generate PDF admission summaries on the server.
 
-o	Express.js: A framework for Node.js that makes it much easier to build a web server and define API endpoints (like /login, /register, /update). This is all managed in the server.js file.
-•	Data Storage:
-o	Excel File (students.xlsx): Instead of a traditional database (like MySQL or MongoDB), this project cleverly uses an Excel file as its database. The xlsx library in Node.js is used to read from and write to this file, storing all student and payment data.
-o	Session Storage (Browser): To keep a user logged in, their data is temporarily stored in the browser's sessionStorage. This data is cleared when the browser tab is closed.
-•	Third-Party Services:
-o	Razorpay: Integrated for handling online payments. The backend creates a payment order, and the frontend displays the Razorpay checkout form.
-o	Nodemailer: Used on the backend to send a welcome email to students after they register.
+### Step 2: User Registration (`register.html` & `script.js`)
 
+1.  **The Form:** The user fills out a registration form with their name, email, DOB, password, and a security question.
+2.  **Client-Side Validation (`script.js`):** Before any data is sent, JavaScript in the browser checks for a valid email format, password strength, age, and correct CAPTCHA entry. It also checks in real-time if the email is already registered.
+3.  **API Call:** The validated data is sent to the `/register` endpoint on the `server.js` backend.
+4.  **Backend Logic (`server.js`):**
+    *   The server receives the data.
+    *   It hashes the password using `bcrypt`.
+    *   It generates a unique `rollNumber` and `enrollmentNumber`.
+    *   It inserts the new student's data into the `students` table in the PostgreSQL database.
+    *   It sends a welcome email via Nodemailer and a confirmation SMS via Twilio.
+    *   It returns a success message.
+5.  **Redirect:** The user is shown a success message and redirected to the main portal to log in.
 
-Step 2: User Registration (index.html & script.js)
-This is the first interaction for a new user.
-1.	The Form: The user fills out a registration form with their name, email, DOB, password, and a security question.
-2.	Client-Side Validation (script.js): Before any data is sent to the server, JavaScript in the browser checks for:
-o	Valid email format.
-o	Password strength and confirmation.
-o	Age (must be 18+).
-o	Correct CAPTCHA entry.
-3.	API Call: Once validated, the data is sent as a JSON object to the /register endpoint on the server.js backend.
-4.	Backend Logic (server.js):
-o	The server receives the data.
-o	It checks the students.xlsx file to see if the rollNumber already exists. If it does, it sends back an error.
-o	If the user is new, it generates a unique enrollmentNumber, adds the new student's data as a new row in the Excel file, and sends a welcome email.
-o	It then sends the new student's data back to the browser.
-5.	Login: The browser receives the successful response, saves the student's data in sessionStorage, and redirects the user to the main home.html page.
+### Step 3: User Login & Session Management (`login.html` & `home.js`)
 
+1.  **Login Form:** The user enters their email and password.
+2.  **API Call:** The credentials are sent to the `/login` endpoint.
+3.  **Backend Logic (`server.js`):** The server queries the `students` table, finds the user by email, and uses `bcrypt` to securely compare the provided password with the stored hash.
+4.  **Session Creation:** If successful, the server sends the student's complete data back. The browser stores this data in `sessionStorage` to "remember" the user is logged in and redirects to `home.html`.
+5.  **Security on Home Page:**
+    *   **Strict Navigation:** An inline script checks for a navigation flag in `sessionStorage`. If it's missing (e.g., on a page refresh or direct URL access), the user is logged out.
+    *   **Inactivity Timer:** A 5-minute timer logs the user out if there's no activity.
+    *   **Server Restart Check:** Compares the user's login time with the server's start time and logs the user out if the server has restarted.
 
-Step 3: User Login & Session Management (login.html & home.js)
-For returning users.
-1.	Login Form: The user enters their Roll Number and Password.
-2.	API Call: The credentials are sent to the /login endpoint on the server.
-3.	Backend Logic (server.js): The server queries the `students` table, finds the user by their email address, and uses `bcrypt` to securely compare the provided password with the stored hash.
-4.	Session Creation: If successful, the server sends the student's complete data back to the browser. The browser stores this data in sessionStorage to "remember" that the user is logged in and redirects to home.html.
-5.	Security on Home Page: The home.html page has multiple security checks:
-o	Immediate Check: An inline script in the <head> of home.html checks for sessionStorage data. If it's missing, it redirects to login.html before the page even loads.
-o	Inactivity Timer: A 5-minute timer starts. If the user doesn't move the mouse, click, or type, they are automatically logged out.
-o	Server Restart Check: It compares the user's login time with the server's start time. If the server has restarted, the user is logged out for security.
+### Step 4: The Home Page Dashboard (`home.html` & `home.js`)
 
-
-Step 4: The Home Page Dashboard (home.html & home.js)
 This is the central hub for the student.
-1.	Profile Display: The page reads the student's data from sessionStorage and displays their details (name, email, profile picture, etc.).
-2.	Edit Profile: The user can click "Edit Details". This switches the display fields to input fields, allowing them to update their mobile number, DOB, and profile picture. When they save, the data (including the image file) is sent to the /update endpoint, the Excel file is updated, and the new data is saved back into sessionStorage.
-3.	Application Progress: The most important feature is the "Application Progress" section. It's dynamically generated by home.js:
-o	It checks which steps the student has completed by looking for specific data in their studentData object (e.g., addressLine1 for contact details, board10 for academic details).
-o	A step is only enabled (clickable) if the previous step is marked as "Completed". This forces the user to follow the correct sequence.
-o	The links direct the user to the appropriate pages (contact-details.html, academic-details.html, course-selection.html).
+1.  **Profile Display:** The page reads data from `sessionStorage` to display the student's details.
+2.  **Edit Profile:** The user can edit basic details and upload a new profile picture. Data is sent to the `/update` endpoint.
+3.  **Application Progress:** The core feature is the "Application Progress" section, dynamically generated by `home.js`:
+    *   It checks which steps are completed by looking for specific data in the `studentData` object (e.g., `addressLine1` for contact details, `board10` for academic details).
+    *   A step is only enabled (clickable) if the previous step is marked as "Completed," enforcing the correct sequence.
 
+### Step 5: Completing the Application & Payment
 
-Step 5: Completing the Application & Payment
-1.	Sub-Forms: Each step (Contact, Academic, Course Selection) has its own HTML page and a corresponding JavaScript file (contact-details.js, etc.). These pages work similarly:
-o	They pre-fill the form with existing data if the user is editing.
-o	They send the updated data to a specific endpoint on the server (e.g., /add-academic-details).
-o	The server updates the students.xlsx file and returns the complete, updated student object.
-o	The browser updates sessionStorage and redirects back to home.html.
-2.	Preview: Once all steps are done, a "Preview the Application" button appears on the home page, leading to preview.html. This page summarizes all the information for a final check.
-3.	Payment (payment.js):
-o	After agreeing to the terms on the preview page, the user is taken to the payment page.
-o	Clicking "Pay Now" triggers a call to the /create-order endpoint on the server.
-o	The server communicates with Razorpay to create a payment order and sends the order details back to the browser.
-o	The browser uses these details to open the Razorpay payment popup.
-4.	Payment Verification:
-o	After the user completes the payment, Razorpay sends a response to the browser.
-o	The browser sends this response to the /verify-payment endpoint on the server.
-o	The server verifies the payment signature with Razorpay to ensure it's legitimate. This is done within a database transaction to ensure data integrity.
-o	If verified, the server:
-    1.  Updates the student's record in the `students` table to include the final `selectedCourse` details, effectively locking the application.
-    2.  Inserts a new row into the `payments` table to create a permanent log of the transaction.
-o	The user is then redirected to the final payment-summary.html page.
+1.  **Sub-Forms:** Each step (Contact, Academic, Documents, Course Selection) has its own page and script. They pre-fill with existing data, send updates to specific endpoints (e.g., `/add-academic-details`), update `sessionStorage`, and redirect back to `home.html`.
+2.  **Preview:** Once all steps are done, a "Preview the Application" button appears, leading to `preview.html` for a final check.
+3.  **Payment (`payment.js`):**
+    *   After agreeing to terms, the user proceeds to payment.
+    *   Clicking "Pay Now" calls the `/create-order` endpoint. The server communicates with Razorpay to create a payment order.
+    *   The browser uses the order details to open the Razorpay payment popup.
+4.  **Payment Verification & Finalization:**
+    *   After payment, Razorpay sends a response to the browser.
+    *   The browser sends this response to the `/verify-payment` endpoint.
+    *   The server verifies the payment signature with Razorpay to ensure it's legitimate. This is done within a database transaction for data integrity.
+    *   If verified, the server:
+        1.  Updates the student's record in the `students` table with the final `selectedCourse` details, locking the application.
+        2.  Inserts a new row into the `payments` table to log the transaction.
+        3.  Uses **Puppeteer** to generate a PDF of the full admission summary.
+        4.  Uses **Nodemailer** to email the PDF summary to the student as an attachment.
+    *   The user is redirected to a `payment-success.html` receipt page.
 
-This entire structure creates a robust, step-by-step application flow using modern web technologies, with Node.js and PostgreSQL providing a secure and scalable backend.
+This structure creates a robust, step-by-step application flow using modern web technologies, with Node.js and PostgreSQL providing a secure and scalable backend.

@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const themeToggleBtn = document.getElementById('themeToggleBtn');
     const htmlElement = document.documentElement;
+    // Create a media query to check for the user's system preference.
+    const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
 
     /**
      * Applies the specified theme to the page.
@@ -9,32 +10,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const applyTheme = (theme) => {
         if (theme === 'dark') {
             htmlElement.classList.add('dark-mode');
-            if (themeToggleBtn) themeToggleBtn.textContent = '☀️'; // Sun icon
         } else {
             htmlElement.classList.remove('dark-mode');
-            if (themeToggleBtn) themeToggleBtn.textContent = '🌙'; // Moon icon
         }
     };
 
     /**
-     * Toggles the theme between light and dark, and saves the preference.
+     * Checks the system's color scheme and applies the corresponding theme.
+     * @param {MediaQueryList} mediaQuery - The media query list object.
      */
-    const toggleTheme = () => {
-        const currentTheme = htmlElement.classList.contains('dark-mode') ? 'light' : 'dark';
-        localStorage.setItem('theme', currentTheme);
-        applyTheme(currentTheme);
+    const updateThemeFromSystem = (mediaQuery) => {
+        if (mediaQuery.matches) {
+            applyTheme('dark');
+        } else {
+            applyTheme('light');
+        }
     };
 
-    // Add a click listener to the theme toggle button if it exists.
-    if (themeToggleBtn) {
-        themeToggleBtn.addEventListener('click', toggleTheme);
-    }
-
     // --- Initial Theme Setup ---
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+    // Set the initial theme based on the system preference when the page loads.
+    updateThemeFromSystem(prefersDarkScheme);
 
-    // Apply the initial theme when the page loads.
-    applyTheme(initialTheme);
+    // --- Listen for System Theme Changes ---
+    // Add a listener that will automatically update the theme when the user
+    // changes their system-level appearance settings (e.g., switching to dark mode on their OS).
+    prefersDarkScheme.addEventListener('change', updateThemeFromSystem);
 });

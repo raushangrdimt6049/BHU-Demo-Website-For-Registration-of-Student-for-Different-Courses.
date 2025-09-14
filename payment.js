@@ -72,11 +72,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const verificationData = await verificationResponse.json();
                     if (verificationData.status === 'success' && verificationData.studentData) {
-                        alert('Payment Successful! Redirecting to summary.');
+                        alert('Payment Successful! Redirecting to your receipt.');
+                        // Update student data in session storage
                         sessionStorage.setItem('currentStudent', JSON.stringify(verificationData.studentData));
+                        
+                        // Store details for the simple receipt page
+                        const lastPaymentDetails = {
+                            orderId: verificationData.orderId,
+                            amount: selectedCourse.amount,
+                            course: `${selectedCourse.level} - ${selectedCourse.branch}`
+                        };
+                        sessionStorage.setItem('lastPaymentDetails', JSON.stringify(lastPaymentDetails));
                         sessionStorage.removeItem('selectedCourse');
-                        sessionStorage.setItem('navigationAllowed', 'true'); // Allow navigation to the summary page
-                        window.location.href = 'payment-summary.html';
+                        window.location.href = `payment-success.html?orderId=${verificationData.orderId}`;
                     } else {
                         alert('Payment verification failed. Please contact support.');
                         payNowBtn.disabled = false;

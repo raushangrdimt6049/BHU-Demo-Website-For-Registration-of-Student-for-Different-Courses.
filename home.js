@@ -242,11 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
             fields.enrollmentNumber.display.textContent = data.enrollmentNumber || 'N/A';
             if (data.dob) {
                 // Create a Date object to handle different formats (e.g., YYYY-MM-DD or full ISO string)
+                // Use UTC methods to avoid timezone-related date shifts.
                 const dobDate = new Date(data.dob);
-                // Get parts in the user's local timezone
-                const day = String(dobDate.getDate()).padStart(2, '0');
-                const month = String(dobDate.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-                const year = dobDate.getFullYear();
+                const day = String(dobDate.getUTCDate()).padStart(2, '0');
+                const month = String(dobDate.getUTCMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+                const year = dobDate.getUTCFullYear();
                 fields.dob.display.textContent = `${day}-${month}-${year}`;
             } else {
                 fields.dob.display.textContent = 'N/A';
@@ -272,10 +272,11 @@ document.addEventListener('DOMContentLoaded', () => {
             fields.enrollmentNumber.edit.value = data.enrollmentNumber || '';
             if (data.dob) {
                 // Use the same robust date parsing for the edit field
+                // Use UTC methods to avoid timezone-related date shifts.
                 const dobDate = new Date(data.dob);
-                const day = String(dobDate.getDate()).padStart(2, '0');
-                const month = String(dobDate.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-                const year = dobDate.getFullYear();
+                const day = String(dobDate.getUTCDate()).padStart(2, '0');
+                const month = String(dobDate.getUTCMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+                const year = dobDate.getUTCFullYear();
                 fields.dob.edit.value = `${day}-${month}-${year}`;
             } else {
                 fields.dob.edit.value = '';
