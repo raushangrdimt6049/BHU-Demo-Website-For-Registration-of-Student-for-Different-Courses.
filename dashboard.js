@@ -1,3 +1,12 @@
+// This listener handles scenarios where a page is restored from the browser's
+// back-forward cache (bfcache). It forces a full reload to ensure the
+// security script in the <head> always runs.
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     const studentDataString = sessionStorage.getItem('currentStudent');
     const loginTimeString = sessionStorage.getItem('loginTime');

@@ -1,15 +1,11 @@
-// --- Security Checks ---
-// The inline script in the HTML provides the first line of defense.
-// These checks add a second layer of security and provide clearer error messages.
-if (!sessionStorage.getItem('currentStudent')) {
-    console.error("Security Error: No student data in session. Redirecting to login.");
-    window.location.replace('login.html');
-}
-if (!sessionStorage.getItem('selectedCourse')) {
-    console.error("Security Error: No course selected in session. Redirecting to home.");
-    alert('Course selection not found. Redirecting to home page.');
-    window.location.replace('home.html');
-}
+// This listener handles scenarios where a page is restored from the browser's
+// back-forward cache (bfcache). It forces a full reload to ensure the
+// security script in the <head> always runs.
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));

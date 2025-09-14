@@ -1,11 +1,3 @@
-// --- Immediate Security Check ---
-// An inline script in payment-summary.html handles the initial check.
-window.addEventListener('pageshow', (event) => {
-    if (!sessionStorage.getItem('currentStudent')) {
-        window.location.replace('login.html');
-    }
-});
-
 document.addEventListener('DOMContentLoaded', () => {
     const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
 

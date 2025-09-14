@@ -1,10 +1,9 @@
-
-// --- Immediate Security Check ---
-// An inline script in the HTML handles the initial check.
-// This is a fallback and handles bfcache navigations.
+// This listener handles scenarios where a page is restored from the browser's
+// back-forward cache (bfcache). It forces a full reload to ensure the
+// security script in the <head> always runs.
 window.addEventListener('pageshow', (event) => {
-    if (!sessionStorage.getItem('currentStudent')) {
-        window.location.replace('login.html');
+    if (event.persisted) {
+        window.location.reload();
     }
 });
 

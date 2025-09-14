@@ -1,13 +1,3 @@
-// This script is included in course-selection.html
-
-// This listener handles scenarios where a page is restored from the browser's
-// back-forward cache (bfcache) after a logout, ensuring the user is redirected.
-window.addEventListener('pageshow', (event) => {
-    if (!sessionStorage.getItem('currentStudent')) {
-        window.location.replace('login.html');
-    }
-});
-
 // --- Course Data with Fees ---
 // In a real application, this would likely come from a server API call.
 const COURSES = {
@@ -24,6 +14,15 @@ const COURSES = {
     "English": { name: "English", fee: 115000 }, // ₹1,150.00
     "Hindi": { name: "Hindi", fee: 105000 }  // ₹1,050.00
 };
+
+// This listener handles scenarios where a page is restored from the browser's
+// back-forward cache (bfcache). It forces a full reload to ensure the
+// security script in the <head> always runs.
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     // This function checks if the server has restarted since the user logged in.

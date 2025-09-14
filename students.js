@@ -1,3 +1,12 @@
+// This listener handles scenarios where a page is restored from the browser's
+// back-forward cache (bfcache). It forces a full reload to ensure the
+// password prompt is always shown, aligning with the strict security policy.
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', async () => {
     // --- Password Protection Elements ---
     const passwordOverlay = document.getElementById('password-overlay');
