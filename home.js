@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (serverStartTime > loginTime) {
                 alert('The server has been updated. Please log in again for security.');
                 sessionStorage.clear();
-                window.location.replace('login.html');
+                window.location.replace('index.html');
             }
         } catch (error) {
             console.warn('Could not check server status:', error);
@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Logout the user
             alert('You have been logged out due to inactivity.');
             sessionStorage.clear();
-            window.location.replace('login.html');
+            window.location.replace('index.html');
         }, logoutTime);
     };
 
@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const initializePage = () => {
         if (!studentDataString) {
             // If no student data, redirect to registration page
-            window.location.href = 'login.html';
+            window.location.href = 'index.html';
             return;
         }
 
@@ -419,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             sessionStorage.clear();
             // Use replace to prevent going back to the home page via browser back button
-            window.location.replace('login.html');
+            window.location.replace('index.html');
         });
 
         // Auto-format DOB as user types in edit mode

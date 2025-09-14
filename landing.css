@@ -3,7 +3,7 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 2rem;
+    padding: 4rem 2rem 2rem; /* Add top padding for sticky header */
     gap: 4rem;
 }
 

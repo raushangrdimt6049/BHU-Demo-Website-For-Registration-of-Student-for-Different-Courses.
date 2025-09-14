@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!studentDataString) {
         alert('You are not logged in. Redirecting to login page.');
-        window.location.href = 'login.html';
+        window.location.href = 'index.html';
         return;
     }
 
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             alert('Password changed successfully. Please log in again.');
             sessionStorage.removeItem('currentStudent');
-            window.location.href = 'login.html';
+            window.location.href = 'index.html';
         })
         .catch(error => {
             console.error('Error changing password:', error);

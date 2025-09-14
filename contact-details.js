@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!studentData) {
         alert('Your session is invalid. Please log in again.');
-        window.location.replace('login.html');
+        window.location.replace('index.html');
         return;
     }
 

@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (serverStartTime > loginTime) {
                 alert('The server has been updated. Please log in again for security.');
                 sessionStorage.clear();
-                window.location.replace('login.html');
+                window.location.replace('index.html');
             }
         } catch (error) {
             console.warn('Could not check server status:', error);
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const initializePage = () => {
         if (!studentDataString) {
             alert('You must be logged in to view this page.');
-            window.location.href = 'login.html';
+            window.location.href = 'index.html';
             return;
         }
 

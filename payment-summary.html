@@ -16,11 +16,11 @@
                 sessionStorage.removeItem('navigationAllowed');
             } else {
                 sessionStorage.clear();
-                window.location.replace('login.html');
+                window.location.replace('index.html');
             }
 
             if (!sessionStorage.getItem('currentStudent')) {
-                window.location.replace('login.html');
+                window.location.replace('index.html');
             }
         })();
     </script>
@@ -51,13 +51,17 @@
 </head>
 <body>
     <header class="main-header">
-        <div class="logo-container"><img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo"></div>
-        <div class="header-text"><h1>Banaras Hindu University</h1><h2>DAV PG College, Varanasi</h2></div>
-        <div class="logo-container"><img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo"></div>
-        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+        <div class="header-branding">
+            <div class="logo-container"><img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo"></div>
+            <div class="header-text"><h1>Banaras Hindu University</h1><h2>DAV PG College, Varanasi</h2></div>
+            <div class="logo-container"><img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo"></div>
+        </div>
+        <div class="header-actions">
+            <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+        </div>
     </header>
 
-    <main>
+    <main class="login-main">
         <div class="details-container" style="max-width: 900px;">
             <h3>Admission Summary</h3>
             <p style="text-align: center; margin-bottom: 2rem;">Your application and payment have been successfully processed. You can print this summary for your records.</p>

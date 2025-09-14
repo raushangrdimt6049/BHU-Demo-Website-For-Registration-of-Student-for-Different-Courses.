@@ -20,12 +20,12 @@
             } else {
                 // This is a refresh, direct access, or browser back/forward action. Log the user out.
                 sessionStorage.clear();
-                window.location.replace('login.html');
+                window.location.replace('index.html');
             }
 
             // As a final safeguard, if the flag was consumed but there's still no student data, redirect.
             if (!sessionStorage.getItem('currentStudent')) {
-                window.location.replace('login.html');
+                window.location.replace('index.html');
             }
         })();
     </script>
@@ -33,35 +33,39 @@
 <body>
 
     <header class="main-header">
-        <div class="logo-container">
-            <!-- DAV PG College Logo -->
-            <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+        <div class="header-branding">
+            <div class="logo-container">
+                <!-- DAV PG College Logo -->
+                <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+            </div>
+            <div class="header-text">
+                <h1>Banaras Hindu University</h1>
+                <h2>DAV PG College, Varanasi</h2>
+            </div>
+            <div class="logo-container">
+                <!-- BHU Logo -->
+                <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
+            </div>
         </div>
-        <div class="header-text">
-            <h1>Banaras Hindu University</h1>
-            <h2>DAV PG College, Varanasi</h2>
-        </div>
-        <div class="logo-container">
-            <!-- BHU Logo -->
-            <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
-        </div>
-        <div class="user-menu-container">
-            <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
-            <button id="userMenuBtn" class="user-menu-btn" title="User Menu">☰</button>
-            <div id="userMenuDropdown" class="user-menu-dropdown">
-                <ul>
-                    <li><a href="dashboard.html">Payment History</a></li>
-                    <li><a href="#" id="viewProfileBtn">View Profile</a></li>
-                    <li><a href="#" id="editDetailsBtn">Edit Details</a></li>
-                    <li><a href="change-password.html">Change Password</a></li>
-                    <li class="separator"></li>
-                    <li><a href="#" id="logoutBtnMenu">Logout</a></li>
-                </ul>
+        <div class="header-actions">
+            <div class="user-menu-container">
+                <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+                <button id="userMenuBtn" class="user-menu-btn" title="User Menu">☰</button>
+                <div id="userMenuDropdown" class="user-menu-dropdown">
+                    <ul>
+                        <li><a href="dashboard.html">Payment History</a></li>
+                        <li><a href="#" id="viewProfileBtn">View Profile</a></li>
+                        <li><a href="#" id="editDetailsBtn">Edit Details</a></li>
+                        <li><a href="change-password.html">Change Password</a></li>
+                        <li class="separator"></li>
+                        <li><a href="#" id="logoutBtnMenu">Logout</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </header>
 
-    <main>
+    <main class="login-main">
         <div class="details-container">
             <h3>Student Details</h3>
             <!-- Profile Picture Section -->

@@ -750,6 +750,103 @@ app.get('/api/all-students', async (req, res) => {
     }
 });
 
+// New endpoint to delete a student record
+app.delete('/api/student/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Received request to delete student with roll number: ${rollNumber}`);
+
+    if (!rollNumber) {
+        return res.status(400).json({ message: 'Roll number is required.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Optional but good practice: Delete related payment records first
+        // to maintain referential integrity if foreign keys are set up.
+        await client.query('DELETE FROM payments WHERE studentrollnumber = $1', [rollNumber]);
+
+        // Delete the student record
+        const deleteResult = await client.query('DELETE FROM students WHERE rollnumber = $1', [rollNumber]);
+
+        if (deleteResult.rowCount === 0) {
+            // If no rows were deleted, the student was not found.
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+
+        // TODO: Future improvement - Delete associated files from the 'uploads' directory.
+
+        await client.query('COMMIT');
+        console.log(`Successfully deleted student ${rollNumber} and their payment history.`);
+        res.status(200).json({ message: `Student with roll number ${rollNumber} has been deleted successfully.` });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error deleting student:', error);
+        res.status(500).json({ message: 'Server error while deleting student.' });
+    } finally {
+        client.release();
+    }
+});
+
+// New endpoint to update a student record from the admin page
+app.put('/api/student/:rollNumber', jsonParser, async (req, res) => {
+    const { rollNumber } = req.params;
+    const { name, email, mobileNumber, city } = req.body;
+    console.log(`Received request to update student with roll number: ${rollNumber}`);
+
+    if (!rollNumber) {
+        return res.status(400).json({ message: 'Roll number is required.' });
+    }
+
+    try {
+        // Dynamically build the update query to only change provided fields
+        const updateFields = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (name !== undefined) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
+        if (email !== undefined) { updateFields.push(`email = $${paramIndex++}`); values.push(email.toLowerCase()); }
+        if (mobileNumber !== undefined) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
+        if (city !== undefined) { updateFields.push(`city = $${paramIndex++}`); values.push(city); }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({ message: 'No fields to update provided.' });
+        }
+
+        values.push(rollNumber); // Add the roll number for the WHERE clause
+        const query = `
+            UPDATE students 
+            SET ${updateFields.join(', ')}, updatedat = CURRENT_TIMESTAMP 
+            WHERE rollnumber = $${paramIndex} 
+            RETURNING enrollmentnumber, rollnumber, name, email, gender, mobilenumber, city, createdat;
+        `;
+
+        const { rows } = await pool.query(query, values);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+
+        const updatedStudent = rows[0];
+        console.log(`Successfully updated student ${rollNumber}.`);
+        res.status(200).json({ 
+            message: 'Student details updated successfully.',
+            studentData: mapDbToCamelCase(updatedStudent) // Send back the updated data
+        });
+
+    } catch (error) {
+        // Handle potential unique constraint violations (e.g., if email is changed to an existing one)
+        if (error.code === '23505') {
+            return res.status(409).json({ message: 'An account with the provided email or mobile number already exists.' });
+        }
+        console.error('Error updating student:', error);
+        res.status(500).json({ message: 'Server error while updating student.' });
+    }
+});
+
 /**
  * Helper function to map database object (lowercase keys) to a frontend-friendly
  * camelCase object.

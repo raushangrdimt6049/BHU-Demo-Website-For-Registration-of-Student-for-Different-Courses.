@@ -23,8 +23,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const loadingDiv = document.getElementById('loading');
         const errorDiv = document.getElementById('error');
         const exportCsvBtn = document.getElementById('exportCsvBtn');
-        const exportPdfBtn = document.getElementById('exportPdfBtn');
+        const printBtn = document.getElementById('printBtn');
         const searchInput = document.getElementById('searchInput');
+        const editModal = document.getElementById('edit-student-modal');
+        const editForm = document.getElementById('editStudentForm');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const editRollNumberHidden = document.getElementById('editRollNumberHidden');
+
 
         let allStudents = []; // This will hold the master list of students
 
@@ -36,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             tableBody.innerHTML = ''; // Clear existing rows
 
             if (studentList.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No matching records found.</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">No matching records found.</td></tr>';
                 return;
             }
 
@@ -46,11 +51,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 row.innerHTML = `
                     <td>${student.enrollmentNumber || 'N/A'}</td>
                     <td>${student.name || 'N/A'}</td>
-                    <td>${student.email || 'N/A'}</td>
                     <td>${student.rollNumber || 'N/A'}</td>
+                    <td>${student.email || 'N/A'}</td>
                     <td>${student.gender || 'N/A'}</td>
                     <td>${student.mobileNumber || 'N/A'}</td>
                     <td>${student.city || 'N/A'}</td>
+                    <td>
+                        <button class="edit-btn" data-roll-number="${student.rollNumber}">Edit</button>
+                        <button class="delete-btn" data-roll-number="${student.rollNumber}">Delete</button>
+                    </td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -67,11 +76,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             allStudents = await response.json();
             loadingDiv.style.display = 'none';
             exportCsvBtn.style.visibility = 'visible';
-            exportPdfBtn.style.visibility = 'visible';
+            printBtn.style.visibility = 'visible';
 
             if (allStudents.length === 0) {
                 exportCsvBtn.disabled = true;
-                exportPdfBtn.disabled = true;
+                printBtn.disabled = true;
             }
 
             displayStudents(allStudents); // Initial display of all students
@@ -85,6 +94,59 @@ document.addEventListener('DOMContentLoaded', async () => {
                     (student.rollNumber || '').toLowerCase().includes(searchTerm)
                 );
                 displayStudents(filteredStudents);
+            });
+
+            // --- Delete Student Functionality (Event Delegation) ---
+            tableBody.addEventListener('click', async (event) => {
+                if (event.target.classList.contains('delete-btn')) {
+                    const button = event.target;
+                    const rollNumber = button.dataset.rollNumber;
+                    const studentName = button.closest('tr').querySelector('td:nth-child(2)').textContent;
+
+                    if (confirm(`Are you sure you want to delete the record for ${studentName} (${rollNumber})? This action cannot be undone.`)) {
+                        try {
+                            const response = await fetch(`/api/student/${rollNumber}`, {
+                                method: 'DELETE',
+                            });
+
+                            const data = await response.json();
+
+                            if (!response.ok) {
+                                throw new Error(data.message || 'Failed to delete student.');
+                            }
+
+                            // --- On success, update UI and local data ---
+                            alert(data.message);
+
+                            // Remove from the `allStudents` array
+                            allStudents = allStudents.filter(s => s.rollNumber !== rollNumber);
+
+                            // Remove the row from the table
+                            button.closest('tr').remove();
+
+                        } catch (error) {
+                            console.error('Error deleting student:', error);
+                            alert(`Error: ${error.message}`);
+                        }
+                    }
+                } else if (event.target.classList.contains('edit-btn')) {
+                    const button = event.target;
+                    const rollNumber = button.dataset.rollNumber;
+
+                    // Find the student in our local array
+                    const studentToEdit = allStudents.find(s => s.rollNumber === rollNumber);
+                    if (studentToEdit) {
+                        // Populate the modal form
+                        editRollNumberHidden.value = studentToEdit.rollNumber;
+                        document.getElementById('editStudentName').value = studentToEdit.name || '';
+                        document.getElementById('editStudentEmail').value = studentToEdit.email || '';
+                        document.getElementById('editStudentMobile').value = studentToEdit.mobileNumber || '';
+                        document.getElementById('editStudentCity').value = studentToEdit.city || '';
+
+                        // Show the modal
+                        editModal.style.display = 'flex';
+                    }
+                }
             });
 
             // --- CSV Export Functionality ---
@@ -139,47 +201,62 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.body.removeChild(link);
             });
 
-        // --- PDF Export Functionality ---
-        exportPdfBtn.addEventListener('click', () => {
-            const { jsPDF } = window.jspdf;
-            // Using a try-catch block in case the library fails to load from the CDN
-            if (typeof jsPDF === 'undefined') {
-                alert('Could not generate PDF. Please check your internet connection and try again.');
-                return;
+        // --- Edit Modal Functionality ---
+        cancelEditBtn.addEventListener('click', () => {
+            editModal.style.display = 'none';
+        });
+
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const rollNumber = editRollNumberHidden.value;
+            const updatedData = {
+                name: document.getElementById('editStudentName').value,
+                email: document.getElementById('editStudentEmail').value,
+                mobileNumber: document.getElementById('editStudentMobile').value,
+                city: document.getElementById('editStudentCity').value,
+            };
+
+            try {
+                const response = await fetch(`/api/student/${rollNumber}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData),
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to update student.');
+                }
+
+                alert(result.message);
+
+                // Update local `allStudents` array with the fresh data from the server
+                const studentIndex = allStudents.findIndex(s => s.rollNumber === rollNumber);
+                if (studentIndex > -1) {
+                    allStudents[studentIndex] = { ...allStudents[studentIndex], ...result.studentData };
+                }
+
+                // Re-render the currently filtered view
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                const currentViewStudents = allStudents.filter(student =>
+                    (student.name || '').toLowerCase().includes(searchTerm) ||
+                    (student.email || '').toLowerCase().includes(searchTerm) ||
+                    (student.rollNumber || '').toLowerCase().includes(searchTerm)
+                );
+                displayStudents(currentViewStudents);
+
+                editModal.style.display = 'none'; // Hide modal on success
+            } catch (error) {
+                console.error('Error updating student:', error);
+                alert(`Error: ${error.message}`);
             }
-            const doc = new jsPDF();
+        });
 
-            const searchTerm = searchInput.value.toLowerCase().trim();
-            const studentsToExport = allStudents.filter(student =>
-                (student.name || '').toLowerCase().includes(searchTerm) ||
-                (student.email || '').toLowerCase().includes(searchTerm) ||
-                (student.rollNumber || '').toLowerCase().includes(searchTerm)
-            );
-
-            if (studentsToExport.length === 0) {
-                alert('No data to export.');
-                return;
-            }
-
-            const head = [['ID', 'Name', 'Email', 'Roll Number', 'Gender', 'Mobile', 'City']];
-            const body = studentsToExport.map(s => [
-                s.enrollmentNumber,
-                s.name,
-                s.email,
-                s.rollNumber,
-                s.gender,
-                s.mobileNumber,
-                s.city
-            ]);
-
-            doc.autoTable({
-                head: head,
-                body: body,
-                didDrawPage: (data) => doc.text("Student Records", data.settings.margin.left, 15),
-                margin: { top: 20 }
-            });
-
-            doc.save('student-records.pdf');
+        // --- Print Functionality ---
+        printBtn.addEventListener('click', () => {
+            // The @media print styles in students.html will handle the formatting.
+            window.print();
         });
 
         } catch (error) {
