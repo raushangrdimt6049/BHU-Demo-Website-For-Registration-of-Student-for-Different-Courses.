@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const themeToggleBtn = document.getElementById('themeToggleBtn');
-    const body = document.body;
+    const htmlElement = document.documentElement;
 
     /**
      * Applies the specified theme to the page.
@@ -8,10 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     const applyTheme = (theme) => {
         if (theme === 'dark') {
-            body.classList.add('dark-mode');
+            htmlElement.classList.add('dark-mode');
             if (themeToggleBtn) themeToggleBtn.textContent = '☀️'; // Sun icon
         } else {
-            body.classList.remove('dark-mode');
+            htmlElement.classList.remove('dark-mode');
             if (themeToggleBtn) themeToggleBtn.textContent = '🌙'; // Moon icon
         }
     };
@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Toggles the theme between light and dark, and saves the preference.
      */
     const toggleTheme = () => {
-        const currentTheme = body.classList.contains('dark-mode') ? 'light' : 'dark';
+        const currentTheme = htmlElement.classList.contains('dark-mode') ? 'light' : 'dark';
         localStorage.setItem('theme', currentTheme);
         applyTheme(currentTheme);
     };

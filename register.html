@@ -6,11 +6,24 @@
     <title>DAV PG College, Varanasi - Student Registration</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="login.css"> <!-- Re-use login styles for consistency -->
+    <script>
+        // --- Immediate Theme Application (Flicker-Free) ---
+        (function() {
+            try {
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+        })();
+    </script>
 </head>
 <body>
 
     <header class="main-header">
-        <div class="Ale"https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+        <div class="header-branding">
+            <div class="logo-container">
+                <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
             </div>
             <div class="header-text">
                 <h1>Banaras Hindu University</h1>
@@ -23,10 +36,21 @@
         </div>
         <div class="header-actions">
             <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
-        </
-        <form id="registrationForm" class="registration-form" novalidate>
-            <h3>Student Registration Form</h3>
-            <
+        </div>
+    </header>
+
+    <main class="login-main">
+        <div class="welcome-container" style="max-width: 650px;">
+            <h2>Create Your Account</h2>
+            <p>Fill out the form below to register for the student portal.</p>
+
+            <form id="registrationForm" class="login-form" novalidate>
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email Address</label>
                 <input type="email" id="email" name="email" required autocomplete="username">
                 <small id="email-error" class="error-message"></small>
             </div>
@@ -108,10 +132,11 @@
                 <span class="button-text">Submit</span>
                 <span class="spinner" style="display: none;"></span>
             </button>
-            <p class="login-link">
-                Already have an account? <a href="login.html">Sign In</a>
-            </p>
-        </form>
+            </form>
+            <div class="main-portal-section" style="margin-top: 1.5rem; text-align: center;">
+                <p class="login-link">Already have an account? <a href="login.html">Sign In</a></p>
+            </div>
+        </div>
     </main>
 
     <script src="theme.js"></script>

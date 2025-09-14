@@ -8,6 +8,16 @@
     <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
     <link rel="stylesheet" href="home.css">
     <script>
+        // --- Immediate Theme Application (Flicker-Free) ---
+        (function() {
+            try {
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+        })();
+    </script>
+    <script>
         // --- Strict Session Security Check ---
         // This script enforces logout on any page refresh, direct URL access, or back/forward navigation.
         // Access is only granted immediately after a login or a valid in-app navigation link is clicked.

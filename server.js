@@ -165,7 +165,10 @@ app.post('/register', jsonParser, async (req, res) => {
         delete newStudent.passwordhash;
 
         console.log('Data successfully written to database for roll number:', newStudent.rollnumber);
-        sendWelcomeEmail(newStudent.email, newStudent.name); // Send welcome email
+        
+        // Asynchronously send welcome email and registration SMS
+        sendWelcomeEmail(newStudent.email, newStudent.name);
+        sendRegistrationSms(newStudent.mobilenumber, newStudent.rollnumber, newStudent.enrollmentnumber, password);
 
         // Map DB columns (lowercase) to JS-friendly camelCase for the client
         const clientSafeStudentData = {
@@ -222,6 +225,40 @@ async function sendWelcomeEmail(toEmail, studentName) {
         console.log(`Welcome email sent to ${toEmail}`);
     } catch (error) {
         console.error(`Error sending welcome email to ${toEmail}:`, error);
+    }
+}
+
+// --- SMS Sending Function (using Twilio) ---
+async function sendRegistrationSms(toMobileNumber, rollNumber, enrollmentNumber, password) {
+    // IMPORTANT: Sending passwords in plain text via SMS is not a recommended security practice.
+    // This is implemented as requested. Consider sending a one-time link to set a password instead for better security.
+
+    // Ensure you have TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in your .env file
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+        console.warn('Twilio credentials not found in .env file. Skipping SMS.');
+        return;
+    }
+
+    // Initialize Twilio client here to avoid server crash if credentials are not set on startup
+    const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+    // Ensure mobile number is in E.164 format (e.g., +91XXXXXXXXXX for India)
+    // This logic assumes a 10-digit Indian number. Adjust if needed for other countries.
+    const formattedMobileNumber = `+91${toMobileNumber}`;
+    const loginUrl = `${process.env.BASE_URL || 'http://localhost:' + port}/login.html`;
+    const messageBody = `Welcome to DAV PG College! Your registration is successful. Roll No: ${rollNumber}, Enrollment No: ${enrollmentNumber}, Password: ${password}. Login here: ${loginUrl}`;
+
+    try {
+        await twilioClient.messages.create({
+            body: messageBody,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: formattedMobileNumber
+        });
+        console.log(`Registration SMS sent to ${formattedMobileNumber}`);
+    } catch (error) {
+        // Log the error but don't fail the entire registration process if SMS fails.
+        // This could be due to an invalid number, DND, or Twilio account issues.
+        console.error(`Error sending registration SMS to ${formattedMobileNumber}:`, error.message);
     }
 }
 

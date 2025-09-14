@@ -7,6 +7,16 @@
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
     <link rel="stylesheet" href="login.css">
+    <script>
+        // --- Immediate Theme Application (Flicker-Free) ---
+        (function() {
+            try {
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+        })();
+    </script>
     <style>
         .password-wrapper {
             position: relative;
