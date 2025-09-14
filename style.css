@@ -2,6 +2,7 @@
 :root {
     --bg-body: #f4f7f6;
     --bg-main: rgba(255, 255, 255, 0.9);
+    --bg-gradient: linear-gradient(to bottom right, #e0f7fa, #fce4ec);
     --text-color: #333;
     --header-bg: rgba(255, 255, 255, 0.8);
     --header-shadow: rgba(0, 0, 0, 0.1);
@@ -23,9 +24,10 @@
     --link-color: #0056b3;
 }
 
-body.dark-mode {
+html.dark-mode {
     --bg-body: #121212;
     --bg-main: rgba(30, 30, 30, 0.9);
+    --bg-gradient: linear-gradient(to bottom right, #2c3e50, #341f3a);
     --text-color: #e0e0e0;
     --header-bg: rgba(24, 24, 24, 0.8);
     --header-shadow: rgba(255, 255, 255, 0.1);
@@ -60,7 +62,10 @@ html {
 }
 
 body {
-    background-color: var(--bg-body);
+    background-color: var(--bg-body); /* Fallback for older browsers */
+    background-image: var(--bg-gradient);
+    background-attachment: fixed; /* Keeps the gradient stationary during scroll */
+    background-size: cover;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     color: var(--text-color);
     line-height: 1.6;
@@ -160,6 +165,7 @@ main {
     transition: border-color 0.3s, box-shadow 0.3s, background-color 0.3s, color 0.3s;
     background-color: var(--input-bg);
     color: var(--text-color);
+    min-height: 45px; /* Ensure consistent height across all input-like elements */
 }
 
 .form-group input:focus,
@@ -172,6 +178,33 @@ main {
 .form-group input[readonly] {
     background-color: var(--readonly-bg);
     cursor: not-allowed;
+}
+
+/* A reusable class for read-only display fields that look like inputs */
+.display-field {
+    font-size: 1.1rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--readonly-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    min-height: 45px;
+    display: flex;
+    align-items: center;
+    word-wrap: break-word; /* Ensure long content wraps */
+}
+
+/* A reusable class for side-by-side form action buttons */
+.form-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+.form-actions .submit-btn,
+.form-actions .back-btn {
+    flex: 1;
+    width: auto;
+    margin-top: 0;
 }
 
 .error-message {
@@ -251,7 +284,11 @@ main {
     font-weight: 700;
     cursor: pointer;
     transition: background-color 0.3s, transform 0.2s;
-    text-align: center;
+    text-align: center; /* Fallback for non-flex displays */
+    text-decoration: none; /* Ensure links don't have underlines */
+    display: inline-flex; /* Use flex to perfectly center text */
+    justify-content: center;
+    align-items: center;
 }
 .back-btn:hover {
     background-color: var(--btn-secondary-hover-bg);

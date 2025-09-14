@@ -30,19 +30,6 @@
             padding: 0.6rem 1.2rem;
             font-size: 1rem;
         }
-        .form-actions {
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-        .form-actions .submit-btn,
-        .form-actions .back-btn {
-            flex: 1;
-            width: auto;
-            margin-top: 0;
-            text-decoration: none; /* Ensures the 'a' tag looks like a button */
-        }
 
         /* --- Password Overlay Styles --- */
         .password-overlay {
@@ -76,20 +63,28 @@
         .password-modal p {
             margin-bottom: 1.5rem;
         }
+
+        /* Stack buttons in the admin login modal */
+        .password-modal .form-actions {
+            flex-direction: column;
+        }
     </style>
 </head>
 <body>
     <div id="password-overlay" class="password-overlay">
         <div class="password-modal">
             <h3>Admin Access Required</h3>
-            <p>Enter the admin password to get access to all records.</p>
+            <p>Enter your admin credentials to access all records.</p>
             <form id="adminPasswordForm">
                 <div class="form-group">
-                    <input type="password" id="adminPasswordInput" placeholder="Enter Password" required autofocus>
+                    <input type="text" id="adminUsernameInput" placeholder="Enter Username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="adminPasswordInput" placeholder="Enter Password" required>
                 </div>
                 <div class="form-actions">
-                    <a href="login.html" class="back-btn">Back to Home</a>
-                    <button type="submit" class="submit-btn">Unlock</button>
+                    <button type="submit" class="submit-btn">Sign In</button>
+                    <a href="index.html" class="back-btn">Back to Main Portal</a>
                 </div>
                 <p id="password-error" class="error-message" style="margin-top: 1rem;"></p>
             </form>
@@ -139,11 +134,15 @@
                 </table>
             </div>
             <div class="form-actions">
-                <a href="login.html" class="back-btn">Back to Home</a>
-                <button id="exportCsvBtn" class="submit-btn" style="visibility: hidden;">Export to CSV</button>
+                <a href="index.html" class="back-btn">Back to Main Portal</a>
+                <button id="exportCsvBtn" class="submit-btn" style="visibility: hidden;">Download as CSV</button>
+                <button id="exportPdfBtn" class="submit-btn" style="visibility: hidden;">Download as PDF</button>
             </div>
         </div>
     </main>
+    <!-- jsPDF Libraries for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf-autotable.min.js"></script>
     <script src="theme.js"></script>
     <script src="students.js"></script>
 </body>

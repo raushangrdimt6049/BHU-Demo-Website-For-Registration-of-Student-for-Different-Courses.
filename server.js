@@ -72,13 +72,29 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+// New Multer setup for multiple document uploads
+const docStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = 'uploads/documents/';
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        // Generate a temporary name. We will rename it in the route handler.
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const extension = path.extname(file.originalname);
+        cb(null, `temp-${file.fieldname}-${uniqueSuffix}${extension}`);
+    }
+});
+const docUpload = multer({ storage: docStorage });
+
 // Serve static files (HTML, CSS, JS) from the current directory
 app.use(express.static(__dirname));
 
-// Redirect root to the login page, making it the default entry point
-app.get('/', (req, res) => {
-    res.redirect('/login.html');
-});
+// The root URL ('/') will now automatically serve index.html (the landing page)
+// because of the express.static middleware above. No explicit route is needed.
 
 // A simple function to generate a unique enrollment number
 function generateEnrollmentNumber() {
@@ -126,26 +142,14 @@ app.post('/register', jsonParser, async (req, res) => {
     console.log('Received registration data for email:', email);
 
     try {
-        // 1. Check if user already exists
-        const userCheck = await pool.query('SELECT email, mobilenumber FROM students WHERE email = $1 OR mobilenumber = $2', [email.toLowerCase(), mobileNumber]);
-        if (userCheck.rows.length > 0) {
-            const existing = userCheck.rows[0];
-            if (existing.email === email.toLowerCase()) {
-                return res.status(409).json({ message: `Email ${email} is already registered.` });
-            }
-            if (existing.mobilenumber === mobileNumber) {
-                return res.status(409).json({ message: `Mobile Number ${mobileNumber} is already registered.` });
-            }
-        }
-
-        // 2. Generate unique IDs
+        // 1. Generate unique IDs
         const enrollmentNumber = generateEnrollmentNumber();
         const rollNumber = generateRollNumber(); // Assuming these are sufficiently unique for now
 
         // --- Password Hashing ---
         const passwordHash = await bcrypt.hash(password, saltRounds);
 
-        // 4. Insert the new user into the database
+        // 2. Insert the new user into the database
         // Note: Column names are lowercase as PostgreSQL folds unquoted identifiers to lowercase.
         const newUserQuery = `
             INSERT INTO students(enrollmentnumber, rollnumber, name, email, passwordhash, dob, mobilenumber, gender, securityquestion, securityanswer)
@@ -179,6 +183,19 @@ app.post('/register', jsonParser, async (req, res) => {
 
         res.status(201).json({ message: 'Registration successful!', studentData: clientSafeStudentData });
     } catch (error) {
+        // This is a more robust way to handle unique constraints than a pre-check.
+        // It catches the error directly from the database insert attempt.
+        if (error.code === '23505') { // PostgreSQL unique_violation error code
+            // The constraint name depends on how the table was created.
+            // These are common default names.
+            if (error.constraint && error.constraint.includes('email')) {
+                return res.status(409).json({ message: `Email ${email} is already registered.` });
+            }
+            if (error.constraint && error.constraint.includes('mobilenumber')) {
+                return res.status(409).json({ message: `Mobile Number ${mobileNumber} is already registered.` });
+            }
+            return res.status(409).json({ message: 'A user with this email or mobile number already exists.' });
+        }
         console.error('Error during registration:', error);
         res.status(500).json({ message: 'Failed to save data to the server.' });
     }
@@ -276,6 +293,110 @@ app.post('/update', upload.single('profilePicture'), async (req, res) => {
     }
 });
 
+// New endpoint for handling multiple document uploads
+app.post('/upload-documents', docUpload.fields([
+    { name: 'profilePicture', maxCount: 1 },
+    { name: 'signature', maxCount: 1 },
+    { name: 'marksheet10', maxCount: 1 },
+    { name: 'marksheet12', maxCount: 1 }
+]), async (req, res) => {
+    console.log("Received a request at /upload-documents endpoint.");
+    const { rollNumber } = req.body;
+
+    if (!rollNumber) {
+        // Clean up any uploaded files if roll number is missing
+        Object.values(req.files).forEach(fileArray => {
+            fileArray.forEach(file => fs.unlinkSync(file.path));
+        });
+        return res.status(400).json({ message: 'Roll number is required to upload documents.' });
+    }
+
+    const studentDocDir = path.join(__dirname, 'uploads', 'documents', rollNumber);
+    if (!fs.existsSync(studentDocDir)) {
+        fs.mkdirSync(studentDocDir, { recursive: true });
+    }
+
+    const filePaths = {};
+    try {
+        const renamePromises = Object.keys(req.files).map(fieldname => {
+            return new Promise((resolve, reject) => {
+                const file = req.files[fieldname][0];
+                const newFileName = `${fieldname}${path.extname(file.originalname)}`;
+                const newPath = path.join(studentDocDir, newFileName);
+
+                fs.rename(file.path, newPath, (err) => {
+                    if (err) {
+                        console.error(`Error renaming file for ${fieldname}:`, err);
+                        return reject(new Error(`Could not process ${fieldname} upload.`));
+                    }
+                    filePaths[fieldname] = `/uploads/documents/${rollNumber}/${newFileName}`.replace(/\\/g, "/");
+                    resolve();
+                });
+            });
+        });
+        await Promise.all(renamePromises);
+
+        // --- Fetch existing paths and merge with new ones ---
+        const existingPathsResult = await pool.query(
+            'SELECT profilepicture, signature, marksheet10, marksheet12 FROM students WHERE rollnumber = $1',
+            [rollNumber]
+        );
+
+        if (existingPathsResult.rows.length === 0) {
+            throw new Error('Student not found when fetching existing documents.');
+        }
+        const existingPaths = existingPathsResult.rows[0];
+
+        // Merge new paths over existing ones. If a new path is undefined, the existing one is used.
+        const finalFilePaths = {
+            profilePicture: filePaths.profilePicture || existingPaths.profilepicture,
+            signature: filePaths.signature || existingPaths.signature,
+            marksheet10: filePaths.marksheet10 || existingPaths.marksheet10,
+            marksheet12: filePaths.marksheet12 || existingPaths.marksheet12
+        };
+
+        const query = `
+            UPDATE students 
+            SET profilepicture=$1, signature=$2, marksheet10=$3, marksheet12=$4, updatedat=CURRENT_TIMESTAMP
+            WHERE rollnumber = $5
+            RETURNING *;
+        `;
+        const values = [finalFilePaths.profilePicture, finalFilePaths.signature, finalFilePaths.marksheet10, finalFilePaths.marksheet12, rollNumber];
+        const { rows } = await pool.query(query, values);
+
+        if (rows.length === 0) {
+            throw new Error('Student not found during database update.');
+        }
+
+        const finalUpdatedStudent = rows[0];
+        delete finalUpdatedStudent.passwordhash;
+        console.log('Documents uploaded and paths saved for roll number:', rollNumber);
+        res.status(200).json({ message: 'Documents uploaded successfully.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
+    } catch (error) {
+        // --- IMPORTANT: Cleanup uploaded files on error ---
+        // Cleanup renamed files
+        Object.values(filePaths).forEach(filePath => {
+            const serverPath = path.join(__dirname, filePath);
+            if (fs.existsSync(serverPath)) {
+                fs.unlinkSync(serverPath);
+            }
+        });
+        // Cleanup any temp files that might not have been renamed
+        if (req.files) {
+            Object.values(req.files).forEach(fileArray => {
+                fileArray.forEach(file => {
+                    if (fs.existsSync(file.path)) {
+                        fs.unlinkSync(file.path);
+                    }
+                });
+            });
+        }
+
+        console.error('Error processing document uploads:', error);
+        res.status(500).json({ message: error.message || 'Failed to upload documents.' });
+    }
+});
+
 // POST endpoint to handle login
 app.post('/login', jsonParser, async (req, res) => {
     console.log("Received a request at /login endpoint.");
@@ -283,11 +404,11 @@ app.post('/login', jsonParser, async (req, res) => {
     console.log(`Login attempt for identifier: ${loginIdentifier}`);
 
     try {
-        const query = 'SELECT * FROM students WHERE email = $1 OR mobilenumber = $1';
+        const query = 'SELECT * FROM students WHERE email = $1';
         const { rows } = await pool.query(query, [loginIdentifier.toLowerCase()]);
 
         if (rows.length === 0) {
-            return res.status(401).json({ message: 'Email or Mobile Number not found.' });
+            return res.status(401).json({ message: 'Email not found.' });
         }
 
         const student = rows[0];
@@ -349,7 +470,7 @@ app.post('/reset-password', jsonParser, async (req, res) => {
     console.log(`Password reset attempt for identifier: ${identifier}`);
 
     try {
-        const query = 'SELECT * FROM students WHERE (email = $1 OR mobilenumber = $1) AND securityquestion = $2';
+        const query = 'SELECT * FROM students WHERE email = $1 AND securityquestion = $2';
         const { rows } = await pool.query(query, [identifier.toLowerCase(), securityQuestion]);
 
         if (rows.length === 0) {
@@ -380,7 +501,7 @@ app.post('/reset-password', jsonParser, async (req, res) => {
 // New endpoint to add academic details
 app.post('/add-academic-details', jsonParser, async (req, res) => {
     console.log("Received a request at /add-academic-details endpoint.");
-    const { rollNumber, board10, percentage10, year10, board12, percentage12, year12 } = req.body;
+    const { rollNumber, board10, marks10, totalMarks10, percentage10, year10, board12, marks12, totalMarks12, percentage12, year12 } = req.body;
 
     if (!rollNumber) {
         return res.status(400).json({ message: 'Roll Number is missing.' });
@@ -389,11 +510,18 @@ app.post('/add-academic-details', jsonParser, async (req, res) => {
     try {
         const query = `
             UPDATE students 
-            SET board10=$1, percentage10=$2, year10=$3, board12=$4, percentage12=$5, year12=$6, updatedat=CURRENT_TIMESTAMP
-            WHERE rollnumber = $7
+            SET 
+                board10=$1, marks10=$2, totalmarks10=$3, percentage10=$4, year10=$5, 
+                board12=$6, marks12=$7, totalmarks12=$8, percentage12=$9, year12=$10, 
+                updatedat=CURRENT_TIMESTAMP
+            WHERE rollnumber = $11
             RETURNING *;
         `;
-        const values = [board10, percentage10, year10, board12, percentage12, year12, rollNumber];
+        const values = [
+            board10, marks10, totalMarks10, percentage10, year10, 
+            board12, marks12, totalMarks12, percentage12, year12, 
+            rollNumber
+        ];
         const { rows } = await pool.query(query, values);
 
         if (rows.length === 0) {
@@ -639,7 +767,9 @@ function mapDbToCamelCase(dbObject) {
             fathername: 'fatherName', fatheroccupation: 'fatherOccupation',
             mothername: 'motherName', motheroccupation: 'motherOccupation',
             parentmobile: 'parentMobile', percentage10: 'percentage10',
+            totalmarks10: 'totalMarks10',
             year10: 'year10', board10: 'board10', percentage12: 'percentage12',
+            totalmarks12: 'totalMarks12',
             year12: 'year12', board12: 'board12', selectedcourse: 'selectedCourse',
             createdat: 'createdAt', updatedat: 'updatedAt', mobilenumber: 'mobileNumber'
         };

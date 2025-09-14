@@ -11,9 +11,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Password Protection Elements ---
     const passwordOverlay = document.getElementById('password-overlay');
     const adminPasswordForm = document.getElementById('adminPasswordForm');
+    const adminUsernameInput = document.getElementById('adminUsernameInput');
     const adminPasswordInput = document.getElementById('adminPasswordInput');
     const passwordError = document.getElementById('password-error');
-    const correctPassword = '7983257106';
+    const correctUsername = 'Raushan_143';
+    const correctPassword = '4gh4m01r';
 
     // This function contains all the logic for fetching, displaying, searching, and exporting records.
     const initializeStudentRecords = async () => {
@@ -21,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const loadingDiv = document.getElementById('loading');
         const errorDiv = document.getElementById('error');
         const exportCsvBtn = document.getElementById('exportCsvBtn');
+        const exportPdfBtn = document.getElementById('exportPdfBtn');
         const searchInput = document.getElementById('searchInput');
 
         let allStudents = []; // This will hold the master list of students
@@ -64,9 +67,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             allStudents = await response.json();
             loadingDiv.style.display = 'none';
             exportCsvBtn.style.visibility = 'visible';
+            exportPdfBtn.style.visibility = 'visible';
 
             if (allStudents.length === 0) {
                 exportCsvBtn.disabled = true;
+                exportPdfBtn.disabled = true;
             }
 
             displayStudents(allStudents); // Initial display of all students
@@ -134,6 +139,49 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.body.removeChild(link);
             });
 
+        // --- PDF Export Functionality ---
+        exportPdfBtn.addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            // Using a try-catch block in case the library fails to load from the CDN
+            if (typeof jsPDF === 'undefined') {
+                alert('Could not generate PDF. Please check your internet connection and try again.');
+                return;
+            }
+            const doc = new jsPDF();
+
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const studentsToExport = allStudents.filter(student =>
+                (student.name || '').toLowerCase().includes(searchTerm) ||
+                (student.email || '').toLowerCase().includes(searchTerm) ||
+                (student.rollNumber || '').toLowerCase().includes(searchTerm)
+            );
+
+            if (studentsToExport.length === 0) {
+                alert('No data to export.');
+                return;
+            }
+
+            const head = [['ID', 'Name', 'Email', 'Roll Number', 'Gender', 'Mobile', 'City']];
+            const body = studentsToExport.map(s => [
+                s.enrollmentNumber,
+                s.name,
+                s.email,
+                s.rollNumber,
+                s.gender,
+                s.mobileNumber,
+                s.city
+            ]);
+
+            doc.autoTable({
+                head: head,
+                body: body,
+                didDrawPage: (data) => doc.text("Student Records", data.settings.margin.left, 15),
+                margin: { top: 20 }
+            });
+
+            doc.save('student-records.pdf');
+        });
+
         } catch (error) {
             loadingDiv.style.display = 'none';
             errorDiv.textContent = `Error: ${error.message}`;
@@ -148,20 +196,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     passwordOverlay.style.display = 'flex'; // Make sure it's visible
     adminPasswordForm.addEventListener('submit', (e) => {
         e.preventDefault();
+        const enteredUsername = adminUsernameInput.value;
         const enteredPassword = adminPasswordInput.value;
 
-        if (enteredPassword === correctPassword) {
-            // On correct password, hide the overlay and load the records.
+        if (enteredUsername === correctUsername && enteredPassword === correctPassword) {
+            // On correct credentials, hide the overlay and load the records.
             passwordOverlay.style.opacity = '0';
             setTimeout(() => {
                 passwordOverlay.style.display = 'none';
             }, 300); // Match the transition duration
             initializeStudentRecords();
         } else {
-            passwordError.textContent = 'Incorrect password. Please try again.';
+            passwordError.textContent = 'Incorrect username or password. Please try again.';
             passwordError.style.display = 'block';
+            // For security, only clear the password field.
             adminPasswordInput.value = '';
-            adminPasswordInput.focus();
+            adminUsernameInput.focus();
         }
     });
 });

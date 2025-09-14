@@ -1,0 +1,51 @@
+.upload-group {
+    margin-bottom: 2rem;
+    border: 1px dashed var(--input-border);
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.upload-group label {
+    font-size: 1.2rem;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.upload-group input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--input-border);
+    border-radius: 4px;
+    background-color: var(--input-bg);
+}
+
+.preview-container {
+    margin-top: 1rem;
+    min-height: 100px;
+    background-color: var(--readonly-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.file-preview {
+    max-width: 100%;
+    max-height: 150px;
+    display: none; /* Hidden by default */
+}
+
+.file-info {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    opacity: 0.8;
+}
+
+.upload-group .error-message {
+    text-align: center;
+    margin-top: 0.5rem;
+}

@@ -154,6 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const contactDone = studentData.addressLine1 && studentData.addressLine1.trim() !== '';
             const academicDone = studentData.board10 && studentData.board10.trim() !== '';
+            // Check for the new document fields to mark this step as done
+            const documentsDone = studentData.profilePicture && studentData.signature && studentData.marksheet10 && studentData.marksheet12;
             // A course is considered "selected" if a valid course object (with an amount) was parsed from the student data.
             const courseSelected = !!parsedCourse.amount;
 
@@ -173,16 +175,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 'academic-details.html', academicDone, contactDone
             );
 
-            // Step 3: Course Selection
+            // Step 3: Upload Documents
             stepsContainer.innerHTML += createStepHTML(
-                '3. Course Selection', 'Select your desired course.',
-                'course-selection.html', courseSelected, academicDone
+                '3. Upload Documents', 'Upload your photo, signature, and marksheets.',
+                'document-upload.html', documentsDone, academicDone
+            );
+
+            // Step 4: Course Selection
+            stepsContainer.innerHTML += createStepHTML(
+                '4. Course Selection', 'Select your desired course.',
+                'course-selection.html', courseSelected, documentsDone
             );
 
             proceedSection.appendChild(stepsContainer);
 
             // Add the "Proceed to Preview" button only when all steps are complete
-            if (contactDone && academicDone && courseSelected) {
+            if (contactDone && academicDone && documentsDone && courseSelected) {
                 const previewSection = document.createElement('div');
                 previewSection.className = 'final-proceed-section';
                 previewSection.innerHTML = `
@@ -251,10 +259,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.profilePicture && data.profilePicture.trim() !== '') {
                 profilePictureImg.src = data.profilePicture;
             } else {
-                profilePictureImg.src = 'default-avatar.png'; // A default image
+                profilePictureImg.src = 'bhu-logo.png'; // A default image
             }
             profilePictureImg.onerror = () => {
-                profilePictureImg.src = 'default-avatar.png'; // Fallback if the image fails to load
+                profilePictureImg.src = 'bhu-logo.png'; // Fallback if the image fails to load
             };
 
             // Also set initial values for edit fields

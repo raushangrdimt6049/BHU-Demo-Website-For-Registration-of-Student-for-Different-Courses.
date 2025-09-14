@@ -1,0 +1,137 @@
+.landing-main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    gap: 4rem;
+}
+
+.portal-selection-container {
+    display: flex;
+    flex-direction: row;
+    gap: 2.5rem;
+    align-items: center;
+    justify-content: center;
+}
+
+.portal-circle {
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: var(--bg-main);
+    box-shadow: 0 8px 25px var(--header-shadow);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    text-decoration: none;
+    color: var(--text-color);
+    padding: 2rem;
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+    border: 2px solid var(--input-border);
+}
+
+.portal-circle:hover {
+    transform: translateY(-10px) scale(1.05);
+    box-shadow: 0 12px 35px var(--header-shadow);
+    border-color: var(--btn-bg);
+}
+
+.portal-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    line-height: 1;
+    color: var(--btn-bg);
+    transition: transform 0.3s ease-in-out;
+}
+
+.portal-circle h3 {
+    font-size: 1.8rem;
+    color: var(--btn-bg);
+    margin-bottom: 0.75rem;
+}
+
+.portal-circle p {
+    font-size: 1rem;
+    opacity: 0.8;
+}
+
+.portal-circle:hover .portal-icon {
+    transform: scale(1.15) rotate(-10deg);
+}
+
+.portal-circle.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: var(--readonly-bg);
+}
+
+/* --- Info Section Styles --- */
+.info-container {
+    display: flex;
+    gap: 2.5rem;
+    width: 100%;
+    max-width: 1200px;
+}
+
+.info-section {
+    flex: 1;
+    background: var(--bg-main);
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px var(--header-shadow);
+    border: 1px solid var(--input-border);
+}
+
+.info-section h3 {
+    font-size: 1.5rem;
+    color: var(--btn-bg);
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--btn-bg);
+    padding-bottom: 0.5rem;
+}
+
+.info-section p {
+    line-height: 1.7;
+    opacity: 0.9;
+}
+
+.info-section a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+.info-section a:hover {
+    text-decoration: underline;
+}
+
+/* On medium screens and below, stack the circles vertically for better readability */
+@media (max-width: 992px) {
+    .portal-selection-container {
+        flex-direction: column;
+    }
+    .info-container {
+        flex-direction: column;
+    }
+}
+@media (max-width: 768px) {
+    .portal-circle {
+        width: 240px;
+        height: 240px;
+    }
+
+    .portal-icon {
+        font-size: 3rem;
+    }
+
+    .portal-circle h3 {
+        font-size: 1.5rem;
+    }
+
+    .portal-circle p {
+        font-size: 0.9rem;
+    }
+}

@@ -70,6 +70,13 @@
     opacity: 0.65;
 }
 
+.preview-field a.disabled-link {
+    color: var(--text-color);
+    opacity: 0.7;
+    pointer-events: none;
+    text-decoration: none;
+}
+
 @media (max-width: 600px) {
     .preview-actions {
         flex-direction: column;

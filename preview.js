@@ -74,6 +74,26 @@ document.addEventListener('DOMContentLoaded', () => {
     populateField('previewPercentage12', studentData.percentage12 ? `${studentData.percentage12}%` : 'N/A');
     populateField('previewYear12', studentData.year12);
 
+    // --- Populate Uploaded Documents ---
+    const populateDocumentLink = (id, path) => {
+        const link = document.getElementById(id);
+        if (link) {
+            if (path) {
+                link.href = path;
+            } else {
+                link.textContent = 'Not Uploaded';
+                link.classList.add('disabled-link');
+                link.removeAttribute('href');
+                link.removeAttribute('target');
+            }
+        }
+    };
+
+    populateDocumentLink('previewProfilePicture', studentData.profilePicture);
+    populateDocumentLink('previewSignature', studentData.signature);
+    populateDocumentLink('previewMarksheet10', studentData.marksheet10);
+    populateDocumentLink('previewMarksheet12', studentData.marksheet12);
+
     // --- Populate Course Selection ---
     populateField('previewHonsSubject', courseData.branch);
     populateField('previewFee', `₹${(courseData.amount / 100).toLocaleString('en-IN')}`);

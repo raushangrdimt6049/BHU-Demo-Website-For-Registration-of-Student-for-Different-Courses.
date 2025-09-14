@@ -44,7 +44,7 @@ Step 3: User Login & Session Management (login.html & home.js)
 For returning users.
 1.	Login Form: The user enters their Roll Number and Password.
 2.	API Call: The credentials are sent to the /login endpoint on the server.
-3.	Backend Logic (server.js): The server reads students.xlsx, finds the student by rollNumber, and checks if the password matches.
+3.	Backend Logic (server.js): The server queries the `students` table, finds the user by their email address, and uses `bcrypt` to securely compare the provided password with the stored hash.
 4.	Session Creation: If successful, the server sends the student's complete data back to the browser. The browser stores this data in sessionStorage to "remember" that the user is logged in and redirects to home.html.
 5.	Security on Home Page: The home.html page has multiple security checks:
 o	Immediate Check: An inline script in the <head> of home.html checks for sessionStorage data. If it's missing, it redirects to login.html before the page even loads.
@@ -77,7 +77,10 @@ o	The browser uses these details to open the Razorpay payment popup.
 4.	Payment Verification:
 o	After the user completes the payment, Razorpay sends a response to the browser.
 o	The browser sends this response to the /verify-payment endpoint on the server.
-o	The server verifies the payment signature with Razorpay to ensure it's legitimate.
-o	If verified, the server updates the student's record in students.xlsx to include the selectedCourse details (locking the application) and also adds a new row to a "Payments" sheet in the Excel file to log the transaction.
+o	The server verifies the payment signature with Razorpay to ensure it's legitimate. This is done within a database transaction to ensure data integrity.
+o	If verified, the server:
+    1.  Updates the student's record in the `students` table to include the final `selectedCourse` details, effectively locking the application.
+    2.  Inserts a new row into the `payments` table to create a permanent log of the transaction.
 o	The user is then redirected to the final payment-summary.html page.
-This entire structure creates a robust, step-by-step application flow using simple but powerful web technologies, with Node.js and an Excel file acting as a lightweight and easy-to-manage backend.
+
+This entire structure creates a robust, step-by-step application flow using modern web technologies, with Node.js and PostgreSQL providing a secure and scalable backend.

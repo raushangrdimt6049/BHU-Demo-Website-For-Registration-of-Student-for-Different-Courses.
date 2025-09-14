@@ -61,6 +61,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const courseForm = document.getElementById('courseSelectionForm');
         const honsSubjectContainer = document.getElementById('honsSubjectContainer');
+        const submitBtn = document.getElementById('submitBtn');
+        const buttonText = submitBtn.querySelector('.button-text');
+        const spinner = submitBtn.querySelector('.spinner');
 
         if (!courseForm || !honsSubjectContainer) {
             console.error('The required form or container element was not found.');
@@ -127,6 +130,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // --- UI change for loading state ---
+            submitBtn.disabled = true;
+            spinner.style.display = 'inline-block';
+            buttonText.textContent = 'Saving...';
+
             const selectedSubjects = [];
             let totalFee = 0;
 
@@ -166,6 +174,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Error saving course selection:', error);
                 alert(`Error: ${error.message}`);
+            } finally {
+                // --- Reset UI from loading state ---
+                submitBtn.disabled = false;
+                spinner.style.display = 'none';
+                buttonText.textContent = 'Save & Continue';
             }
         });
     };

@@ -166,14 +166,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Pre-fill form with existing data ---
     if (studentData) {
-        // Handle standard fields first
-        Object.keys(studentData).forEach(key => {
-            // Skip board fields, we'll handle them separately
-            if (key === 'board10' || key === 'board12' || key === 'percentage10' || key === 'percentage12') return;
-
-            const input = academicForm.querySelector(`[name="${key}"]`);
-            if (input && studentData[key]) {
-                input.value = studentData[key];
+        // Explicitly populate academic fields to ensure reliability
+        const fieldsToPopulate = ['marks10', 'totalMarks10', 'year10', 'marks12', 'totalMarks12', 'year12'];
+        fieldsToPopulate.forEach(fieldName => {
+            const input = document.getElementById(fieldName);
+            // Check specifically for null/undefined, so that a value of 0 is still populated.
+            if (input && studentData[fieldName] !== null && studentData[fieldName] !== undefined) {
+                input.value = studentData[fieldName];
             }
         });
 

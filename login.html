@@ -42,37 +42,35 @@
             <h2>Welcome, Student!</h2>
             <p>Please sign in to view your details or sign up if you are a new user.</p>
 
-            <form id="loginForm" class="login-form" autocomplete="off">
+            <form id="loginForm" class="login-form">
                 <h3>Sign In</h3>
                 <div class="form-group">
-                    <label for="loginIdentifier">Email or Mobile Number</label>
-                    <input type="text" id="loginIdentifier" name="loginIdentifier" required autocomplete="off">
+                    <label for="loginIdentifier">Email Address</label>
+                    <input type="email" id="loginIdentifier" name="loginIdentifier" required autocomplete="email" placeholder="example@email.com">
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" required autocomplete="new-password">
+                        <input type="password" id="password" name="password" required autocomplete="current-password">
                         <span id="togglePassword" class="password-toggle">👁️</span>
                     </div>
                 </div>
-                <button type="submit" class="submit-btn sign-in-btn">Sign In</button>
             </form>
+
+            <div class="form-actions">
+                <button type="submit" form="loginForm" class="submit-btn sign-in-btn">Sign In</button>
+                <a href="register.html" class="submit-btn sign-up-btn">Sign Up</a>
+            </div>
 
             <div class="forgot-password-section">
                 <a href="forgot.html">Forgot Password?</a>
             </div>
 
-            <div class="signup-section">
-                <p>New User?</p>
-                <a href="index.html" class="submit-btn sign-up-btn">Sign Up</a>
+            <div class="main-portal-section">
+                <a href="index.html" class="back-btn">Back to Main Portal</a>
             </div>
         </div>
     </main>
-
-    <footer class="admin-footer">
-        <p>Admin Actions</p>
-        <a href="students.html">View All Student Records</a>
-    </footer>
 
     <script src="theme.js"></script>
     <script src="login.js"></script>

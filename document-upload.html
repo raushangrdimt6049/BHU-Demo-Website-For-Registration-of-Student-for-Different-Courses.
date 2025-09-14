@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Documents - DAV PG College</title>
+    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="login.css"> <!-- Re-use styles -->
+    <link rel="stylesheet" href="document-upload.css">
+    <script>
+        // --- Strict Session Security Check ---
+        (function() {
+            const isAllowed = sessionStorage.getItem('navigationAllowed') === 'true';
+            if (isAllowed) {
+                sessionStorage.removeItem('navigationAllowed');
+            } else {
+                sessionStorage.clear();
+                window.location.replace('login.html');
+            }
+            if (!sessionStorage.getItem('currentStudent')) {
+                window.location.replace('login.html');
+            }
+        })();
+    </script>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-text"><h1>Banaras Hindu University</h1></div>
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
+    </header>
+
+    <main class="login-main">
+        <div class="welcome-container" style="max-width: 800px;">
+            <form id="documentUploadForm" class="login-form" enctype="multipart/form-data">
+                <h3>Step 3: Upload Documents</h3>
+                <p>Please upload the required documents. Each file must be between 30KB and 200KB.</p>
+                
+                <!-- Passport Photo -->
+                <div class="upload-group">
+                    <label for="profilePicture">Passport Size Photo</label>
+                    <input type="file" id="profilePicture" name="profilePicture" accept="image/jpeg, image/png" required>
+                    <div class="preview-container"><img id="profilePicturePreview" class="file-preview" src="#" alt="Photo Preview"></div>
+                    <small class="file-info"></small>
+                    <small class="error-message"></small>
+                </div>
+
+                <!-- Signature -->
+                <div class="upload-group">
+                    <label for="signature">Signature</label>
+                    <input type="file" id="signature" name="signature" accept="image/jpeg, image/png" required>
+                    <div class="preview-container"><img id="signaturePreview" class="file-preview" src="#" alt="Signature Preview"></div>
+                    <small class="file-info"></small>
+                    <small class="error-message"></small>
+                </div>
+
+                <!-- 10th Marksheet -->
+                <div class="upload-group">
+                    <label for="marksheet10">Class 10th Marksheet</label>
+                    <input type="file" id="marksheet10" name="marksheet10" accept="image/jpeg, image/png, application/pdf" required>
+                    <div class="preview-container"><img id="marksheet10Preview" class="file-preview" src="#" alt="Marksheet Preview"></div>
+                    <small class="file-info"></small>
+                    <small class="error-message"></small>
+                </div>
+
+                <!-- 12th Marksheet -->
+                <div class="upload-group">
+                    <label for="marksheet12">Class 12th Marksheet</label>
+                    <input type="file" id="marksheet12" name="marksheet12" accept="image/jpeg, image/png, application/pdf" required>
+                    <div class="preview-container"><img id="marksheet12Preview" class="file-preview" src="#" alt="Marksheet Preview"></div>
+                    <small class="file-info"></small>
+                    <small class="error-message"></small>
+                </div>
+
+                <button type="submit" class="submit-btn">Save & Continue</button>
+            </form>
+        </div>
+    </main>
+    <script src="theme.js"></script>
+    <script src="document-upload.js"></script>
+</body>
+</html>
