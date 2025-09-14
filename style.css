@@ -273,13 +273,14 @@ main {
     display: flex;
     gap: 1rem;
     margin-top: 2rem;
-    justify-content: space-between;
+    justify-content: center; /* Center the buttons */
 }
 
 .button-group .submit-btn,
 .button-group .back-btn {
-    width: auto;
-    flex-grow: 1;
+    width: 250px; /* Give a fixed, generous width */
+    max-width: 48%; /* Ensure they don't overflow on small screens */
+    flex-grow: 0; /* Prevent stretching */
     margin-top: 0;
     text-decoration: none;
     display: inline-flex;
@@ -364,22 +365,6 @@ main {
 
 .login-link a:hover {
     text-decoration: underline;
-}
-
-.theme-toggle-btn {
-    background: none;
-    border: 2px solid transparent;
-    border-radius: 50%;
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 5px;
-    line-height: 1;
-    transition: background-color 0.2s, color 0.2s;
-    color: var(--header-text-color);
-}
-
-.theme-toggle-btn:hover {
-    background-color: var(--readonly-bg);
 }
 
 .captcha-container {

@@ -37,14 +37,14 @@
         .preview-field { display: flex; flex-direction: column; }
         .preview-field label { font-weight: 600; font-size: 0.9rem; color: var(--text-color); opacity: 0.8; margin-bottom: 0.25rem; }
         .preview-field span { font-size: 1.1rem; min-height: 24px; }
-        .summary-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; gap: 1.5rem; }
-        .summary-actions .back-btn, .summary-actions .submit-btn { flex: 1; width: auto; margin-top: 0; text-align: center; text-decoration: none; }
+        .summary-actions { display: flex; justify-content: center; align-items: center; margin-top: 2rem; gap: 1.5rem; }
+        .summary-actions .back-btn, .summary-actions .submit-btn { width: 250px; max-width: 48%; margin-top: 0; text-align: center; text-decoration: none; }
         .summary-actions .submit-btn { background-color: var(--btn-success-bg); }
         .summary-actions .submit-btn:hover { background-color: var(--btn-success-hover-bg); }
         @media print {
             body, main, .details-container { margin: 0; padding: 0; box-shadow: none; }
             /* Hide buttons but keep the header for printing */
-            .summary-actions, #themeToggleBtn { display: none; }
+            .summary-actions { display: none; }
             .details-container { max-width: 100%; border: none; }
         }
     </style>
@@ -124,7 +124,7 @@
 
             <div class="summary-actions">
                 <a href="home.html" class="back-btn">Back to Home</a>
-                <button id="printSummaryBtn" class="submit-btn">Print Summary</button>
+                <button id="printSummaryBtn" class="submit-btn">Print Receipt</button>
             </div>
         </div>
     </main>
