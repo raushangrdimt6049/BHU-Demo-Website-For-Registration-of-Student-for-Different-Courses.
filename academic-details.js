@@ -258,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             sessionStorage.setItem('currentStudent', JSON.stringify(data.studentData));
             alert('Academic Details saved successfully. Returning to home page.');
+            sessionStorage.setItem('navigationAllowed', 'true'); // Allow navigation to the home page
             window.location.href = 'home.html'; // Redirect back to the home page
         } catch (error) {
             console.error('Error saving academic details:', error);
@@ -265,6 +266,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     };
+
+    // --- Navigation Helper ---
+    // Sets a flag before any internal link is followed to allow the next page to load.
+    document.body.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        // Ensure it's a valid, internal link before setting the flag.
+        if (link && link.href && link.hostname === window.location.hostname) {
+            // Exclude the logout button from this logic.
+            if (link.id !== 'logoutBtnMenu') {
+                sessionStorage.setItem('navigationAllowed', 'true');
+            }
+        }
+    });
 
     // Run the server status check first, then initialize the page logic.
     checkServerStatus().then(initializePage);

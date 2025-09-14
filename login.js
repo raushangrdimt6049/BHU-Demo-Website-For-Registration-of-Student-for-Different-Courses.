@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // --- Login Successful ---
             sessionStorage.setItem('currentStudent', JSON.stringify(data.studentData));
             sessionStorage.setItem('loginTime', new Date().toISOString());
+            sessionStorage.setItem('navigationAllowed', 'true'); // Set navigation flag
 
             alert('Login successful!');
             window.location.replace('home.html');

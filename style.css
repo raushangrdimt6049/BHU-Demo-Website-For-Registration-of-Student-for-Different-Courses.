@@ -23,7 +23,7 @@
     --link-color: #0056b3;
 }
 
-html.dark-mode {
+body.dark-mode {
     --bg-body: #121212;
     --bg-main: rgba(30, 30, 30, 0.9);
     --text-color: #e0e0e0;

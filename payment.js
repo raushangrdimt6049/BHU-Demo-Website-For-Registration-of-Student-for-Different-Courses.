@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert('Payment Successful! Redirecting to summary.');
                         sessionStorage.setItem('currentStudent', JSON.stringify(verificationData.studentData));
                         sessionStorage.removeItem('selectedCourse');
+                        sessionStorage.setItem('navigationAllowed', 'true'); // Allow navigation to the summary page
                         window.location.href = 'payment-summary.html';
                     } else {
                         alert('Payment verification failed. Please contact support.');
@@ -100,6 +101,19 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(`An error occurred: ${error.message}`);
             payNowBtn.disabled = false;
             payNowBtn.textContent = 'Pay Now';
+        }
+    });
+
+    // --- Navigation Helper ---
+    // Sets a flag before any internal link is followed to allow the next page to load.
+    document.body.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        // Ensure it's a valid, internal link before setting the flag.
+        if (link && link.href && link.hostname === window.location.hostname) {
+            // Exclude the logout button from this logic.
+            if (link.id !== 'logoutBtnMenu') {
+                sessionStorage.setItem('navigationAllowed', 'true');
+            }
         }
     });
 });

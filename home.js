@@ -235,7 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
             fields.rollNumber.display.textContent = data.rollNumber;
             fields.enrollmentNumber.display.textContent = data.enrollmentNumber || 'N/A';
             if (data.dob) {
-                const [year, month, day] = data.dob.split('-');
+                // Create a Date object to handle different formats (e.g., YYYY-MM-DD or full ISO string)
+                const dobDate = new Date(data.dob);
+                // Get parts in the user's local timezone
+                const day = String(dobDate.getDate()).padStart(2, '0');
+                const month = String(dobDate.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+                const year = dobDate.getFullYear();
                 fields.dob.display.textContent = `${day}-${month}-${year}`;
             } else {
                 fields.dob.display.textContent = 'N/A';
@@ -260,7 +265,11 @@ document.addEventListener('DOMContentLoaded', () => {
             fields.rollNumber.edit.value = data.rollNumber;
             fields.enrollmentNumber.edit.value = data.enrollmentNumber || '';
             if (data.dob) {
-                const [year, month, day] = data.dob.split('-');
+                // Use the same robust date parsing for the edit field
+                const dobDate = new Date(data.dob);
+                const day = String(dobDate.getDate()).padStart(2, '0');
+                const month = String(dobDate.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+                const year = dobDate.getFullYear();
                 fields.dob.edit.value = `${day}-${month}-${year}`;
             } else {
                 fields.dob.edit.value = '';
@@ -441,6 +450,19 @@ document.addEventListener('DOMContentLoaded', () => {
         populateFields(studentData);
         setProfileView('compact'); // Set the initial view to compact profile
     };
+
+    // --- Navigation Helper ---
+    // Sets a flag before any internal link is followed to allow the next page to load.
+    document.body.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        // Ensure it's a valid, internal link before setting the flag.
+        if (link && link.href && link.hostname === window.location.hostname) {
+            // Exclude the logout button from this logic.
+            if (link.id !== 'logoutBtnMenu') {
+                sessionStorage.setItem('navigationAllowed', 'true');
+            }
+        }
+    });
 
     // Run status check first, then initialize the page.
     checkServerStatus().then(initializePage);

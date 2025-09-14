@@ -11,7 +11,7 @@ const path = require('path');
 require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // --- Security Constants ---
 const saltRounds = 10; // For bcrypt password hashing
@@ -598,6 +598,31 @@ app.get('/student-data/:rollNumber', async (req, res) => {
 });
 
 /**
+ * =============================================================================
+ * ADMIN-FACING ENDPOINTS
+ * =============================================================================
+ */
+
+// New endpoint to get all student records for an admin view
+app.get('/api/all-students', async (req, res) => {
+    console.log('Fetching all student records for admin view.');
+    try {
+        // Select all relevant fields, but EXCLUDE the password hash and security answers for safety.
+        const query = `
+            SELECT 
+                enrollmentnumber, rollnumber, name, email, gender, mobilenumber, city, createdat 
+            FROM students 
+            ORDER BY createdat DESC;
+        `;
+        const { rows } = await pool.query(query);
+        res.json(rows.map(student => mapDbToCamelCase(student)));
+    } catch (error) {
+        console.error('Error fetching all student data:', error);
+        res.status(500).json({ message: 'Server error while fetching all student data.' });
+    }
+});
+
+/**
  * Helper function to map database object (lowercase keys) to a frontend-friendly
  * camelCase object.
  * @param {object} dbObject The object with lowercase keys from the database.
@@ -606,11 +631,6 @@ app.get('/student-data/:rollNumber', async (req, res) => {
 function mapDbToCamelCase(dbObject) {
     const camelCaseObject = {};
     for (const key in dbObject) {
-        // A simple conversion: rollnumber -> rollNumber
-        const camelKey = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase()
-            .replace(/_([a-z])/g, (g) => g[1].toUpperCase());
-        
-        // A more direct mapping for our specific schema
         const keyMap = {
             enrollmentnumber: 'enrollmentNumber', rollnumber: 'rollNumber',
             passwordhash: 'passwordHash', securityquestion: 'securityQuestion',

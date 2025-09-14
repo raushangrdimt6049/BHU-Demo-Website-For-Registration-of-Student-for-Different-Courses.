@@ -4,30 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Home - DAV PG College, Varanasi</title>
-    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
     <link rel="stylesheet" href="home.css">
     <script>
-        // --- Immediate Theme Application (Flicker-Free) ---
-        // This script is placed in the <head> to run before the body is rendered.
+        // --- Strict Session Security Check ---
+        // This script enforces logout on any page refresh, direct URL access, or back/forward navigation.
+        // Access is only granted immediately after a login or a valid in-app navigation link is clicked.
         (function() {
-            try {
-                // Only apply 'dark-mode' if it's explicitly saved in localStorage.
-                // The default is light mode (no class).
-                if (localStorage.getItem('theme') === 'dark') {
-                    document.documentElement.classList.add('dark-mode');
-                }
-            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+            const isAllowed = sessionStorage.getItem('navigationAllowed') === 'true';
+
+            if (isAllowed) {
+                // This is a valid navigation. Consume the flag so it cannot be reused on a refresh.
+                sessionStorage.removeItem('navigationAllowed');
+            } else {
+                // This is a refresh, direct access, or browser back/forward action. Log the user out.
+                sessionStorage.clear();
+                window.location.replace('login.html');
+            }
+
+            // As a final safeguard, if the flag was consumed but there's still no student data, redirect.
+            if (!sessionStorage.getItem('currentStudent')) {
+                window.location.replace('login.html');
+            }
         })();
-    </script>
-    <script>
-        // --- Immediate Security Check ---
-        // This script runs in the <head> to block rendering if the user is not logged in.
-        // It prevents any flash of content on protected pages by redirecting before
-        // the body is parsed.
-        if (!sessionStorage.getItem('currentStudent')) {
-            window.location.replace('login.html');
-        }
     </script>
 </head>
 <body>

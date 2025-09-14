@@ -1,12 +1,3 @@
-// --- Immediate Security Check ---
-// An inline script in preview.html handles the initial check.
-// This is a fallback and handles bfcache navigations.
-window.addEventListener('pageshow', (event) => {
-    if (!sessionStorage.getItem('currentStudent') || !sessionStorage.getItem('selectedCourse')) {
-        window.location.replace('home.html');
-    }
-});
-
 document.addEventListener('DOMContentLoaded', () => {
     const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
     const courseData = JSON.parse(sessionStorage.getItem('selectedCourse'));
@@ -98,6 +89,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (proceedToPaymentBtn.classList.contains('disabled')) {
             event.preventDefault();
             alert('Please agree to the terms and conditions to proceed.');
+        }
+    });
+
+    // --- Navigation Helper ---
+    // Sets a flag before any internal link is followed to allow the next page to load.
+    document.body.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        // Ensure it's a valid, internal link before setting the flag.
+        if (link && link.href && link.hostname === window.location.hostname) {
+            // Exclude the logout button from this logic.
+            if (link.id !== 'logoutBtnMenu') {
+                sessionStorage.setItem('navigationAllowed', 'true');
+            }
         }
     });
 });

@@ -1,17 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
     const themeToggleBtn = document.getElementById('themeToggleBtn');
-    const docElement = document.documentElement; // Target <html> for flicker-free loading
+    const body = document.body;
 
     /**
-     * Applies the specified theme and updates the button icon.
+     * Applies the specified theme to the page.
      * @param {string} theme - The theme to apply ('dark' or 'light').
      */
     const applyTheme = (theme) => {
         if (theme === 'dark') {
-            docElement.classList.add('dark-mode');
+            body.classList.add('dark-mode');
             if (themeToggleBtn) themeToggleBtn.textContent = '☀️'; // Sun icon
         } else {
-            docElement.classList.remove('dark-mode');
+            body.classList.remove('dark-mode');
             if (themeToggleBtn) themeToggleBtn.textContent = '🌙'; // Moon icon
         }
     };
@@ -20,21 +20,21 @@ document.addEventListener('DOMContentLoaded', () => {
      * Toggles the theme between light and dark, and saves the preference.
      */
     const toggleTheme = () => {
-        const newTheme = docElement.classList.contains('dark-mode') ? 'light' : 'dark';
-        localStorage.setItem('theme', newTheme);
-        applyTheme(newTheme);
+        const currentTheme = body.classList.contains('dark-mode') ? 'light' : 'dark';
+        localStorage.setItem('theme', currentTheme);
+        applyTheme(currentTheme);
     };
 
     // Add a click listener to the theme toggle button if it exists.
     if (themeToggleBtn) {
         themeToggleBtn.addEventListener('click', toggleTheme);
     }
-    
-    // --- Initial Icon Sync ---
-    // The theme class is set by an inline script in the <head>.
-    // This part just ensures the button icon is correct on page load.
-    const isCurrentlyDark = docElement.classList.contains('dark-mode');
-    if (themeToggleBtn) {
-        themeToggleBtn.textContent = isCurrentlyDark ? '☀️' : '🌙';
-    }
+
+    // --- Initial Theme Setup ---
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+
+    // Apply the initial theme when the page loads.
+    applyTheme(initialTheme);
 });

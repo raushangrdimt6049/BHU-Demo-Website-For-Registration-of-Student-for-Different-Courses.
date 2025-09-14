@@ -72,5 +72,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     };
 
+    // --- Navigation Helper ---
+    // Sets a flag before any internal link is followed to allow the next page to load.
+    document.body.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        // Ensure it's a valid, internal link before setting the flag.
+        if (link && link.href && link.hostname === window.location.hostname) {
+            // Exclude the logout button from this logic.
+            if (link.id !== 'logoutBtnMenu') {
+                sessionStorage.setItem('navigationAllowed', 'true');
+            }
+        }
+    });
+
     checkServerStatus().then(initializePage);
 });

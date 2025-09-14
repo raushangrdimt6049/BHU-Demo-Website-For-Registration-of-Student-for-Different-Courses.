@@ -71,3 +71,22 @@
     color: var(--link-color);
     text-decoration: none;
 }
+
+.admin-footer {
+    text-align: center;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    font-size: 0.9rem;
+    border-top: 1px solid var(--input-border);
+}
+
+.admin-footer a {
+    color: var(--btn-secondary-bg);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.admin-footer a:hover {
+    text-decoration: underline;
+}
+}

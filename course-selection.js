@@ -162,6 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Update the main student object in session storage with the new data from the server
                 sessionStorage.setItem('currentStudent', JSON.stringify(data.studentData));
                 alert('Course selection saved. You will now be returned to the home page to proceed.');
+                sessionStorage.setItem('navigationAllowed', 'true'); // Allow navigation to the home page
                 window.location.href = 'home.html';
             } catch (error) {
                 console.error('Error saving course selection:', error);
@@ -169,6 +170,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
+
+    // --- Navigation Helper ---
+    // Sets a flag before any internal link is followed to allow the next page to load.
+    document.body.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        // Ensure it's a valid, internal link before setting the flag.
+        if (link && link.href && link.hostname === window.location.hostname) {
+            // Exclude the logout button from this logic.
+            if (link.id !== 'logoutBtnMenu') {
+                sessionStorage.setItem('navigationAllowed', 'true');
+            }
+        }
+    });
 
     // Run the server status check first, then initialize the page logic.
     checkServerStatus().then(initializePage);

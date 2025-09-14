@@ -4,22 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DAV PG College - Welcome</title>
-    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
     <link rel="stylesheet" href="login.css">
-    <script>
-        // --- Immediate Theme Application (Flicker-Free) ---
-        // This script is placed in the <head> to run before the body is rendered.
-        (function() {
-            try {
-                // Only apply 'dark-mode' if it's explicitly saved in localStorage.
-                // The default is light mode (no class).
-                if (localStorage.getItem('theme') === 'dark') {
-                    document.documentElement.classList.add('dark-mode');
-                }
-            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
-        })();
-    </script>
     <style>
         .password-wrapper {
             position: relative;
@@ -55,16 +42,16 @@
             <h2>Welcome, Student!</h2>
             <p>Please sign in to view your details or sign up if you are a new user.</p>
 
-            <form id="loginForm" class="login-form">
+            <form id="loginForm" class="login-form" autocomplete="off">
                 <h3>Sign In</h3>
                 <div class="form-group">
                     <label for="loginIdentifier">Email or Mobile Number</label>
-                    <input type="text" id="loginIdentifier" name="loginIdentifier" required autocomplete="username">
+                    <input type="text" id="loginIdentifier" name="loginIdentifier" required autocomplete="off">
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
                     <div class="password-wrapper">
-                        <input type="password" id="password" name="password" required autocomplete="current-password">
+                        <input type="password" id="password" name="password" required autocomplete="new-password">
                         <span id="togglePassword" class="password-toggle">👁️</span>
                     </div>
                 </div>
@@ -81,6 +68,11 @@
             </div>
         </div>
     </main>
+
+    <footer class="admin-footer">
+        <p>Admin Actions</p>
+        <a href="students.html">View All Student Records</a>
+    </footer>
 
     <script src="theme.js"></script>
     <script src="login.js"></script>

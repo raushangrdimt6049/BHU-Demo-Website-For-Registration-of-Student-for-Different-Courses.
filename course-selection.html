@@ -4,27 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Course Selection - DAV PG College</title>
-    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
     <link rel="stylesheet" href="login.css"> <!-- Re-use some login styles for consistency -->
     <script>
-        // --- Immediate Theme Application (Flicker-Free) ---
-        // This script is placed in the <head> to run before the body is rendered.
+        // --- Strict Session Security Check ---
         (function() {
-            try {
-                // Only apply 'dark-mode' if it's explicitly saved in localStorage.
-                // The default is light mode (no class).
-                if (localStorage.getItem('theme') === 'dark') {
-                    document.documentElement.classList.add('dark-mode');
-                }
-            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+            const isAllowed = sessionStorage.getItem('navigationAllowed') === 'true';
+
+            if (isAllowed) {
+                sessionStorage.removeItem('navigationAllowed');
+            } else {
+                sessionStorage.clear();
+                window.location.replace('login.html');
+            }
+
+            if (!sessionStorage.getItem('currentStudent')) {
+                window.location.replace('login.html');
+            }
         })();
-    </script>
-    <script>
-        // --- Immediate Security Check ---
-        if (!sessionStorage.getItem('currentStudent')) {
-            window.location.replace('login.html');
-        }
     </script>
     <style>
         .form-actions {
