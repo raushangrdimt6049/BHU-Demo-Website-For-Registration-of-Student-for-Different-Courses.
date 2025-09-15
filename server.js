@@ -555,9 +555,11 @@ app.post('/upload-documents', docUpload.fields([
 
     if (!rollNumber) {
         // Clean up any uploaded files if roll number is missing
-        Object.values(req.files).forEach(fileArray => {
-            fileArray.forEach(file => fs.unlinkSync(file.path));
-        });
+        if (req.files) {
+            Object.values(req.files).forEach(fileArray => {
+                fileArray.forEach(file => fs.unlinkSync(file.path));
+            });
+        }
         return res.status(400).json({ message: 'Roll number is required to upload documents.' });
     }
 
