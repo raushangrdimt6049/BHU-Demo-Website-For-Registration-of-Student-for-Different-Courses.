@@ -537,13 +537,12 @@ app.post('/upload-documents', docUpload.fields([
         return res.status(400).json({ message: 'Roll number is required to upload documents.' });
     }
 
-    const studentDocDir = path.join(__dirname, 'uploads', 'documents', rollNumber);
-    if (!fs.existsSync(studentDocDir)) {
-        fs.mkdirSync(studentDocDir, { recursive: true });
-    }
-
     const filePaths = {};
     try {
+        const studentDocDir = path.join(__dirname, 'uploads', 'documents', rollNumber);
+        // Create the student-specific directory. The recursive option prevents errors if it already exists.
+        fs.mkdirSync(studentDocDir, { recursive: true });
+
         if (!req.files || Object.keys(req.files).length === 0) {
             // This can happen if the form is submitted with no files, possibly due to a network issue or malformed request.
             // The frontend 'required' attribute should prevent this, but this is a necessary server-side safeguard.
@@ -554,7 +553,7 @@ app.post('/upload-documents', docUpload.fields([
             return new Promise((resolve, reject) => {
                 const file = req.files[fieldname][0];
                 const newFileName = `${fieldname}${path.extname(file.originalname)}`;
-                const newPath = path.join(studentDocDir, newFileName);
+                const newPath = path.join(studentDocDir, newFileName); // studentDocDir is now defined inside the try block
 
                 fs.rename(file.path, newPath, (err) => {
                     if (err) {
