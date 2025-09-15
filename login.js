@@ -57,11 +57,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // --- Login Successful ---
-            sessionStorage.setItem('currentStudent', JSON.stringify(data.studentData));
+            const student = data.studentData;
+            sessionStorage.setItem('currentStudent', JSON.stringify(student));
             sessionStorage.setItem('loginTime', new Date().toISOString());
             sessionStorage.setItem('navigationAllowed', 'true'); // Set navigation flag
 
             alert('Login successful!');
+
+            // The home.html page is designed to act as a central hub. It will
+            // automatically check the student's payment status and render either
+            // the application progress steps or the main student dashboard.
+            // This logic ensures that students who have completed their admission
+            // are taken directly to their dashboard view upon logging in.
+            let isPaid = false;
+            if (student.selectedCourse && student.selectedCourse.trim().startsWith('{')) {
+                try { isPaid = JSON.parse(student.selectedCourse).paymentStatus === 'paid'; } catch (e) { /* Ignore parsing errors */ }
+            }
             window.location.replace('home.html');
 
         } catch (error) {

@@ -17,99 +17,72 @@
             } catch (e) { /* In case of any errors, do nothing */ }
         })();
     </script>
+    <script>
+        // --- Strict Session Security Check ---
+        (function() {
+            const isAllowed = sessionStorage.getItem('navigationAllowed') === 'true';
+
+            if (isAllowed) {
+                // This is a valid navigation. Consume the flag so it cannot be reused on a refresh.
+                sessionStorage.removeItem('navigationAllowed');
+            } else {
+                // This is a refresh, direct access, or browser back/forward action. Log the user out.
+                sessionStorage.clear();
+                window.location.replace('faculty-login.html'); // Redirect to faculty login
+            }
+
+            // As a final safeguard, if the flag was consumed but there's still no faculty data, redirect.
+            if (!sessionStorage.getItem('currentFaculty')) {
+                window.location.replace('faculty-login.html');
+            }
+        })();
+    </script>
     <style>
-        /* Re-using password overlay styles from students.html */
-        .password-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-            transition: opacity 0.3s ease-in-out;
+        /* --- New Side Navigation Styles (from home.html) --- */
+        .header-actions-left { display: flex; align-items: center; }
+        .side-nav-btn {
+            background: none; border: none; color: var(--text-color); font-size: 1.8rem; cursor: pointer;
+            padding: 0 1rem; /* display is controlled via style attribute or another class */
+            align-items: center; justify-content: center; height: 100%;
         }
-        .password-modal {
-            background: var(--bg-main);
-            padding: 2.5rem;
-            border-radius: 12px;
-            text-align: center;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-            width: 90%;
-            max-width: 450px;
+        .side-nav {
+            position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--bg-main);
+            box-shadow: 4px 0 15px rgba(0,0,0,0.1); transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out; z-index: 3000; display: flex; flex-direction: column;
         }
-        .password-modal h3 { margin-bottom: 1rem; font-size: 1.75rem; }
-        .password-modal p { margin-bottom: 1.5rem; }
-        .password-modal .form-actions { flex-direction: column; }
-
-        /* --- Side Menu Header --- */
-        .side-menu-header {
-            display: flex;
-            align-items: center;
-            padding: 20px;
-            border-bottom: 1px solid var(--input-border);
+        .side-nav.active { transform: translateX(0); }
+        .side-nav-header {
+            display: flex; align-items: center; padding: 1rem; border-bottom: 1px solid var(--input-border);
         }
-        .side-menu-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-right: 15px;
-            border: 2px solid var(--btn-bg);
+        .side-nav-header .side-nav-avatar {
+            width: 45px; height: 45px; border-radius: 50%; object-fit: cover;
+            margin-right: 1rem; border: 2px solid var(--btn-bg);
         }
-        .side-menu-header h4 {
-            margin: 0;
-            font-size: 1.1rem;
+        .side-nav-header .side-nav-name {
+            flex-grow: 1; margin: 0; font-size: 1.1rem; font-weight: 600;
             color: var(--text-color);
-            font-weight: 600;
         }
-
-        /* --- Side Menu (Sliding Panel) Styles --- */
-        .side-menu {
-            position: fixed;
-            top: 0;
-            left: -280px; /* Hidden by default */
-            width: 280px;
-            height: 100%;
-            background-color: var(--bg-main);
-            box-shadow: 4px 0 15px var(--header-shadow);
-            z-index: 3000;
-            transition: left 0.3s ease-in-out;
+        .side-nav-header .close-btn {
+            background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--text-color);
         }
-        .side-menu.active {
-            left: 0;
+        .side-nav ul { list-style: none; padding: 1rem 0; margin: 0; overflow-y: auto; }
+        .side-nav ul li a {
+            display: flex; align-items: center; padding: 0.9rem 1.5rem; text-decoration: none;
+            color: var(--text-color); font-size: 1rem; transition: background-color 0.2s;
         }
-        .side-menu ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
+        .side-nav ul li a:hover { background-color: var(--bg-hover); }
+        .side-nav ul li a .nav-icon {
+            margin-right: 1rem; font-size: 1.2rem; width: 24px; text-align: center;
         }
-        .side-menu li a {
-            color: var(--text-color);
-            padding: 15px 25px;
-            text-decoration: none;
-            display: block;
-            font-size: 1rem;
-            font-weight: 500;
-            transition: background-color 0.2s;
+        .side-nav ul li a.active-nav-link {
+            background-color: var(--btn-bg-light); color: var(--btn-bg); font-weight: 600;
         }
-        .side-menu li a:hover { background-color: var(--readonly-bg); }
-        .side-menu .separator { height: 1px; background-color: var(--input-border); margin: 8px 0; }
-
-        .side-menu-overlay {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 2999;
+        .side-nav-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2999; opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
         }
-        .side-menu-overlay.active {
-            display: block;
-        }
+        .side-nav-overlay.active { opacity: 1; visibility: visible; }
 
         /* --- Faculty Dashboard Styles --- */
         .faculty-dashboard {
@@ -117,9 +90,10 @@
             max-width: 1400px;
             margin: 0 auto;
         }
+
         .dashboard-header {
             display: flex;
-            justify-content: flex-start; /* Align items to the start */
+            justify-content: space-between; /* Align items with space between */
             align-items: center;
             margin-bottom: 2rem;
             padding-bottom: 1rem;
@@ -127,8 +101,7 @@
         }
         .dashboard-header h2 {
             color: var(--text-color);
-            margin: 0;
-            flex-grow: 1; /* Allow title to take up space */
+            margin: 0; /* flex-grow is no longer needed with space-between */
             text-align: center; /* Center the title */
         }
         .header-controls {
@@ -293,48 +266,30 @@
     </style>
 </head>
 <body>
-    <div id="password-overlay" class="password-overlay">
-        <div class="password-modal">
-            <h3>Faculty Access Required</h3>
-            <p>Enter your faculty credentials to access the portal.</p>
-            <form id="facultyPasswordForm">
-                <div class="form-group">
-                    <input type="text" id="facultyUsernameInput" placeholder="Enter Username" required autofocus>
-                </div>
-                <div class="form-group">
-                    <input type="password" id="facultyPasswordInput" placeholder="Enter Password" required>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="submit-btn">Sign In</button>
-                    <a href="index.html" class="back-btn">Back to Main Portal</a>
-                </div>
-                <p id="password-error" class="error-message" style="margin-top: 1rem;"></p>
-            </form>
-        </div>
-    </div>
-
     
-    <!-- Side Menu (Sliding Panel) -->
-    <div id="sideMenuOverlay" class="side-menu-overlay"></div>
-    <div id="sideMenu" class="side-menu">
-        <div class="side-menu-header">
-            <!-- Placeholder image and name -->
-            <img src="default-avatar.png" alt="Faculty Profile Picture" class="side-menu-avatar">
-            <h4>Nisha Singh</h4>
+    <!-- Side Menu (Sliding Panel) - New Version -->
+    <div id="sideNavOverlay" class="side-nav-overlay"></div>
+    <nav id="sideNav" class="side-nav">
+        <div class="side-nav-header">
+            <img src="default-avatar.png" alt="Faculty Avatar" id="sideNavAvatar" class="side-nav-avatar">
+            <h4 id="sideNavName" class="side-nav-name">Faculty Name</h4>
+            <button id="closeSideNavBtn" class="close-btn">&times;</button>
         </div>
         <ul>
-            <li><a href="#">Profile Details</a></li>
-            <li><a href="#">Change Profile Details</a></li>
-            <li><a href="#">Change Password</a></li>
-            <li class="separator"></li>
-            <li><a href="faculty.html">Logout</a></li>
+            <li><a href="#"><span class="nav-icon">👤</span> Profile</a></li>
+            <li><a href="#"><span class="nav-icon">✏️</span> Edit Profile</a></li>
+            <li><a href="#"><span class="nav-icon">🔒</span> Change Password</a></li>
+            <li style="height: 1px; background-color: var(--input-border); margin: 8px 0;"></li>
+            <li><a href="#" id="facultyLogoutBtn"><span class="nav-icon">🚪</span> Logout</a></li>
         </ul>
-    </div>
+    </nav>
 
-    <main class="login-main" id="faculty-content" style="display: none;">
+    <main class="login-main" id="faculty-content">
         <div class="faculty-dashboard">
             <div class="dashboard-header">
-                <button id="sideMenuBtn" class="icon-btn" title="Open Menu">☰</button>
+                <div class="header-actions-left">
+                    <button id="sideNavBtn" class="side-nav-btn" title="Main Menu" style="display: flex;">☰</button>
+                </div>
                 <h2>Faculty Dashboard</h2>
                 <div class="header-controls">
                     <button class="icon-btn" title="Notifications">🔔</button>

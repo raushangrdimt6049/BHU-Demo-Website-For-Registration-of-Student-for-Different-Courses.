@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAV PG College - Faculty Registration</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="login.css"> <!-- Re-use login styles for consistency -->
+    <script>
+        // --- Immediate Theme Application (Flicker-Free) ---
+        (function() {
+            try {
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+        })();
+    </script>
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="header-branding">
+            <div class="logo-container">
+                <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+            </div>
+            <div class="header-text">
+                <h1>Banaras Hindu University</h1>
+                <h2>DAV PG College, Varanasi</h2>
+            </div>
+            <div class="logo-container">
+                <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
+            </div>
+        </div>
+    </header>
+
+    <main class="login-main">
+        <div class="welcome-container" style="max-width: 650px;">
+            <h2>Create Your Faculty Account</h2>
+            <p>Fill out the form below to register for the faculty portal.</p>
+
+            <form id="registrationForm" class="login-form" novalidate>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="mobileNumber">Mobile Number</label>
+                    <input type="tel" id="mobileNumber" name="mobileNumber" required pattern="[0-9]{10}" maxlength="10">
+                </div>
+                <div class="form-group">
+                    <label>Teacher Type</label>
+                    <select id="teacherType" name="teacherType" required>
+                        <option value="" disabled selected>-- Select Type --</option>
+                        <option value="TGT">Trained Graduate Teacher (TGT)</option>
+                        <option value="PGT">Post-Graduate Teacher (PGT)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Primary Subject</label>
+                    <input type="text" id="subject" name="subject" required placeholder="e.g., Physics, History">
+                </div>
+                <div class="form-group">
+                    <label for="gender">Gender</label>
+                    <select id="gender" name="gender" required>
+                        <option value="" disabled selected>-- Select Gender --</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required minlength="8">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required>
+                </div>
+                <div class="form-group captcha-group">
+                    <label for="captchaInput">Captcha Verification</label>
+                    <div class="captcha-container">
+                        <span id="captcha-text" class="captcha-display"></span>
+                        <button type="button" id="reload-captcha" class="reload-btn">🔄</button>
+                    </div>
+                    <input type="text" id="captchaInput" name="captchaInput" required autocomplete="off" placeholder="Enter text from the image">
+                </div>
+                <button type="submit" class="submit-btn" id="submitBtn">Submit</button>
+            </form>
+            <div class="main-portal-section" style="margin-top: 1.5rem; text-align: center;">
+                <p class="login-link">Already have an account? <a href="faculty-login.html">Sign In</a></p>
+            </div>
+        </div>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="faculty-register.js"></script>
+
+</body>
+</html>

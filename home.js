@@ -77,21 +77,29 @@ document.addEventListener('DOMContentLoaded', () => {
             gender: { display: document.getElementById('displayGender'), edit: document.getElementById('editGender') }
         };
 
-        // --- Profile Picture References ---
         const profilePictureContainer = document.querySelector('.profile-picture-container');
         const profilePictureImg = document.getElementById('profilePicture');
         const editProfilePictureInput = document.getElementById('editProfilePicture');
 
-        // --- Menu and Button References ---
-        const userMenuBtn = document.getElementById('userMenuBtn');
-        const userMenuDropdown = document.getElementById('userMenuDropdown');
-        const viewProfileBtn = document.getElementById('viewProfileBtn');
-        const editDetailsBtn = document.getElementById('editDetailsBtn');
-        const logoutBtnMenu = document.getElementById('logoutBtnMenu');
         const saveBtn = document.getElementById('saveBtn');
         const cancelBtn = document.getElementById('cancelBtn');
         const fullProfileFields = document.querySelectorAll('.full-profile-only');
         const proceedSection = document.querySelector('.proceed-section');
+
+        // --- Side Navigation References ---
+        const sideNavBtn = document.getElementById('sideNavBtn');
+        const sideNav = document.getElementById('sideNav');
+        const sideNavOverlay = document.getElementById('sideNavOverlay');
+        const closeSideNavBtn = document.getElementById('closeSideNavBtn');
+        const sideNavEditProfileBtn = document.getElementById('sideNavEditProfileBtn');
+        const sideNavLogoutBtn = document.getElementById('sideNavLogoutBtn');
+        const sideNavAvatar = document.getElementById('sideNavAvatar');
+        const sideNavName = document.getElementById('sideNavName');
+
+        // --- Notification Panel References ---
+        const notificationBtn = document.getElementById('notificationBtn');
+        const notificationPanel = document.getElementById('notificationPanel');
+        const notificationBadge = document.getElementById('notificationBadge');
 
         // Helper function to generate HTML for each application step
         function createStepHTML(title, description, link, isDone, isEnabled) {
@@ -112,6 +120,69 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+        }
+
+        // --- Side Navigation Logic ---
+        const openNav = () => {
+            if (sideNav && sideNavOverlay) {
+                sideNav.classList.add('active');
+                sideNavOverlay.classList.add('active');
+            }
+        };
+        const closeNav = () => {
+            if (sideNav && sideNavOverlay) {
+                sideNav.classList.remove('active');
+                sideNavOverlay.classList.remove('active');
+            }
+        };
+
+        if (sideNavBtn && closeSideNavBtn && sideNavOverlay) {
+            sideNavBtn.addEventListener('click', openNav);
+            closeSideNavBtn.addEventListener('click', closeNav);
+            sideNavOverlay.addEventListener('click', closeNav);
+        }
+
+        // --- Populate Side Navigation Header ---
+        if (sideNavName) {
+            sideNavName.textContent = studentData.name || 'Student';
+        }
+        if (sideNavAvatar) {
+            sideNavAvatar.src = studentData.profilePicture || 'default-avatar.png';
+            sideNavAvatar.onerror = () => { sideNavAvatar.src = 'default-avatar.png'; };
+        }
+
+        // --- Side Navigation Action Listeners ---
+        if (sideNavEditProfileBtn) {
+            sideNavEditProfileBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                setProfileView('full'); // This shows all fields and enables edit mode
+                closeNav(); // Close the nav panel after clicking
+            });
+        }
+
+        if (sideNavLogoutBtn) {
+            sideNavLogoutBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                sessionStorage.clear();
+                window.location.replace('index.html');
+            });
+        }
+
+        // --- Notification Panel Logic ---
+        if (notificationBtn && notificationPanel) {
+            notificationBtn.addEventListener('click', (event) => {
+                event.stopPropagation();
+                notificationPanel.classList.toggle('active');
+                // Optional: Hide badge when panel is opened
+                if (notificationBadge) notificationBadge.style.display = 'none';
+            });
+
+            // Close panel if clicking outside of it
+            document.addEventListener('click', (event) => {
+                if (!notificationBtn.contains(event.target) && !notificationPanel.contains(event.target)) {
+                    notificationPanel.classList.remove('active');
+                }
+            });
         }
 
         // Clear the proceed section before populating
@@ -137,19 +208,51 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Render Page Based on Payment Status ---
         if (isPaid) {
             // --- POST-PAYMENT VIEW (LOCKED) ---
+            const courseName = parsedCourse.branch || 'Your Enrolled Course';
             proceedSection.innerHTML = `
-                <p>Your admission process is complete.</p>
-                <a href="payment-summary.html" class="submit-btn proceed-btn">View Admission Summary</a>
+                <div class="dashboard-view">
+                    <h4>My Dashboard</h4>
+                    <div class="summary-cards">
+                        <div class="card">
+                            <h4>Enrolled Course</h4>
+                            <p style="font-size: 1.2rem; font-weight: 500; min-height: 58px; display: flex; align-items: center; justify-content: center;">${courseName}</p>
+                            <a href="payment-summary.html">View Admission Summary</a>
+                        </div>
+                        <div class="card">
+                            <h4>Attendance</h4>
+                            <p>N/A</p>
+                            <a href="#">View Details</a>
+                        </div>
+                        <div class="card">
+                            <h4>Upcoming Deadlines</h4>
+                            <p>None</p>
+                            <a href="#">View Calendar</a>
+                        </div>
+                        <div class="card">
+                            <h4>Fee Balance</h4>
+                            <p>₹ 0.00</p>
+                            <a href="dashboard.html">Payment History</a>
+                        </div>
+                    </div>
+                    <div class="quick-links-panel">
+                         <h4>Quick Links</h4>
+                         <ul>
+                            <li><a href="#">View Timetable</a></li>
+                            <li><a href="#">Check Results</a></li>
+                            <li><a href="#">Library Portal</a></li>
+                            <li><a href="#">Submit Help Ticket</a></li>
+                        </ul>
+                    </div>
+                </div>
             `;
-            // Lock the "Edit Details" button in the menu, as requested.
-            if (editDetailsBtn) {
-                editDetailsBtn.parentElement.style.display = 'none';
+            // Lock the "Edit Profile" button in the side nav for paid students.
+            if (sideNavEditProfileBtn) {
+                sideNavEditProfileBtn.parentElement.style.display = 'none';
             }
         } else {
             // --- PRE-PAYMENT VIEW (UNLOCKED) ---
-            // Display all steps and allow editing completed ones.
-            if (editDetailsBtn) {
-                editDetailsBtn.parentElement.style.display = 'list-item';
+            if (sideNavEditProfileBtn) {
+                sideNavEditProfileBtn.parentElement.style.display = 'list-item';
             }
 
             const contactDone = studentData.addressLine1 && studentData.addressLine1.trim() !== '';
@@ -326,102 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        viewProfileBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            setProfileView('compact');
-            userMenuDropdown.classList.remove('active');
-        });
-
-        editDetailsBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            setProfileView('full'); // This shows all fields and enables edit mode
-            userMenuDropdown.classList.remove('active');
-        });
         cancelBtn.addEventListener('click', () => setProfileView('compact'));
-
-        saveBtn.addEventListener('click', () => {
-            // Ask for confirmation before saving
-            if (window.confirm('Are you sure you want to save these changes?')) {
-                // DOB validation
-                const dobValue = fields.dob.edit.value;
-                let formattedDobForSave = '';
-                if (!dobValue) {
-                    alert('Date of Birth cannot be empty.');
-                    fields.dob.edit.focus();
-                    return;
-                }
-                if (!/^\d{2}-\d{2}-\d{4}$/.test(dobValue)) {
-                    alert('Please enter a valid date in DD-MM-YYYY format.');
-                    fields.dob.edit.focus();
-                    return;
-                }
-                const parts = dobValue.split('-');
-                const day = parseInt(parts[0], 10);
-                const month = parseInt(parts[1], 10);
-                const year = parseInt(parts[2], 10);
-                const date = new Date(year, month - 1, day);
-                if (!(date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day)) {
-                    alert('The date you entered is not a valid calendar date.');
-                    fields.dob.edit.focus();
-                    return;
-                }
-                formattedDobForSave = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-                // Use FormData to send both text and file data
-                const formData = new FormData();
-
-                formData.append('name', fields.name.edit.value);
-                formData.append('email', fields.email.edit.value);
-                formData.append('rollNumber', fields.rollNumber.edit.value);
-                formData.append('dob', formattedDobForSave);
-                formData.append('gender', fields.gender.edit.value);
-                formData.append('mobileNumber', fields.mobileNumber.edit.value);
-
-                // Append the new profile picture file if one was selected
-                if (editProfilePictureInput.files[0]) {
-                    formData.append('profilePicture', editProfilePictureInput.files[0]);
-                }
-
-                fetch('/update', {
-                    method: 'POST',
-                    body: formData, // The browser will set the correct 'Content-Type' for FormData
-                })
-                .then(response => {
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('application/json')) {
-                        return response.text().then(text => {
-                            throw new Error(`Expected JSON response, but received: ${text.substring(0, 100)}... (Status: ${response.status})`);
-                        });
-                    }
-                    if (!response.ok) { return response.json().then(err => { throw new Error(err.message || 'Update failed'); }); }
-                    return response.json();
-                })
-                .then(data => {
-                    alert('Details updated successfully!');
-                    // The server now returns the fully updated student object, including the new image path
-                    const newStudentData = data.studentData;
-                    sessionStorage.setItem('currentStudent', JSON.stringify(newStudentData));
-                    studentData = newStudentData;
-                    populateFields(newStudentData);
-                    setProfileView('compact');
-                })
-                .catch(error => {
-                    console.error('Error during update fetch:', error);
-                    if (error.message.includes("Failed to fetch")) {
-                        alert("Update failed: Cannot connect to the server.\n\nPlease make sure the 'node server.js' command is running in your terminal and you are accessing the site via http://localhost:3000.");
-                    } else {
-                        alert(`Failed to update details: ${error.message}`);
-                    }
-                });
-            }
-        });
-
-        logoutBtnMenu.addEventListener('click', (e) => {
-            e.preventDefault();
-            sessionStorage.clear();
-            // Use replace to prevent going back to the home page via browser back button
-            window.location.replace('index.html');
-        });
 
         // Auto-format DOB as user types in edit mode
         fields.dob.edit.addEventListener('input', autoformatDob);
@@ -439,19 +447,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- Menu Logic ---
-        userMenuBtn.addEventListener('click', (event) => {
-            event.stopPropagation();
-            userMenuDropdown.classList.toggle('active');
-        });
-
-        // Close dropdown if clicking outside of it
-        document.addEventListener('click', (event) => {
-            if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
-                userMenuDropdown.classList.remove('active');
-            }
-        });
-
         // --- Initial Population ---
         resetInactivityTimer(); // Start the timer on page load
         populateFields(studentData);
@@ -464,8 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const link = e.target.closest('a');
         // Ensure it's a valid, internal link before setting the flag.
         if (link && link.href && link.hostname === window.location.hostname) {
-            // Exclude the logout button from this logic.
-            if (link.id !== 'logoutBtnMenu') {
+            // Exclude the new logout button from this logic.
+            if (link.id !== 'sideNavLogoutBtn') {
                 sessionStorage.setItem('navigationAllowed', 'true');
             }
         }

@@ -8,7 +8,8 @@ const { Pool } = require('pg');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const path = require('path');
-const puppeteer = require('puppeteer');
+const chromium = require('@sparticuz/chromium');
+const puppeteer = require('puppeteer-core');
 require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
@@ -423,7 +424,13 @@ async function sendPaymentReceiptEmail(studentData, courseData, orderId) {
 
     // --- 2. Generate PDF and Send Email ---
     try {
-        const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        const browser = await puppeteer.launch({
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
+            ignoreHTTPSErrors: true,
+        });
         const page = await browser.newPage();
 
         await page.setContent(receiptHtmlContent, { waitUntil: 'networkidle0' });

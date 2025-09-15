@@ -17,6 +17,108 @@
             } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
         })();
     </script>
+    <style>
+        /* Styles for the new Student Dashboard inside proceed-section */
+        .dashboard-view h4 { text-align: center; margin-bottom: 2rem; font-size: 1.75rem; color: var(--text-color); }
+        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
+        .card { background: var(--bg-body); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--input-border); text-align: center; transition: transform 0.2s, box-shadow 0.2s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px var(--header-shadow); }
+        .card h4 { margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem; color: var(--btn-bg); }
+        .card p { font-size: 1.8rem; font-weight: 600; margin: 0.5rem 0; color: var(--text-color); }
+        .card a, .card small { font-size: 0.9rem; color: var(--link-color); text-decoration: none; }
+        .card a:hover { text-decoration: underline; }
+        .quick-links-panel { background: var(--bg-body); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--input-border); margin-top: 1rem; }
+        .quick-links-panel h4 { margin-top: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--input-border); padding-bottom: 0.5rem; text-align: left; font-size: 1.2rem; }
+        
+        /* --- New Side Navigation Styles --- */
+        .main-header { justify-content: space-between; }
+        .header-actions-left { display: flex; align-items: center; }
+        .side-nav-btn {
+            background: none; border: none; color: var(--text-color); font-size: 1.8rem; cursor: pointer; padding: 0 1rem;
+            display: flex; align-items: center; justify-content: center; height: 100%;
+        }
+        .side-nav {
+            position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--bg-main);
+            box-shadow: 4px 0 15px rgba(0,0,0,0.1); transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out; z-index: 1100; display: flex; flex-direction: column;
+        }
+        .side-nav.active { transform: translateX(0); }
+        .side-nav-header {
+            display: flex; align-items: center; padding: 1rem; border-bottom: 1px solid var(--input-border);
+        }
+        .side-nav-header .side-nav-avatar {
+            width: 45px; height: 45px; border-radius: 50%; object-fit: cover;
+            margin-right: 1rem; border: 2px solid var(--btn-bg);
+        }
+        .side-nav-header .side-nav-name {
+            flex-grow: 1; margin: 0; font-size: 1.1rem; font-weight: 600;
+            color: var(--text-color);
+        }
+        .side-nav-header .close-btn {
+            background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--text-color);
+        }
+        .side-nav ul { list-style: none; padding: 1rem 0; margin: 0; overflow-y: auto; }
+        .side-nav ul li a {
+            display: flex; align-items: center; padding: 0.9rem 1.5rem; text-decoration: none;
+            color: var(--text-color); font-size: 1rem; transition: background-color 0.2s;
+        }
+        .side-nav ul li a:hover { background-color: var(--bg-hover); }
+        .side-nav ul li a .nav-icon {
+            margin-right: 1rem; font-size: 1.2rem; width: 24px; text-align: center;
+        }
+        .side-nav ul li a.active-nav-link {
+            background-color: var(--btn-bg-light); color: var(--btn-bg); font-weight: 600;
+        }
+        .side-nav-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1099; opacity: 0; visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        .side-nav-overlay.active { opacity: 1; visibility: visible; }
+
+        /* --- Notification Panel Styles --- */
+        .header-actions-right { display: flex; align-items: center; }
+        .notification-container { position: relative; }
+        .notification-btn {
+            background: none; border: none; color: var(--text-color); font-size: 1.6rem; cursor: pointer;
+            padding: 0 1rem; display: flex; align-items: center; justify-content: center; height: 100%;
+            position: relative;
+        }
+        .notification-badge {
+            position: absolute; top: 8px; right: 8px;
+            background-color: var(--btn-danger-bg); color: white;
+            border-radius: 50%; width: 20px; height: 20px;
+            font-size: 0.75rem; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid var(--bg-header);
+        }
+        .notification-panel {
+            position: absolute; top: 100%; right: 0;
+            width: 360px; background: var(--bg-main);
+            border-radius: 8px; box-shadow: 0 5px 20px var(--header-shadow);
+            border: 1px solid var(--input-border);
+            opacity: 0; visibility: hidden;
+            transform: translateY(10px);
+            transition: opacity 0.2s, transform 0.2s;
+            z-index: 1200;
+        }
+        .notification-panel.active { opacity: 1; visibility: visible; transform: translateY(0); }
+        .notification-header, .notification-footer { padding: 1rem; border-bottom: 1px solid var(--input-border); }
+        .notification-header h4 { margin: 0; font-size: 1.1rem; }
+        .notification-footer { border-top: 1px solid var(--input-border); border-bottom: none; text-align: center; }
+        .notification-footer a { text-decoration: none; color: var(--link-color); font-weight: 600; }
+        .notification-panel ul { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
+        .notification-item { display: flex; padding: 1rem; text-decoration: none; color: var(--text-color); border-bottom: 1px solid var(--input-border); transition: background-color 0.2s; }
+        .notification-item:hover { background-color: var(--bg-hover); }
+        .notification-item.read { background-color: var(--bg-body); opacity: 0.7; }
+        .notification-item:last-child { border-bottom: none; }
+        .notification-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-right: 1rem; }
+        .notification-icon.fee { background-color: #e6f7ff; color: #1890ff; }
+        .notification-icon.assignment { background-color: #fffbe6; color: #faad14; }
+        .notification-icon.result { background-color: #f6ffed; color: #52c41a; }
+        .notification-content p { margin: 0 0 0.25rem 0; font-size: 0.9rem; line-height: 1.4; }
+        .notification-content small { font-size: 0.8rem; color: var(--text-color-light); }
+    </style>
     <script>
         // --- Strict Session Security Check ---
         // This script enforces logout on any page refresh, direct URL access, or back/forward navigation.
@@ -42,7 +144,35 @@
 </head>
 <body>
 
+    <div id="sideNavOverlay" class="side-nav-overlay"></div>
+    <nav id="sideNav" class="side-nav">
+        <div class="side-nav-header">
+            <img src="default-avatar.png" alt="Student Avatar" id="sideNavAvatar" class="side-nav-avatar">
+            <h4 id="sideNavName" class="side-nav-name">Student Name</h4>
+            <button id="closeSideNavBtn" class="close-btn">&times;</button>
+        </div>
+        <ul>
+            <li><a href="home.html" class="active-nav-link"><span class="nav-icon">🏠</span> Dashboard</a></li>
+            <li><a href="#"><span class="nav-icon">📚</span> My Courses</a></li>
+            <li><a href="#"><span class="nav-icon">📅</span> Timetable</a></li>
+            <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
+            <li><a href="#"><span class="nav-icon">📝</span> Assignments</a></li>
+            <li><a href="#"><span class="nav-icon">🎓</span> Results</a></li>
+            <li><a href="dashboard.html"><span class="nav-icon">💳</span> Fee Payment History</a></li>
+            <li><a href="#"><span class="nav-icon">🏛️</span> Library</a></li>
+            <li><a href="#"><span class="nav-icon">📢</span> Notices</a></li>
+            <li><a href="#"><span class="nav-icon">❓</span> Support / Helpdesk</a></li>
+            <li style="height: 1px; background-color: var(--input-border); margin: 8px 20px;"></li>
+            <li><a href="#" id="sideNavEditProfileBtn"><span class="nav-icon">✏️</span> Edit Profile</a></li>
+            <li><a href="change-password.html"><span class="nav-icon">🔒</span> Change Password</a></li>
+            <li><a href="#" id="sideNavLogoutBtn"><span class="nav-icon">🚪</span> Logout</a></li>
+        </ul>
+    </nav>
+
     <header class="main-header">
+        <div class="header-actions-left">
+            <button id="sideNavBtn" class="side-nav-btn" title="Main Menu">☰</button>
+        </div>
         <div class="header-branding">
             <div class="logo-container">
                 <!-- DAV PG College Logo -->
@@ -57,18 +187,46 @@
                 <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
             </div>
         </div>
-        <div class="header-actions">
-            <div class="user-menu-container">
-                <button id="userMenuBtn" class="user-menu-btn" title="User Menu">☰</button>
-                <div id="userMenuDropdown" class="user-menu-dropdown">
+        <div class="header-actions-right">
+            <div class="notification-container">
+                <button id="notificationBtn" class="notification-btn" title="Notifications">
+                    🔔
+                    <span id="notificationBadge" class="notification-badge">2</span>
+                </button>
+                <div id="notificationPanel" class="notification-panel">
+                    <div class="notification-header">
+                        <h4>Notifications</h4>
+                    </div>
                     <ul>
-                        <li><a href="dashboard.html">Payment History</a></li>
-                        <li><a href="#" id="viewProfileBtn">View Profile</a></li>
-                        <li><a href="#" id="editDetailsBtn">Edit Details</a></li>
-                        <li><a href="change-password.html">Change Password</a></li>
-                        <li class="separator"></li>
-                        <li><a href="#" id="logoutBtnMenu">Logout</a></li>
+                        <li>
+                            <a href="#" class="notification-item">
+                                <div class="notification-icon fee">💰</div>
+                                <div class="notification-content">
+                                    <p><strong>Fee Reminder:</strong> Your semester fee payment is due next week.</p>
+                                    <small>2 days ago</small>
+                                </div>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="notification-item">
+                                <div class="notification-icon assignment">📝</div>
+                                <div class="notification-content">
+                                    <p><strong>New Assignment:</strong> A new assignment for PHY101 has been posted.</p>
+                                    <small>5 days ago</small>
+                                </div>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="notification-item read">
+                                <div class="notification-icon result">🎓</div>
+                                <div class="notification-content">
+                                    <p><strong>Results Published:</strong> Your 1st Semester results are now available.</p>
+                                    <small>1 week ago</small>
+                                </div>
+                            </a>
+                        </li>
                     </ul>
+                    <div class="notification-footer"><a href="#">View All Notifications</a></div>
                 </div>
             </div>
         </div>

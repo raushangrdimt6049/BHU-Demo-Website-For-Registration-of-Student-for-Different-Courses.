@@ -1,6 +1,6 @@
 // This listener handles scenarios where a page is restored from the browser's
 // back-forward cache (bfcache). It forces a full reload to ensure the
-// password prompt is always shown.
+// security script in the <head> always runs.
 window.addEventListener('pageshow', (event) => {
     if (event.persisted) {
         window.location.reload();
@@ -8,61 +8,72 @@ window.addEventListener('pageshow', (event) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    // --- DOM Element References ---
-    const passwordOverlay = document.getElementById('password-overlay');
-    const facultyPasswordForm = document.getElementById('facultyPasswordForm');
-    const facultyUsernameInput = document.getElementById('facultyUsernameInput');
-    const facultyPasswordInput = document.getElementById('facultyPasswordInput');
-    const passwordError = document.getElementById('password-error');
-    const facultyContent = document.getElementById('faculty-content');
+    const facultyDataString = sessionStorage.getItem('currentFaculty');
+    if (!facultyDataString) {
+        // This should be caught by the inline script, but it's a good fallback.
+        window.location.replace('faculty-login.html');
+        return;
+    }
+    const facultyData = JSON.parse(facultyDataString);
 
-    // --- Hardcoded Credentials ---
-    const correctUsername = 'Nisha_143';
-    const correctPassword = '4gh4m01r';
+    // --- Side Navigation Elements ---
+    const sideNavBtn = document.getElementById('sideNavBtn');
+    const sideNav = document.getElementById('sideNav');
+    const sideNavOverlay = document.getElementById('sideNavOverlay');
+    const closeSideNavBtn = document.getElementById('closeSideNavBtn');
+    const sideNavAvatar = document.getElementById('sideNavAvatar');
+    const sideNavName = document.getElementById('sideNavName');
+    const facultyLogoutBtn = document.getElementById('facultyLogoutBtn');
 
-    const initializeFacultyPortal = () => {
-        // This function is called on successful login to reveal the main content.
-        facultyContent.style.display = 'block';
-
-        // --- Sliding Side Menu Logic ---
-        const sideMenuBtn = document.getElementById('sideMenuBtn');
-        const sideMenu = document.getElementById('sideMenu');
-        const sideMenuOverlay = document.getElementById('sideMenuOverlay');
-
-        if (sideMenuBtn && sideMenu && sideMenuOverlay) {
-            sideMenuBtn.addEventListener('click', (event) => {
-                event.stopPropagation();
-                sideMenu.classList.add('active');
-                sideMenuOverlay.classList.add('active');
-            });
-
-            sideMenuOverlay.addEventListener('click', () => {
-                sideMenu.classList.remove('active');
-                sideMenuOverlay.classList.remove('active');
-            });
+    // --- Side Navigation Logic ---
+    const openNav = () => {
+        if (sideNav && sideNavOverlay) {
+            sideNav.classList.add('active');
+            sideNavOverlay.classList.add('active');
         }
     };
 
-    // --- Password Protection Logic ---
-    // Always show the modal on page load and handle authentication.
-    passwordOverlay.style.display = 'flex'; // Make sure it's visible
-    facultyPasswordForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const enteredUsername = facultyUsernameInput.value;
-        const enteredPassword = facultyPasswordInput.value;
+    const closeNav = () => {
+        if (sideNav && sideNavOverlay) {
+            sideNav.classList.remove('active');
+            sideNavOverlay.classList.remove('active');
+        }
+    };
 
-        if (enteredUsername === correctUsername && enteredPassword === correctPassword) {
-            // On correct credentials, hide the overlay and load the content.
-            passwordOverlay.style.opacity = '0';
-            setTimeout(() => {
-                passwordOverlay.style.display = 'none';
-            }, 300); // Match the transition duration
-            initializeFacultyPortal();
-        } else {
-            passwordError.textContent = 'Incorrect username or password. Please try again.';
-            passwordError.style.display = 'block';
-            facultyPasswordInput.value = '';
-            facultyUsernameInput.focus();
+    // --- Initialize Navigation ---
+    if (sideNavBtn && closeSideNavBtn && sideNavOverlay) {
+        sideNavBtn.addEventListener('click', openNav);
+        closeSideNavBtn.addEventListener('click', closeNav);
+        sideNavOverlay.addEventListener('click', closeNav);
+    }
+
+    // Populate side navigation with faculty info from sessionStorage
+    if (sideNavName) {
+        sideNavName.textContent = facultyData.name || 'Faculty';
+    }
+    if (sideNavAvatar) {
+        sideNavAvatar.src = facultyData.avatar || 'default-avatar.png';
+        sideNavAvatar.onerror = () => { sideNavAvatar.src = 'default-avatar.png'; };
+    }
+
+    // Handle logout from side navigation
+    if (facultyLogoutBtn) {
+        facultyLogoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            sessionStorage.clear();
+            window.location.replace('index.html'); // Go to main portal on logout
+        });
+    }
+
+    // --- Navigation Helper ---
+    // Sets a flag before any internal link is followed to allow the next page to load.
+    document.body.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        // Ensure it's a valid, internal link before setting the flag.
+        if (link && link.href && link.hostname === window.location.hostname) {
+            if (link.id !== 'facultyLogoutBtn') {
+                sessionStorage.setItem('navigationAllowed', 'true');
+            }
         }
     });
 });
