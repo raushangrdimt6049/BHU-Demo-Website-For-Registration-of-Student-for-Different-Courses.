@@ -46,6 +46,26 @@
         .password-modal p { margin-bottom: 1.5rem; }
         .password-modal .form-actions { flex-direction: column; }
 
+        /* --- Side Menu Header --- */
+        .side-menu-header {
+            padding: 25px 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--input-border);
+        }
+        .side-menu-avatar {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 15px;
+            border: 3px solid var(--btn-bg);
+        }
+        .side-menu-header h4 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--text-color);
+        }
+
         /* --- Side Menu (Sliding Panel) Styles --- */
         .side-menu {
             position: fixed;
@@ -57,7 +77,6 @@
             box-shadow: 4px 0 15px var(--header-shadow);
             z-index: 3000;
             transition: left 0.3s ease-in-out;
-            padding-top: 60px; /* Space for a close button or header */
         }
         .side-menu.active {
             left: 0;
@@ -292,9 +311,15 @@
         </div>
     </div>
 
+    
     <!-- Side Menu (Sliding Panel) -->
     <div id="sideMenuOverlay" class="side-menu-overlay"></div>
     <div id="sideMenu" class="side-menu">
+        <div class="side-menu-header">
+            <!-- Placeholder image and name -->
+            <img src="default-avatar.png" alt="Faculty Profile Picture" class="side-menu-avatar">
+            <h4>Nisha Singh</h4>
+        </div>
         <ul>
             <li><a href="#">Profile Details</a></li>
             <li><a href="#">Change Profile Details</a></li>
