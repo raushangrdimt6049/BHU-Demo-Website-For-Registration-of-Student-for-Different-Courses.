@@ -17,6 +17,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const correctUsername = 'Raushan_143';
     const correctPassword = '4gh4m01r';
 
+    // --- View Containers and Navigation ---
+    const adminContentWrapper = document.getElementById('admin-content-wrapper');
+    const adminDashboardView = document.getElementById('admin-dashboard-view');
+    const studentRecordsView = document.getElementById('student-records-view');
+    const viewFacultyBtn = document.getElementById('viewFacultyBtn');
+    const viewStudentsBtn = document.getElementById('viewStudentsBtn');
+    const viewStaffBtn = document.getElementById('viewStaffBtn');
+    const backToAdminDashboardBtn = document.getElementById('backToAdminDashboardBtn');
+    let recordsInitialized = false; // Flag to prevent re-initializing student records
+
     // This function contains all the logic for fetching, displaying, searching, and exporting records.
     const initializeStudentRecords = async () => {
         const tableBody = document.querySelector('#students-table tbody');
@@ -267,6 +277,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    // --- Admin Dashboard Navigation Logic ---
+    viewStudentsBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        adminDashboardView.style.display = 'none';
+        studentRecordsView.style.display = 'block';
+        if (!recordsInitialized) {
+            initializeStudentRecords();
+            recordsInitialized = true;
+        }
+    });
+
+    backToAdminDashboardBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        studentRecordsView.style.display = 'none';
+        adminDashboardView.style.display = 'block';
+    });
+
+    viewFacultyBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        alert('Faculty Details section is coming soon.');
+    });
+
+    viewStaffBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        alert('Staff Details section is coming soon.');
+    });
+
     // --- Password Protection Logic ---
     // Always show the modal on page load and handle authentication.
     // The authentication state is not stored, so a refresh or revisit will always require the password.
@@ -277,12 +314,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const enteredPassword = adminPasswordInput.value;
 
         if (enteredUsername === correctUsername && enteredPassword === correctPassword) {
-            // On correct credentials, hide the overlay and load the records.
+            // On correct credentials, hide the overlay and show the admin content.
             passwordOverlay.style.opacity = '0';
             setTimeout(() => {
                 passwordOverlay.style.display = 'none';
             }, 300); // Match the transition duration
-            initializeStudentRecords();
+            adminContentWrapper.style.display = 'block';
+            adminDashboardView.style.display = 'block'; // Show the dashboard first
         } else {
             passwordError.textContent = 'Incorrect username or password. Please try again.';
             passwordError.style.display = 'block';

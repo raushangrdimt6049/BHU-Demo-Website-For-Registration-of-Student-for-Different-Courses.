@@ -19,6 +19,35 @@
         })();
     </script>
     <style>
+        /* --- Portal Selection Styles (from landing.css) --- */
+        .portal-selection-container {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+            width: 100%;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .portal-circle {
+            background: var(--bg-main);
+            border-radius: 15px;
+            padding: 2rem;
+            width: 280px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text-color);
+            box-shadow: 0 4px 15px var(--header-shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .portal-circle:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px var(--header-shadow);
+        }
+        .portal-icon { font-size: 3rem; display: block; margin-bottom: 1rem; }
+
         /* Ensure header scrolls with the page and doesn't overlap content */
         .main-header {
             position: static; /* Overrides potential 'fixed' or 'sticky' from style.css */
@@ -231,46 +260,71 @@
                 <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
             </div>
         </div>
-        <div class="header-actions">
-            <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle dark/light mode">🌙</button>
-        </div>
     </header>
     <main class="login-main">
-        <div class="dashboard-container">
-            <div class="records-header">
-                <h3>Student Records</h3>
-            </div>
-            <p class="records-description" style="text-align: center; margin-top: -1.5rem; margin-bottom: 1rem;">This table displays all student records from the PostgreSQL database.</p>
-            <div id="loading">Loading student data...</div>
-            <div class="form-group" style="margin-bottom: 1.5rem;">
-                <input type="search" id="searchInput" placeholder="Search by name, email, or roll number...">
-            </div>
-            <div id="error" style="display: none;"></div>
-            <div class="table-container">
-                <table id="students-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Roll Number</th>
-                            <th>Email</th>
-                            <th>Gender</th>
-                            <th>Mobile Number</th>
-                            <th>City</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Data will be inserted here by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="form-actions">
-                <div class="export-buttons-container">
-                    <button id="exportCsvBtn" class="submit-btn" style="visibility: hidden;">Download as CSV</button>
-                    <button id="printBtn" class="submit-btn" style="visibility: hidden;">Print Details</button>
+        <div id="admin-content-wrapper" style="display: none; width: 100%;">
+            <!-- Admin Dashboard View -->
+            <div id="admin-dashboard-view">
+                <h3 style="text-align: center; margin-bottom: 2rem;">Admin Dashboard</h3>
+                <div class="portal-selection-container">
+                    <a href="#" id="viewFacultyBtn" class="portal-circle">
+                        <span class="portal-icon">🧑‍🏫</span>
+                        <h3>Faculty Details</h3>
+                        <p>View and manage faculty records.</p>
+                    </a>
+                    <a href="#" id="viewStudentsBtn" class="portal-circle">
+                        <span class="portal-icon">🧑‍🎓</span>
+                        <h3>Student Details</h3>
+                        <p>View and manage all student records.</p>
+                    </a>
+                    <a href="#" id="viewStaffBtn" class="portal-circle">
+                        <span class="portal-icon">👥</span>
+                        <h3>Staff Details</h3>
+                        <p>View and manage non-teaching staff.</p>
+                    </a>
                 </div>
-                <a href="index.html" class="back-btn">Back to Main Portal</a>
+            </div>
+
+            <!-- Student Records View -->
+            <div class="dashboard-container" id="student-records-view" style="display: none;">
+                <div class="records-header">
+                    <h3>Student Records</h3>
+                </div>
+                <p class="records-description" style="text-align: center; margin-top: -1.5rem; margin-bottom: 1rem;">This table displays all student records from the PostgreSQL database.</p>
+                <div id="loading">Loading student data...</div>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <input type="search" id="searchInput" placeholder="Search by name, email, or roll number...">
+                </div>
+                <div id="error" style="display: none;"></div>
+                <div class="table-container">
+                    <table id="students-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Roll Number</th>
+                                <th>Email</th>
+                                <th>Gender</th>
+                                <th>Mobile Number</th>
+                                <th>City</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div class="form-actions">
+                    <div class="export-buttons-container">
+                        <button id="exportCsvBtn" class="submit-btn" style="visibility: hidden;">Download as CSV</button>
+                        <button id="printBtn" class="submit-btn" style="visibility: hidden;">Print Details</button>
+                    </div>
+                    <button id="backToAdminDashboardBtn" class="back-btn">← Back to Admin Dashboard</button>
+                </div>
+            </div>
+
+            <!-- Shared Logout Button -->
+            <div class="form-actions" style="justify-content: center; margin-top: 2rem;">
+                <a href="students.html" class="back-btn">Logout</a>
             </div>
         </div>
     </main>

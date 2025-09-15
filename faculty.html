@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Portal - DAV PG College</title>
+    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="students.css"> <!-- Re-use some styles for consistency -->
+    <script>
+        // --- Immediate Theme Application (Flicker-Free) ---
+        (function() {
+            try {
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) { /* In case of any errors, do nothing */ }
+        })();
+    </script>
+    <style>
+        /* Re-using password overlay styles from students.html */
+        .password-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .password-modal {
+            background: var(--bg-main);
+            padding: 2.5rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 450px;
+        }
+        .password-modal h3 { margin-bottom: 1rem; font-size: 1.75rem; }
+        .password-modal p { margin-bottom: 1.5rem; }
+        .password-modal .form-actions { flex-direction: column; }
+
+        /* --- Side Menu (Sliding Panel) Styles --- */
+        .side-menu {
+            position: fixed;
+            top: 0;
+            left: -280px; /* Hidden by default */
+            width: 280px;
+            height: 100%;
+            background-color: var(--bg-main);
+            box-shadow: 4px 0 15px var(--header-shadow);
+            z-index: 3000;
+            transition: left 0.3s ease-in-out;
+            padding-top: 60px; /* Space for a close button or header */
+        }
+        .side-menu.active {
+            left: 0;
+        }
+        .side-menu ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .side-menu li a {
+            color: var(--text-color);
+            padding: 15px 25px;
+            text-decoration: none;
+            display: block;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        .side-menu li a:hover { background-color: var(--readonly-bg); }
+        .side-menu .separator { height: 1px; background-color: var(--input-border); margin: 8px 0; }
+
+        .side-menu-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2999;
+        }
+        .side-menu-overlay.active {
+            display: block;
+        }
+
+        /* --- Faculty Dashboard Styles --- */
+        .faculty-dashboard {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .dashboard-header {
+            display: flex;
+            justify-content: flex-start; /* Align items to the start */
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--input-border);
+        }
+        .dashboard-header h2 {
+            color: var(--text-color);
+            margin: 0;
+            flex-grow: 1; /* Allow title to take up space */
+            text-align: center; /* Center the title */
+        }
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .header-controls select {
+            padding: 0.5rem;
+            border-radius: 6px;
+            border: 1px solid var(--input-border);
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+        .icon-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+            position: relative;
+        }
+        .logout-btn {
+            background-color: var(--btn-secondary-bg);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+        .logout-btn:hover {
+            background-color: var(--btn-secondary-hover-bg);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+        .dashboard-panel {
+            background: var(--bg-main);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px var(--header-shadow);
+            margin-bottom: 2rem;
+        }
+        .dashboard-panel h3 {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--btn-bg);
+            padding-bottom: 0.5rem;
+            color: var(--btn-bg);
+        }
+
+        /* Course List & Schedule List */
+        .course-list, .schedule-list {
+            list-style: none;
+            padding: 0;
+        }
+        .course-list li, .schedule-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid var(--input-border);
+        }
+        .course-list li:last-child, .schedule-list li:last-child {
+            border-bottom: none;
+        }
+        .course-info .course-code {
+            font-weight: bold;
+            margin-right: 1rem;
+            color: var(--text-color);
+            background-color: var(--readonly-bg);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .course-links a {
+            margin-left: 1rem;
+            text-decoration: none;
+            color: var(--link-color);
+            font-weight: 500;
+        }
+        .course-links a:hover { text-decoration: underline; }
+
+        .schedule-list .time { font-weight: 600; min-width: 140px; }
+        .schedule-list .class-info { flex-grow: 1; margin: 0 1rem; }
+        .schedule-list .action-link {
+            background-color: var(--btn-bg);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .schedule-list .action-link.green {
+            background-color: var(--btn-success-bg);
+        }
+        .schedule-list .no-action {
+            color: var(--text-color);
+            opacity: 0.7;
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        /* Quick Actions */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        .action-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 1rem;
+            background-color: var(--bg-body);
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text-color);
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        .action-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px var(--header-shadow);
+            border-color: var(--btn-bg);
+        }
+        .action-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 992px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 480px) {
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+            .course-list li, .schedule-list li {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            .course-links {
+                margin-top: 0.5rem;
+            }
+            .course-links a:first-child {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="password-overlay" class="password-overlay">
+        <div class="password-modal">
+            <h3>Faculty Access Required</h3>
+            <p>Enter your faculty credentials to access the portal.</p>
+            <form id="facultyPasswordForm">
+                <div class="form-group">
+                    <input type="text" id="facultyUsernameInput" placeholder="Enter Username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="facultyPasswordInput" placeholder="Enter Password" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn">Sign In</button>
+                    <a href="index.html" class="back-btn">Back to Main Portal</a>
+                </div>
+                <p id="password-error" class="error-message" style="margin-top: 1rem;"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Side Menu (Sliding Panel) -->
+    <div id="sideMenuOverlay" class="side-menu-overlay"></div>
+    <div id="sideMenu" class="side-menu">
+        <ul>
+            <li><a href="#">Profile Details</a></li>
+            <li><a href="#">Change Profile Details</a></li>
+            <li><a href="#">Change Password</a></li>
+            <li class="separator"></li>
+            <li><a href="faculty.html">Logout</a></li>
+        </ul>
+    </div>
+
+    <main class="login-main" id="faculty-content" style="display: none;">
+        <div class="faculty-dashboard">
+            <div class="dashboard-header">
+                <button id="sideMenuBtn" class="icon-btn" title="Open Menu">☰</button>
+                <h2>Faculty Dashboard</h2>
+                <div class="header-controls">
+                    <button class="icon-btn" title="Notifications">🔔</button>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="dashboard-col-main">
+                    <div class="dashboard-panel">
+                        <h3>My Courses</h3>
+                        <ul class="course-list">
+                            <li>
+                                <div class="course-info">
+                                    <span class="course-code">PHY101</span>
+                                    <span class="course-title">Mechanics & Wave Motion</span>
+                                </div>
+                                <div class="course-links">
+                                    <a href="#">Materials</a>
+                                    <a href="#">Assignments</a>
+                                    <a href="#">Grades</a>
+                                </div>
+                            </li>
+                            <li>
+                                <div class="course-info">
+                                    <span class="course-code">MTH101</span>
+                                    <span class="course-title">Calculus</span>
+                                </div>
+                                <div class="course-links">
+                                    <a href="#">Materials</a>
+                                    <a href="#">Assignments</a>
+                                    <a href="#">Grades</a>
+                                </div>
+                            </li>
+                             <li>
+                                <div class="course-info">
+                                    <span class="course-code">CHM101</span>
+                                    <span class="course-title">Inorganic Chemistry</span>
+                                </div>
+                                <div class="course-links">
+                                    <a href="#">Materials</a>
+                                    <a href="#">Assignments</a>
+                                    <a href="#">Grades</a>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="dashboard-panel">
+                        <h3>Today's Schedule</h3>
+                        <ul class="schedule-list">
+                            <li>
+                                <span class="time">10:00 AM - 11:00 AM</span>
+                                <span class="class-info">PHY101 - Hall 5</span>
+                                <a href="#" class="action-link">Mark Attendance</a>
+                            </li>
+                            <li>
+                                <span class="time">01:00 PM - 02:00 PM</span>
+                                <span class="class-info">MTH101 - Hall 2</span>
+                                <a href="#" class="action-link green">Start Online Class</a>
+                            </li>
+                             <li>
+                                <span class="time">03:00 PM - 04:00 PM</span>
+                                <span class="class-info">PHY101 - Lab 3</span>
+                                <span class="no-action">No Action Required</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="dashboard-col-side">
+                    <div class="dashboard-panel">
+                        <h3>Quick Actions</h3>
+                        <div class="action-grid">
+                            <a href="#" class="action-item"><span class="action-icon">✅</span><span>Mark Attendance</span></a>
+                            <a href="#" class="action-item"><span class="action-icon">📤</span><span>Upload Material</span></a>
+                            <a href="#" class="action-item"><span class="action-icon">📝</span><span>Create Assignment</span></a>
+                            <a href="#" class="action-item"><span class="action-icon">💯</span><span>Enter Marks</span></a>
+                            <a href="#" class="action-item"><span class="action-icon">📢</span><span>Post Notice</span></a>
+                            <a href="#" class="action-item"><span class="action-icon">➕</span><span>Create Test</span></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="faculty.js"></script>
+</body>
+</html>

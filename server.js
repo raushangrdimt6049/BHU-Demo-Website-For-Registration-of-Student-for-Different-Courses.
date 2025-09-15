@@ -544,6 +544,12 @@ app.post('/upload-documents', docUpload.fields([
 
     const filePaths = {};
     try {
+        if (!req.files || Object.keys(req.files).length === 0) {
+            // This can happen if the form is submitted with no files, possibly due to a network issue or malformed request.
+            // The frontend 'required' attribute should prevent this, but this is a necessary server-side safeguard.
+            throw new Error("No files were uploaded. Please select all required documents and try again.");
+        }
+
         const renamePromises = Object.keys(req.files).map(fieldname => {
             return new Promise((resolve, reject) => {
                 const file = req.files[fieldname][0];
