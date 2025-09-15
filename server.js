@@ -284,14 +284,9 @@ async function sendRegistrationSms(toMobileNumber, rollNumber, enrollmentNumber)
     }
 }
 
-// --- Combined Admission Email Function (Summary + Receipt) ---
-async function sendCombinedAdmissionEmail(studentData, courseData, orderId) {
-    const toEmail = studentData.email;
-    const studentName = studentData.name;
-
-    // --- 1. Generate HTML for both PDFs ---
-
-    // Helpers for Admission Summary
+// --- PDF Generation Helper for Admission Summary ---
+async function generateAdmissionSummaryPdf(studentData, courseData, orderId) {
+    // --- 1. Generate HTML for the Admission Summary PDF ---
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
         const date = new Date(dateString);
@@ -318,14 +313,11 @@ async function sendCombinedAdmissionEmail(studentData, courseData, orderId) {
             profilePictureSrc = `file:///${picPath.replace(/\\/g, '/')}`;
         }
     }
-    
-    // HTML for Admission Summary PDF
+
     const summaryHtmlContent = `
         <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Admission Summary</title>
         <style>
-            /* --- Base Styles & Variables (from style.css) --- */
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #333; background-color: #fff; margin: 0; padding: 0; }
-            /* --- Header Styles (from style.css) --- */
             .main-header { display: flex; align-items: center; padding: 1rem 2rem; background-color: rgba(255, 255, 255, 0.8); border-bottom: 2px solid #0056b3; gap: 1rem; }
             .header-branding { display: flex; align-items: center; gap: 1rem; flex-grow: 1; }
             .logo-container { flex: 0 1 80px; display: flex; justify-content: center; align-items: center; }
@@ -333,15 +325,12 @@ async function sendCombinedAdmissionEmail(studentData, courseData, orderId) {
             .header-text { text-align: center; flex: 1; color: #002147; }
             .header-text h1 { margin-bottom: 0.25rem; font-size: 1.8rem; }
             .header-text h2 { font-size: 1.4rem; font-weight: 400; }
-            /* --- Main Content Styles (from home.css & payment-summary.html) --- */
             .login-main { padding: 2rem; }
             .details-container { background: #fff; padding: 2.5rem; border-radius: 12px; border: 1px solid #ccc; width: 100%; max-width: 900px; margin: 0 auto; }
             .details-container h3 { text-align: center; margin-bottom: 1rem; font-size: 1.75rem; color: #333; }
             .details-container > p { text-align: center; margin-bottom: 2rem; color: #555; }
-            /* Profile Picture (from home.css) */
             .profile-picture-container { width: 150px; height: 150px; margin: 0 auto 2rem auto; border-radius: 50%; overflow: hidden; border: 3px solid #28a745; }
             .profile-picture { width: 100%; height: 100%; object-fit: cover; }
-            /* Preview Sections (from payment-summary.html) */
             .preview-section { margin-bottom: 2rem; border-bottom: 1px solid #ccc; padding-bottom: 1rem; }
             .preview-section:last-of-type { border-bottom: none; }
             .preview-section h4 { font-size: 1.5rem; color: #0056b3; margin-bottom: 1.5rem; border-bottom: 2px solid #0056b3; padding-bottom: 0.5rem; }
@@ -351,67 +340,57 @@ async function sendCombinedAdmissionEmail(studentData, courseData, orderId) {
             .preview-field span { font-size: 1.1rem; min-height: 24px; word-wrap: break-word; }
             .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #888; }
         </style></head><body>
-            <header class="main-header">
-                <div class="header-branding">
-                    <div class="logo-container"><img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo"></div>
-                    <div class="header-text">
-                        <h1>Banaras Hindu University</h1>
-                        <h2>DAV PG College, Varanasi</h2>
-                    </div>
-                    <div class="logo-container"><img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo"></div>
-                </div>
-            </header>
-            <main class="login-main">
-                <div class="details-container">
-                    <h3>Admission Summary</h3>
-                    <p style="text-align: center; margin-bottom: 2rem; color: #555;">Your application and payment have been successfully processed. This document serves as your official admission summary.</p>
-                    <div class="profile-picture-container"><img src="${profilePictureSrc}" alt="Profile Picture" class="profile-picture"></div>
-                    
-                    <!-- Personal Details -->
-                    <div class="preview-section"><h4>Personal Details</h4><div class="preview-grid">
-                        <div class="preview-field"><label>Full Name</label><span>${studentData.name || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Email</label><span>${studentData.email || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Roll Number</label><span>${studentData.rollNumber || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Enrollment Number</label><span>${studentData.enrollmentNumber || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Mobile Number</label><span>${studentData.mobileNumber || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Date of Birth</label><span>${formatDate(studentData.dob)}</span></div>
-                        <div class="preview-field"><label>Age</label><span>${calculateAge(studentData.dob)}</span></div>
-                        <div class="preview-field"><label>Gender</label><span>${studentData.gender || 'N/A'}</span></div>
-                    </div></div>
-                    <!-- Address & Parents Detail -->
-                    <div class="preview-section"><h4>Address & Parents Detail</h4><div class="preview-grid">
-                        <div class="preview-field"><label>Address</label><span>${fullAddress || 'N/A'}</span></div>
-                        <div class="preview-field"><label>City</label><span>${studentData.city || 'N/A'}</span></div>
-                        <div class="preview-field"><label>State</label><span>${studentData.state || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Pincode</label><span>${studentData.pincode || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Father's Name</label><span>${studentData.fatherName || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Father's Occupation</label><span>${studentData.fatherOccupation || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Mother's Name</label><span>${studentData.motherName || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Mother's Occupation</label><span>${studentData.motherOccupation || 'N/A'}</span></div>
-                        <div class="preview-field"><label>Parent's Mobile</label><span>${studentData.parentMobile || 'N/A'}</span></div>
-                    </div></div>
-                    <!-- Academic Details -->
-                    <div class="preview-section"><h4>Academic Details</h4><div class="preview-grid">
-                        <div class="preview-field"><label>10th Board</label><span>${studentData.board10 || 'N/A'}</span></div>
-                        <div class="preview-field"><label>10th Percentage</label><span>${studentData.percentage10 ? `${studentData.percentage10}%` : 'N/A'}</span></div>
-                        <div class="preview-field"><label>10th Passing Year</label><span>${studentData.year10 || 'N/A'}</span></div>
-                        <div class="preview-field"><label>12th Board</label><span>${studentData.board12 || 'N/A'}</span></div>
-                        <div class="preview-field"><label>12th Percentage</label><span>${studentData.percentage12 ? `${studentData.percentage12}%` : 'N/A'}</span></div>
-                        <div class="preview-field"><label>12th Passing Year</label><span>${studentData.year12 || 'N/A'}</span></div>
-                    </div></div>
-                    <!-- Payment & Course Details -->
-                    <div class="preview-section"><h4>Payment & Course Details</h4><div class="preview-grid">
-                        <div class="preview-field"><label>Course Enrolled</label><span>${courseData.level} - ${courseData.branch}</span></div>
-                        <div class="preview-field"><label>Amount Paid</label><span>₹ ${(courseData.amount / 100).toLocaleString('en-IN')}</span></div>
-                        <div class="preview-field"><label>Payment Status</label><span style="color: #28a745; font-weight: bold;">Successful</span></div>
-                        <div class="preview-field"><label>Transaction Date</label><span>${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
-                    </div></div>
-                    <div class="footer"><p>This is a computer-generated document and does not require a signature.</p></div>
-                </div>
-            </main>
-        </body></html>`;
+            <header class="main-header"><div class="header-branding"><div class="logo-container"><img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo"></div><div class="header-text"><h1>Banaras Hindu University</h1><h2>DAV PG College, Varanasi</h2></div><div class="logo-container"><img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo"></div></div></header>
+            <main class="login-main"><div class="details-container"><h3>Admission Summary</h3><p>Your application and payment have been successfully processed. This document serves as your official admission summary.</p><div class="profile-picture-container"><img src="${profilePictureSrc}" alt="Profile Picture" class="profile-picture"></div>
+            <div class="preview-section"><h4>Personal Details</h4><div class="preview-grid"><div class="preview-field"><label>Full Name</label><span>${studentData.name || 'N/A'}</span></div><div class="preview-field"><label>Email</label><span>${studentData.email || 'N/A'}</span></div><div class="preview-field"><label>Roll Number</label><span>${studentData.rollNumber || 'N/A'}</span></div><div class="preview-field"><label>Enrollment Number</label><span>${studentData.enrollmentNumber || 'N/A'}</span></div><div class="preview-field"><label>Mobile Number</label><span>${studentData.mobileNumber || 'N/A'}</span></div><div class="preview-field"><label>Date of Birth</label><span>${formatDate(studentData.dob)}</span></div><div class="preview-field"><label>Age</label><span>${calculateAge(studentData.dob)}</span></div><div class="preview-field"><label>Gender</label><span>${studentData.gender || 'N/A'}</span></div></div></div>
+            <div class="preview-section"><h4>Address & Parents Detail</h4><div class="preview-grid"><div class="preview-field"><label>Address</label><span>${fullAddress || 'N/A'}</span></div><div class="preview-field"><label>City</label><span>${studentData.city || 'N/A'}</span></div><div class="preview-field"><label>State</label><span>${studentData.state || 'N/A'}</span></div><div class="preview-field"><label>Pincode</label><span>${studentData.pincode || 'N/A'}</span></div><div class="preview-field"><label>Father's Name</label><span>${studentData.fatherName || 'N/A'}</span></div><div class="preview-field"><label>Father's Occupation</label><span>${studentData.fatherOccupation || 'N/A'}</span></div><div class="preview-field"><label>Mother's Name</label><span>${studentData.motherName || 'N/A'}</span></div><div class="preview-field"><label>Mother's Occupation</label><span>${studentData.motherOccupation || 'N/A'}</span></div><div class="preview-field"><label>Parent's Mobile</label><span>${studentData.parentMobile || 'N/A'}</span></div></div></div>
+            <div class="preview-section"><h4>Academic Details</h4><div class="preview-grid"><div class="preview-field"><label>10th Board</label><span>${studentData.board10 || 'N/A'}</span></div><div class="preview-field"><label>10th Percentage</label><span>${studentData.percentage10 ? `${studentData.percentage10}%` : 'N/A'}</span></div><div class="preview-field"><label>10th Passing Year</label><span>${studentData.year10 || 'N/A'}</span></div><div class="preview-field"><label>12th Board</label><span>${studentData.board12 || 'N/A'}</span></div><div class="preview-field"><label>12th Percentage</label><span>${studentData.percentage12 ? `${studentData.percentage12}%` : 'N/A'}</span></div><div class="preview-field"><label>12th Passing Year</label><span>${studentData.year12 || 'N/A'}</span></div></div></div>
+            <div class="preview-section"><h4>Payment & Course Details</h4><div class="preview-grid"><div class="preview-field"><label>Course Enrolled</label><span>${courseData.level} - ${courseData.branch}</span></div><div class="preview-field"><label>Amount Paid</label><span>₹ ${(courseData.amount / 100).toLocaleString('en-IN')}</span></div><div class="preview-field"><label>Order ID</label><span>${orderId || 'N/A'}</span></div><div class="preview-field"><label>Payment Status</label><span style="color: #28a745; font-weight: bold;">Successful</span></div><div class="preview-field"><label>Transaction Date</label><span>${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</span></div></div></div>
+            <div class="footer"><p>This is a computer-generated document and does not require a signature.</p></div></div></main></body></html>`;
 
-    // HTML for Payment Receipt PDF
+    // --- 2. Generate PDF ---
+    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const page = await browser.newPage();
+
+    await page.setContent(summaryHtmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+
+    await browser.close();
+    return pdfBuffer;
+}
+
+// --- Admission Summary Email Function ---
+async function sendAdmissionSummaryEmail(studentData, courseData, orderId) {
+    const toEmail = studentData.email;
+    const studentName = studentData.name;
+
+    try {
+        const summaryPdfBuffer = await generateAdmissionSummaryPdf(studentData, courseData, orderId);
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: toEmail,
+            subject: `Your Admission Summary for ${studentName}`,
+            html: `<p>Dear ${studentName},</p><p>Congratulations! Your admission process is complete.</p><p>Please find your detailed <strong>Admission Summary</strong> attached to this email for your records.</p><p>Best regards,</p><p><strong>The DAV PG College Admissions Team</strong></p>`,
+            attachments: [{
+                filename: `Admission_Summary_${studentData.rollNumber}.pdf`,
+                content: summaryPdfBuffer,
+                contentType: 'application/pdf'
+            }]
+        };
+        await transporter.sendMail(mailOptions);
+        console.log(`Admission summary email sent successfully to ${toEmail}`);
+    } catch (error) {
+        console.error(`Failed to send admission summary email to ${toEmail}:`, error);
+    }
+}
+
+// --- Payment Receipt Email Function ---
+async function sendPaymentReceiptEmail(studentData, courseData, orderId) {
+    const toEmail = studentData.email;
+    const studentName = studentData.name;
+
+    // --- 1. Generate HTML for the Payment Receipt PDF ---
     const receiptHtmlContent = `
         <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Payment Receipt</title>
         <style>
@@ -442,36 +421,31 @@ async function sendCombinedAdmissionEmail(studentData, courseData, orderId) {
             </div>
         </body></html>`;
 
-    // --- 2. Generate PDFs and Send Email ---
+    // --- 2. Generate PDF and Send Email ---
     try {
         const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
 
-        // Generate Summary PDF
-        await page.setContent(summaryHtmlContent, { waitUntil: 'networkidle0' });
-        const summaryPdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-
-        // Generate Receipt PDF
         await page.setContent(receiptHtmlContent, { waitUntil: 'networkidle0' });
         const receiptPdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
 
         await browser.close();
 
-        // --- 3. Create and Send Combined Email ---
         const mailOptions = {
             from: process.env.EMAIL_USER,
             to: toEmail,
-            subject: `Admission Confirmed: Summary & Receipt for ${studentName}`,
-            html: `<p>Dear ${studentName},</p><p>Your admission process is complete and the payment has been successfully processed.</p><p>Please find your detailed <strong>Admission Summary</strong> and <strong>Payment Receipt</strong> attached to this email as PDFs for your records.</p><p>Best regards,</p><p><strong>The DAV PG College Admissions Team</strong></p>`,
-            attachments: [
-                { filename: `Admission_Summary_${studentData.rollNumber}.pdf`, content: summaryPdfBuffer, contentType: 'application/pdf' },
-                { filename: `Payment_Receipt_${orderId}.pdf`, content: receiptPdfBuffer, contentType: 'application/pdf' }
-            ]
+            subject: `Payment Receipt for Your Admission Fee`,
+            html: `<p>Dear ${studentName},</p><p>Thank you for your payment. Your transaction was successful.</p><p>Please find your <strong>Payment Receipt</strong> attached to this email for your records.</p><p>Best regards,</p><p><strong>The DAV PG College Admissions Team</strong></p>`,
+            attachments: [{
+                filename: `Payment_Receipt_${orderId}.pdf`,
+                content: receiptPdfBuffer,
+                contentType: 'application/pdf'
+            }]
         };
         await transporter.sendMail(mailOptions);
-        console.log(`Combined admission email sent successfully to ${toEmail}`);
+        console.log(`Payment receipt email sent successfully to ${toEmail}`);
     } catch (error) {
-        console.error(`Failed to send combined admission email to ${toEmail}:`, error);
+        console.error(`Failed to send payment receipt email to ${toEmail}:`, error);
     }
 }
 
@@ -926,9 +900,10 @@ app.post('/verify-payment', jsonParser, async (req, res) => {
             const finalUpdatedStudent = studentUpdateResult.rows[0];
             delete finalUpdatedStudent.passwordhash;
             console.log('Payment history saved and student record updated for roll number:', rollNumber);
-            // Asynchronously send the combined admission summary and receipt email
+            // Asynchronously send the admission summary and receipt emails separately
             const studentDataForEmail = mapDbToCamelCase(finalUpdatedStudent);
-            sendCombinedAdmissionEmail(studentDataForEmail, course, razorpay_order_id);
+            sendAdmissionSummaryEmail(studentDataForEmail, course, razorpay_order_id);
+            sendPaymentReceiptEmail(studentDataForEmail, course, razorpay_order_id);
 
             res.json({ status: 'success', orderId: razorpay_order_id, studentData: mapDbToCamelCase(finalUpdatedStudent) });
         } catch (error) {
@@ -1027,25 +1002,49 @@ app.delete('/api/student/:rollNumber', async (req, res) => {
 
     const client = await pool.connect();
     try {
+        // --- Step 1: Fetch file paths BEFORE deleting the record ---
+        const studentRes = await client.query(
+            'SELECT profilepicture FROM students WHERE rollnumber = $1',
+            [rollNumber]
+        );
+
+        if (studentRes.rowCount === 0) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+        const studentFiles = studentRes.rows[0];
+
+        // --- Step 2: Perform database deletions in a transaction ---
         await client.query('BEGIN');
 
         // Optional but good practice: Delete related payment records first
-        // to maintain referential integrity if foreign keys are set up.
         await client.query('DELETE FROM payments WHERE studentrollnumber = $1', [rollNumber]);
 
         // Delete the student record
-        const deleteResult = await client.query('DELETE FROM students WHERE rollnumber = $1', [rollNumber]);
-
-        if (deleteResult.rowCount === 0) {
-            // If no rows were deleted, the student was not found.
-            await client.query('ROLLBACK');
-            return res.status(404).json({ message: 'Student not found.' });
-        }
-
-        // TODO: Future improvement - Delete associated files from the 'uploads' directory.
+        await client.query('DELETE FROM students WHERE rollnumber = $1', [rollNumber]);
 
         await client.query('COMMIT');
-        console.log(`Successfully deleted student ${rollNumber} and their payment history.`);
+        console.log(`Successfully deleted DB records for student ${rollNumber}.`);
+
+        // --- Step 3: Delete associated files from the filesystem AFTER successful commit ---
+        try {
+            // Delete the student's profile picture if it exists
+            if (studentFiles.profilepicture) {
+                const profilePicPath = path.join(__dirname, studentFiles.profilepicture);
+                // Use fs.promises.unlink and ignore "file not found" errors
+                await fs.promises.unlink(profilePicPath).catch(err => { if (err.code !== 'ENOENT') throw err; });
+                console.log(`Cleaned up profile picture for ${rollNumber}.`);
+            }
+
+            // Delete the entire document directory for the student.
+            // The `force: true` option prevents an error if the directory doesn't exist.
+            const studentDocDir = path.join(__dirname, 'uploads', 'documents', rollNumber);
+            await fs.promises.rm(studentDocDir, { recursive: true, force: true });
+            console.log(`Cleaned up document directory for ${rollNumber}.`);
+        } catch (fileError) {
+            // Log the error, but don't fail the request since the DB record is already gone.
+            console.error(`Error during file cleanup for ${rollNumber}:`, fileError);
+        }
+
         res.status(200).json({ message: `Student with roll number ${rollNumber} has been deleted successfully.` });
 
     } catch (error) {

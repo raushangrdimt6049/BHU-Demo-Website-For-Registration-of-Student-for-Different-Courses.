@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
 
     if (!studentData) {
@@ -94,11 +94,42 @@ document.addEventListener('DOMContentLoaded', () => {
         populateField('summaryCourseName', `${selectedCourse.level} - ${selectedCourse.branch}`);
         populateField('summaryPaymentAmount', `₹ ${(selectedCourse.amount / 100).toLocaleString('en-IN')}`);
         populateField('summaryTransactionDate', new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }));
+        
+        // --- Get and Populate Order ID and Payment ID ---
+        let orderId = null;
+        let paymentId = null;
+        const paymentDetailsFromSession = JSON.parse(sessionStorage.getItem('lastPaymentDetails'));
+        
+        if (paymentDetailsFromSession && paymentDetailsFromSession.orderId) {
+            // Strategy 1: Use the fresh data from session if available (covers immediate post-payment view).
+            orderId = paymentDetailsFromSession.orderId;
+            paymentId = paymentDetailsFromSession.paymentId; // This will be undefined for now, but good for future.
+        }
+
+        // Strategy 2: If IDs are missing, fetch from payment history as a fallback.
+        if (!orderId || !paymentId) {
+            try {
+                const response = await fetch(`/payment-history/${studentData.rollNumber}`);
+                if (response.ok) {
+                    const history = await response.json();
+                    if (history.length > 0) {
+                        orderId = orderId || history[0].orderId; // Get the latest order ID from the history.
+                        paymentId = paymentId || history[0].paymentId; // Get the latest payment ID from the history.
+                    }
+                }
+            } catch (fetchError) {
+                console.error('Could not fetch payment history for IDs:', fetchError);
+            }
+        }
+        populateField('summaryOrderId', orderId || 'N/A');
+        populateField('summaryPaymentId', paymentId || 'N/A');
 
         // --- Print Button Logic ---
         const printBtn = document.getElementById('printSummaryBtn');
         if (printBtn) {
-            printBtn.addEventListener('click', () => { window.print(); });
+            printBtn.addEventListener('click', () => {
+                window.print();
+            });
         }
 
     } catch (error) {

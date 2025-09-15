@@ -61,8 +61,6 @@
     <main class="login-main">
         <div class="details-container" style="max-width: 900px;">
             <h3>Admission Summary</h3>
-            <p style="text-align: center; margin-bottom: 2rem;">Your application and payment have been successfully processed. You can print this summary for your records.</p>
-
             <div class="profile-picture-container" style="border: 3px solid var(--btn-success-bg);">
                 <img src="default-avatar.png" alt="Profile Picture" id="profilePicture" class="profile-picture">
             </div>
@@ -118,13 +116,15 @@
                     <div class="preview-field"><label>Course Enrolled</label><span id="summaryCourseName"></span></div>
                     <div class="preview-field"><label>Amount Paid</label><span id="summaryPaymentAmount"></span></div>
                     <div class="preview-field"><label>Payment Status</label><span id="summaryPaymentStatus">Successful</span></div>
+                   <div class="preview-field"><label>Order ID</label><span id="summaryOrderId"></span></div>
+                   <div class="preview-field"><label>Payment ID</label><span id="summaryPaymentId"></span></div>
                     <div class="preview-field"><label>Transaction Date</label><span id="summaryTransactionDate"></span></div>
                 </div>
             </div>
 
             <div class="summary-actions">
+                <button id="printSummaryBtn" class="submit-btn">Print Summary</button>
                 <a href="home.html" class="back-btn">Back to Home</a>
-                <button id="printSummaryBtn" class="submit-btn">Print Receipt</button>
             </div>
         </div>
     </main>
