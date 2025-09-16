@@ -234,9 +234,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         row.innerHTML = `
                             <td>${record.orderId}</td>
                             <td>${record.paymentId}</td>
-                            <td>${record.courseName}</td>
+                            <td>${record.course || 'N/A'}</td>
                             <td>₹${record.amount.toFixed(2)}</td>
                             <td>${paymentDate}</td>
+                            <td><a href="/download-receipt/${record.orderId}" target="_blank" class="submit-btn" style="padding: 5px 10px; font-size: 0.8rem; text-decoration: none;">Download</a></td>
                         `;
                         historyTableBody.appendChild(row);
                     });
@@ -246,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error('Error fetching payment history:', error);
-                historyTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Could not load payment history. Please check your connection and try again.</td></tr>`;
+                historyTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Could not load payment history. Please check your connection and try again.</td></tr>`;
                 noHistoryMessage.style.display = 'none';
             }
         };
