@@ -121,6 +121,91 @@
         .notification-icon.result { background-color: #f6ffed; color: #52c41a; }
         .notification-content p { margin: 0 0 0.25rem 0; font-size: 0.9rem; line-height: 1.4; }
         .notification-content small { font-size: 0.8rem; color: var(--text-color-light); }
+
+        /* --- Settings View Styles (re-using from old home.css) --- */
+        .settings-view h4 { text-align: center; margin-bottom: 2rem; font-size: 1.75rem; color: var(--text-color); }
+        .profile-picture-container { position: relative; width: 150px; height: 150px; margin: 0 auto 2rem auto; border-radius: 50%; overflow: hidden; border: 3px solid var(--btn-bg); }
+        .profile-picture { width: 100%; height: 100%; object-fit: cover; }
+        .edit-picture-overlay { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0, 0, 0, 0.6); color: white; text-align: center; padding: 8px 0; opacity: 0; transition: opacity 0.3s; }
+        .profile-picture-container:hover .edit-picture-overlay { opacity: 1; }
+        .edit-picture-btn { cursor: pointer; font-weight: 600; }
+        .dob-group {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        .dob-group select:nth-child(1) { flex: 1; } /* Day */
+        .dob-group select:nth-child(2) { flex: 2; } /* Month */
+        .dob-group select:nth-child(3) { flex: 1.5; } /* Year */
+        .detail-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; max-width: 450px; margin: 0 auto; }
+        .detail-group { display: flex; flex-direction: column; }
+        .detail-group label { font-weight: 600; font-size: 0.9rem; color: var(--text-color); opacity: 0.8; margin-bottom: 0.25rem; }
+        .detail-group input, .detail-group select { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; font-size: 1rem; background-color: var(--input-bg); color: var(--text-color); }
+        .detail-group input:read-only { background-color: var(--readonly-bg); cursor: not-allowed; }
+        .password-change-section { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--input-border); text-align: center; }
+        .button-group { display: flex; gap: 1rem; margin-top: 2.5rem; justify-content: center; }
+        .button-group .submit-btn, .button-group .back-btn { width: 200px; }
+
+        /* --- Profile View Modal --- */
+        .profile-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            z-index: 2000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .profile-modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .profile-modal-content {
+            background: var(--bg-main);
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            position: relative;
+            transform: scale(0.95);
+            transition: transform 0.3s;
+        }
+        .profile-modal-overlay.active .profile-modal-content {
+            transform: scale(1);
+        }
+        .close-modal-btn {
+            position: absolute; top: 10px; right: 15px; background: none; border: none;
+            font-size: 2.5rem; color: var(--text-color); cursor: pointer; line-height: 1;
+        }
+        .profile-modal-header { text-align: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--input-border); padding-bottom: 1.5rem; }
+        .modal-profile-pic { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid var(--btn-bg); margin-bottom: 1rem; }
+        .profile-modal-header h4 { font-size: 1.5rem; margin: 0; }
+        .profile-modal-body .modal-detail-item { display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--input-border); }
+        .profile-modal-body .modal-detail-item:last-child { border-bottom: none; }
+        .profile-modal-body .modal-detail-item label { font-weight: 600; color: var(--text-color); opacity: 0.8; }
+        .profile-modal-body .modal-detail-item span { font-weight: 500; }
+        #sideNavAvatar { cursor: pointer; transition: transform 0.2s; }
+        #sideNavAvatar:hover { transform: scale(1.1); }
+
+        /* New container for the main content area */
+        .main-content-container {
+            background: var(--bg-main);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px var(--header-shadow);
+            width: 100%;
+            max-width: 900px;
+            transition: background-color 0.3s;
+        }
     </style>
     <script>
         // --- Strict Session Security Check ---
@@ -166,8 +251,7 @@
             <li><a href="#"><span class="nav-icon">📢</span> Notices</a></li>
             <li><a href="#"><span class="nav-icon">❓</span> Support / Helpdesk</a></li>
             <li style="height: 1px; background-color: var(--input-border); margin: 8px 20px;"></li>
-            <li><a href="#" id="sideNavEditProfileBtn"><span class="nav-icon">✏️</span> Edit Profile</a></li>
-            <li><a href="change-password.html"><span class="nav-icon">🔒</span> Change Password</a></li>
+            <li><a href="#" id="sideNavSettingsBtn"><span class="nav-icon">⚙️</span> Settings</a></li>
             <li><a href="#" id="sideNavLogoutBtn"><span class="nav-icon">🚪</span> Logout</a></li>
         </ul>
     </nav>
@@ -227,76 +311,94 @@
     </header>
 
     <main class="login-main">
-        <div class="details-container">
-            <h3>Student Details</h3>
-            <!-- Profile Picture Section -->
-            <div class="profile-picture-container">
-                <img src="bhu-logo.png" alt="Profile Picture" id="profilePicture" class="profile-picture">
-                <div class="edit-picture-overlay">
-                    <label for="editProfilePicture" class="edit-picture-btn">Change Picture</label>
-                    <!-- This input is visually hidden but triggered by the label -->
-                    <input type="file" id="editProfilePicture" accept="image/*" style="display: none;">
+        <div class="main-content-container">
+            <div id="main-dashboard-view">
+                <div class="proceed-section">
+                    <!-- This content is dynamically generated by home.js -->
                 </div>
             </div>
 
-            <div class="detail-group">
-                <label>Full Name</label>
-                <span class="display-field" id="displayName"></span>
-                <input type="text" class="edit-field" id="editName">
-            </div>
-            <div class="detail-group">
-                <label>Email Address</label>
-                <span class="display-field" id="displayEmail"></span>
-                <input type="email" class="edit-field" id="editEmail" readonly title="Email cannot be changed after registration.">
-            </div>
-            <div class="detail-group">
-                <label>Roll Number</label>
-                <span class="display-field" id="displayRollNumber"></span>
-                <input type="text" class="edit-field" id="editRollNumber" readonly title="Roll Number is auto-generated and cannot be changed.">
-            </div>
-            <div class="detail-group">
-                <label>Enrollment Number</label>
-                <span class="display-field" id="displayEnrollmentNumber"></span>
-                <input type="text" class="edit-field" id="editEnrollmentNumber" readonly title="Enrollment Number is auto-generated.">
-            </div>
-            <div class="detail-group">
-                <label>Mobile Number</label>
-                <span class="display-field" id="displayMobileNumber"></span>
-                <input type="tel" class="edit-field" id="editMobileNumber" readonly title="Mobile Number cannot be changed after registration.">
-            </div>
-            <div class="detail-group full-profile-only">
-                <label>Date of Birth</label>
-                <span class="display-field" id="displayDob"></span>
-                <input type="text" class="edit-field" id="editDob" maxlength="10" placeholder="DD-MM-YYYY">
-            </div>
-            <div class="detail-group full-profile-only">
-                <label>Age</label>
-                <span class="display-field" id="displayAge"></span>
-                <input type="number" class="edit-field" id="editAge" readonly placeholder="Calculated from DOB">
-            </div>
-            <div class="detail-group full-profile-only">
-                <label>Gender</label>
-                <span class="display-field" id="displayGender"></span>
-                <select class="edit-field" id="editGender" name="gender">
-                    <option value="" disabled>-- Select Gender --</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                </select>
-            </div>
-            <div class="button-group">
-                <!-- Edit and Logout buttons are now in the user menu -->
-                <button id="saveBtn" class="submit-btn" style="display: none;">Save Changes</button>
-                <button id="cancelBtn" class="logout-btn" style="display: none;">Cancel</button>
-            </div>
-            <div class="proceed-section">
-                <p>Please provide your address and parent details to continue.</p>
-                <a href="contact-details.html" class="submit-btn proceed-btn">Add Address & Parents Detail</a>
+            <div id="settings-view" style="display: none;">
+                <div class="settings-view">
+                    <h4>Profile Settings</h4>
+                    <!-- Profile Picture Section -->
+                    <div class="profile-picture-container">
+                        <img src="default-avatar.png" alt="Profile Picture" id="profilePicture" class="profile-picture">
+                        <div class="edit-picture-overlay">
+                            <label for="editProfilePicture" class="edit-picture-btn">Change Picture</label>
+                            <input type="file" id="editProfilePicture" accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+
+                    <div class="detail-grid">
+                        <div class="detail-group">
+                            <label>Full Name</label>
+                            <input type="text" id="settingName" readonly title="Name cannot be changed.">
+                        </div>
+                        <div class="detail-group">
+                            <label>Email Address</label>
+                            <input type="email" id="settingEmail" readonly title="Email cannot be changed.">
+                        </div>
+                        <div class="detail-group">
+                            <label>Date of Birth</label>
+                            <div class="dob-group">
+                                <select id="settingDobDay" name="dob-day"></select>
+                                <select id="settingDobMonth" name="dob-month"></select>
+                                <select id="settingDobYear" name="dob-year"></select>
+                            </div>
+                        </div>
+                        <div class="detail-group">
+                            <label>Gender</label>
+                            <select id="settingGender" name="gender">
+                                <option value="" disabled>-- Select Gender --</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="password-change-section">
+                        <a href="change-password.html" class="submit-btn" style="width: auto; text-decoration: none;">Change Your Password</a>
+                    </div>
+
+                    <div class="button-group">
+                        <button id="saveSettingsBtn" class="submit-btn">Save Changes</button>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
     <script src="theme.js"></script>
+    <!-- Profile View Modal -->
+    <div id="profileModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <button id="closeProfileModalBtn" class="close-modal-btn">&times;</button>
+            <div class="profile-modal-header">
+                <img src="default-avatar.png" alt="Profile Picture" id="modalProfilePic" class="modal-profile-pic">
+                <h4 id="modalStudentName">Student Name</h4>
+            </div>
+            <div class="profile-modal-body">
+                <div class="modal-detail-item">
+                    <label>Email Address</label>
+                    <span id="modalEmail"></span>
+                </div>
+                <div class="modal-detail-item">
+                    <label>Mobile Number</label>
+                    <span id="modalMobile"></span>
+                </div>
+                <div class="modal-detail-item">
+                    <label>Roll Number</label>
+                    <span id="modalRollNo"></span>
+                </div>
+                <div class="modal-detail-item">
+                    <label>Enrollment Number</label>
+                    <span id="modalEnrollmentNo"></span>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="home.js"></script>
 </body>
 </html>

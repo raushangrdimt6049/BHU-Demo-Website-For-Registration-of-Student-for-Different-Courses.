@@ -65,33 +65,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let studentData = JSON.parse(studentDataString);
 
-        // --- DOM Element References ---
-        const fields = {
-            name: { display: document.getElementById('displayName'), edit: document.getElementById('editName') },
-            email: { display: document.getElementById('displayEmail'), edit: document.getElementById('editEmail') },
-            rollNumber: { display: document.getElementById('displayRollNumber'), edit: document.getElementById('editRollNumber') },
-            enrollmentNumber: { display: document.getElementById('displayEnrollmentNumber'), edit: document.getElementById('editEnrollmentNumber') },
-            dob: { display: document.getElementById('displayDob'), edit: document.getElementById('editDob') }, // DOB input
-            mobileNumber: { display: document.getElementById('displayMobileNumber'), edit: document.getElementById('editMobileNumber') }, // Mobile Number input
-            age: { display: document.getElementById('displayAge'), edit: document.getElementById('editAge') },
-            gender: { display: document.getElementById('displayGender'), edit: document.getElementById('editGender') }
-        };
-
-        const profilePictureContainer = document.querySelector('.profile-picture-container');
-        const profilePictureImg = document.getElementById('profilePicture');
-        const editProfilePictureInput = document.getElementById('editProfilePicture');
-
-        const saveBtn = document.getElementById('saveBtn');
-        const cancelBtn = document.getElementById('cancelBtn');
-        const fullProfileFields = document.querySelectorAll('.full-profile-only');
-        const proceedSection = document.querySelector('.proceed-section');
+        // --- View Containers ---
+        const mainDashboardView = document.getElementById('main-dashboard-view');
+        const settingsView = document.getElementById('settings-view');
+        const proceedSection = mainDashboardView.querySelector('.proceed-section');
 
         // --- Side Navigation References ---
         const sideNavBtn = document.getElementById('sideNavBtn');
         const sideNav = document.getElementById('sideNav');
         const sideNavOverlay = document.getElementById('sideNavOverlay');
         const closeSideNavBtn = document.getElementById('closeSideNavBtn');
-        const sideNavEditProfileBtn = document.getElementById('sideNavEditProfileBtn');
+        const sideNavDashboardLink = document.querySelector('a[href="home.html"]');
+        const sideNavSettingsBtn = document.getElementById('sideNavSettingsBtn');
         const sideNavLogoutBtn = document.getElementById('sideNavLogoutBtn');
         const sideNavAvatar = document.getElementById('sideNavAvatar');
         const sideNavName = document.getElementById('sideNavName');
@@ -100,6 +85,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const notificationBtn = document.getElementById('notificationBtn');
         const notificationPanel = document.getElementById('notificationPanel');
         const notificationBadge = document.getElementById('notificationBadge');
+
+        // --- Settings View References ---
+        const settingsFields = {
+            name: document.getElementById('settingName'),
+            email: document.getElementById('settingEmail'),
+            dobDay: document.getElementById('settingDobDay'),
+            dobMonth: document.getElementById('settingDobMonth'),
+            dobYear: document.getElementById('settingDobYear'),
+            gender: document.getElementById('settingGender')
+        };
+        const profilePictureImg = document.getElementById('profilePicture');
+        const editProfilePictureInput = document.getElementById('editProfilePicture');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+
+        // --- Profile Modal References ---
+        const profileModalOverlay = document.getElementById('profileModalOverlay');
+        const closeProfileModalBtn = document.getElementById('closeProfileModalBtn');
+        const modalProfilePic = document.getElementById('modalProfilePic');
+        const modalStudentName = document.getElementById('modalStudentName');
+        const modalEmail = document.getElementById('modalEmail');
+        const modalMobile = document.getElementById('modalMobile');
+        const modalRollNo = document.getElementById('modalRollNo');
+        const modalEnrollmentNo = document.getElementById('modalEnrollmentNo');
+
 
         // Helper function to generate HTML for each application step
         function createStepHTML(title, description, link, isDone, isEnabled) {
@@ -142,6 +151,33 @@ document.addEventListener('DOMContentLoaded', () => {
             sideNavOverlay.addEventListener('click', closeNav);
         }
 
+        // --- View Switching Logic ---
+        const showView = (viewToShow, updateHistory = false) => {
+            mainDashboardView.style.display = 'none';
+            settingsView.style.display = 'none';
+
+            sideNavDashboardLink.classList.remove('active-nav-link');
+            if (sideNavSettingsBtn) sideNavSettingsBtn.classList.remove('active-nav-link');
+
+            if (viewToShow === 'settings') {
+                settingsView.style.display = 'block';
+                if (sideNavSettingsBtn) sideNavSettingsBtn.classList.add('active-nav-link');
+                populateSettingsForm(studentData);
+            } else { // Default to dashboard
+                mainDashboardView.style.display = 'block';
+                sideNavDashboardLink.classList.add('active-nav-link');
+            }
+
+            if (updateHistory) {
+                history.pushState({ view: viewToShow }, '', `#${viewToShow}`);
+            }
+        };
+
+        window.addEventListener('popstate', (event) => {
+            const view = (event.state && event.state.view) ? event.state.view : 'dashboard';
+            showView(view, false);
+        });
+
         // --- Populate Side Navigation Header ---
         if (sideNavName) {
             sideNavName.textContent = studentData.name || 'Student';
@@ -151,20 +187,48 @@ document.addEventListener('DOMContentLoaded', () => {
             sideNavAvatar.onerror = () => { sideNavAvatar.src = 'default-avatar.png'; };
         }
 
-        // --- Side Navigation Action Listeners ---
-        if (sideNavEditProfileBtn) {
-            sideNavEditProfileBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                setProfileView('full'); // This shows all fields and enables edit mode
-                closeNav(); // Close the nav panel after clicking
+        // --- Profile Modal Listeners ---
+        if (sideNavAvatar) {
+            sideNavAvatar.addEventListener('click', () => {
+                // Populate modal with data
+                modalProfilePic.src = studentData.profilePicture || 'default-avatar.png';
+                modalStudentName.textContent = studentData.name || 'N/A';
+                modalEmail.textContent = studentData.email || 'N/A';
+                modalMobile.textContent = studentData.mobileNumber || 'N/A';
+                modalRollNo.textContent = studentData.rollNumber || 'N/A';
+                modalEnrollmentNo.textContent = studentData.enrollmentNumber || 'N/A';
+
+                // Show the modal
+                if (profileModalOverlay) profileModalOverlay.classList.add('active');
+                closeNav(); // Close the side nav if it's open
             });
         }
+        const closeProfileModal = () => { if (profileModalOverlay) profileModalOverlay.classList.remove('active'); };
+        if (closeProfileModalBtn) closeProfileModalBtn.addEventListener('click', closeProfileModal);
+        if (profileModalOverlay) profileModalOverlay.addEventListener('click', (event) => { if (event.target === profileModalOverlay) closeProfileModal(); });
 
+        // --- Side Navigation Action Listeners ---
         if (sideNavLogoutBtn) {
             sideNavLogoutBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 sessionStorage.clear();
                 window.location.replace('index.html');
+            });
+        }
+
+        if (sideNavDashboardLink) {
+            sideNavDashboardLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                showView('dashboard', true);
+                closeNav();
+            });
+        }
+
+        if (sideNavSettingsBtn) {
+            sideNavSettingsBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                showView('settings', true);
+                closeNav();
             });
         }
 
@@ -245,16 +309,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
-            // Lock the "Edit Profile" button in the side nav for paid students.
-            if (sideNavEditProfileBtn) {
-                sideNavEditProfileBtn.parentElement.style.display = 'none';
-            }
         } else {
             // --- PRE-PAYMENT VIEW (UNLOCKED) ---
-            if (sideNavEditProfileBtn) {
-                sideNavEditProfileBtn.parentElement.style.display = 'list-item';
-            }
-
             const contactDone = studentData.addressLine1 && studentData.addressLine1.trim() !== '';
             const academicDone = studentData.board10 && studentData.board10.trim() !== '';
             // Check for the new document fields to mark this step as done
@@ -304,153 +360,142 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // --- Functions ---
+        // --- Settings View Logic ---
+        const populateDobDropdowns = () => {
+            if (!settingsFields.dobDay || !settingsFields.dobMonth || !settingsFields.dobYear) return;
 
-        const autoformatDob = (event) => {
-            const input = event.target;
-            // 1. Remove all non-digit characters
-            let value = input.value.replace(/\D/g, '');
-            let formattedValue = '';
+            // Add default options
+            settingsFields.dobDay.innerHTML = '<option value="" disabled selected>Day</option>';
+            settingsFields.dobMonth.innerHTML = '<option value="" disabled selected>Month</option>';
+            settingsFields.dobYear.innerHTML = '<option value="" disabled selected>Year</option>';
 
-            // 2. Add hyphens at the correct positions
-            if (value.length > 0) {
-                formattedValue = value.substring(0, 2);
+            // Populate Days
+            for (let i = 1; i <= 31; i++) {
+                const option = document.createElement('option');
+                option.value = String(i).padStart(2, '0');
+                option.textContent = i;
+                settingsFields.dobDay.appendChild(option);
             }
-            if (value.length > 2) {
-                formattedValue += '-' + value.substring(2, 4);
+
+            // Populate Months
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            months.forEach((month, index) => {
+                const option = document.createElement('option');
+                option.value = String(index + 1).padStart(2, '0');
+                option.textContent = month;
+                settingsFields.dobMonth.appendChild(option);
+            });
+
+            // Populate Years
+            const currentYear = new Date().getFullYear();
+            const startYear = 1950;
+            const endYear = currentYear - 5;
+            for (let i = endYear; i >= startYear; i--) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                settingsFields.dobYear.appendChild(option);
             }
-            if (value.length > 4) {
-                formattedValue += '-' + value.substring(4, 8);
-            }
-            // 3. Update the input field value
-            input.value = formattedValue;
         };
 
-        const calculateAge = (dobString) => {
-            if (!dobString) return '';
-            const dob = new Date(dobString);
-            const today = new Date();
-            let age = today.getFullYear() - dob.getFullYear();
-            const monthDifference = today.getMonth() - dob.getMonth();
-            if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < dob.getDate())) {
-                age--;
-            }
-            return age >= 0 ? age : '';
-        };
-
-        function populateFields(data) {
-            fields.name.display.textContent = data.name;
-            fields.email.display.textContent = data.email || 'N/A';
-            fields.rollNumber.display.textContent = data.rollNumber;
-            fields.enrollmentNumber.display.textContent = data.enrollmentNumber || 'N/A';
+        function populateSettingsForm(data) {
+            settingsFields.name.value = data.name || '';
+            settingsFields.email.value = data.email || '';
             if (data.dob) {
-                // Create a Date object to handle different formats (e.g., YYYY-MM-DD or full ISO string)
-                // Use UTC methods to avoid timezone-related date shifts.
                 const dobDate = new Date(data.dob);
-                const day = String(dobDate.getUTCDate()).padStart(2, '0');
-                const month = String(dobDate.getUTCMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-                const year = dobDate.getUTCFullYear();
-                fields.dob.display.textContent = `${day}-${month}-${year}`;
+                settingsFields.dobDay.value = String(dobDate.getUTCDate()).padStart(2, '0');
+                settingsFields.dobMonth.value = String(dobDate.getUTCMonth() + 1).padStart(2, '0');
+                settingsFields.dobYear.value = dobDate.getUTCFullYear();
             } else {
-                fields.dob.display.textContent = 'N/A';
+                settingsFields.dobDay.value = '';
+                settingsFields.dobMonth.value = '';
+                settingsFields.dobYear.value = '';
             }
-            fields.age.display.textContent = calculateAge(data.dob);
-            fields.gender.display.textContent = data.gender || 'N/A';
-            fields.mobileNumber.display.textContent = data.mobileNumber || 'N/A';
+            settingsFields.gender.value = data.gender || '';
 
-            // Set the profile picture, with a fallback
-            if (data.profilePicture && data.profilePicture.trim() !== '') {
-                profilePictureImg.src = data.profilePicture;
-            } else {
-                profilePictureImg.src = 'bhu-logo.png'; // A default image
-            }
-            profilePictureImg.onerror = () => {
-                profilePictureImg.src = 'bhu-logo.png'; // Fallback if the image fails to load
-            };
-
-            // Also set initial values for edit fields
-            fields.name.edit.value = data.name;
-            fields.email.edit.value = data.email || '';
-            fields.rollNumber.edit.value = data.rollNumber;
-            fields.enrollmentNumber.edit.value = data.enrollmentNumber || '';
-            if (data.dob) {
-                // Use the same robust date parsing for the edit field
-                // Use UTC methods to avoid timezone-related date shifts.
-                const dobDate = new Date(data.dob);
-                const day = String(dobDate.getUTCDate()).padStart(2, '0');
-                const month = String(dobDate.getUTCMonth() + 1).padStart(2, '0'); // Month is 0-indexed
-                const year = dobDate.getUTCFullYear();
-                fields.dob.edit.value = `${day}-${month}-${year}`;
-            } else {
-                fields.dob.edit.value = '';
-            }
-            fields.age.edit.value = calculateAge(data.dob);
-            fields.mobileNumber.edit.value = data.mobileNumber || '';
-            fields.gender.edit.value = data.gender || '';
-        }
-
-        function toggleEditMode(isEditing) {
-            for (const key in fields) {
-                fields[key].display.style.display = isEditing ? 'none' : 'flex';
-                fields[key].edit.style.display = isEditing ? 'block' : 'none';
-            }
-            if (isEditing) {
-                profilePictureContainer.classList.add('editing');
-                proceedSection.style.display = 'none';
-            } else {
-                profilePictureContainer.classList.remove('editing');
-                proceedSection.style.display = 'block';
-                // Reset image preview on cancel
-                populateFields(studentData);
-                editProfilePictureInput.value = ''; // Clear any selected file
-            }
-            saveBtn.style.display = isEditing ? 'inline-block' : 'none';
-            cancelBtn.style.display = isEditing ? 'inline-block' : 'none';
-        }
-
-        // New function to control which profile fields are visible
-        function setProfileView(view) { // view can be 'compact' or 'full'
-            if (view === 'compact') {
-                fullProfileFields.forEach(el => el.style.display = 'none');
-                toggleEditMode(false); // Ensure we are in display mode
-            } else if (view === 'full') {
-                fullProfileFields.forEach(el => el.style.display = 'grid'); // 'grid' is the display type for .detail-group
-                toggleEditMode(true); // Switch to edit mode
+            if (profilePictureImg) {
+                profilePictureImg.src = data.profilePicture || 'default-avatar.png';
+                profilePictureImg.onerror = () => { profilePictureImg.src = 'default-avatar.png'; };
             }
         }
 
-        // --- Event Listeners ---
+        if (editProfilePictureInput) {
+            editProfilePictureInput.addEventListener('change', () => {
+                const file = editProfilePictureInput.files[0];
+                if (file) {
+                    profilePictureImg.src = URL.createObjectURL(file);
+                }
+            });
+        }
 
-        // Show image preview when a new file is selected
-        editProfilePictureInput.addEventListener('change', () => {
-            const file = editProfilePictureInput.files[0];
-            if (file) {
-                profilePictureImg.src = URL.createObjectURL(file);
-            }
-        });
+        if (saveSettingsBtn) {
+            saveSettingsBtn.addEventListener('click', () => {
+                if (window.confirm('Are you sure you want to save these changes?')) {
+                    let formattedDobForSave = '';
+                    const day = settingsFields.dobDay.value;
+                    const month = settingsFields.dobMonth.value;
+                    const year = settingsFields.dobYear.value;
 
-        cancelBtn.addEventListener('click', () => setProfileView('compact'));
+                    if (day && month && year) {
+                        // Basic validation for date validity
+                        const date = new Date(year, month - 1, day);
+                        if (date.getFullYear() !== parseInt(year, 10) || date.getMonth() !== parseInt(month, 10) - 1 || date.getDate() !== parseInt(day, 10)) {
+                            alert('The selected date is not a valid calendar date (e.g., Feb 30).');
+                            return;
+                        }
+                        formattedDobForSave = `${year}-${month}-${day}`;
+                    } else if (day || month || year) {
+                        // If some but not all are selected
+                        alert('Please select your full date of birth or leave it blank.');
+                        return;
+                    } else {
+                        // If all are blank, check if DOB was previously set.
+                        // This logic prevents accidentally clearing a required field.
+                        if (studentData.dob) {
+                            alert('Date of Birth cannot be cleared once set. Please select a valid date.');
+                            return;
+                        }
+                    }
 
-        // Auto-format DOB as user types in edit mode
-        fields.dob.edit.addEventListener('input', autoformatDob);
+                    const formData = new FormData();
+                    formData.append('rollNumber', studentData.rollNumber);
+                    formData.append('dob', formattedDobForSave);
+                    formData.append('gender', settingsFields.gender.value);
+                    if (editProfilePictureInput.files[0]) {
+                        formData.append('profilePicture', editProfilePictureInput.files[0]);
+                    }
 
-        fields.dob.edit.addEventListener('change', () => {
-            const dobValue = fields.dob.edit.value;
-            if (/^\d{2}-\d{2}-\d{4}$/.test(dobValue)) {
-                const parts = dobValue.split('-');
-                const day = parts[0];
-                const month = parts[1];
-                const year = parts[2];
-                fields.age.edit.value = calculateAge(`${year}-${month}-${day}`);
-            } else {
-                fields.age.edit.value = '';
-            }
-        });
+                    fetch('/update', {
+                        method: 'POST',
+                        body: formData,
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.studentData) {
+                            alert('Settings updated successfully!');
+                            sessionStorage.setItem('currentStudent', JSON.stringify(data.studentData));
+                            studentData = data.studentData; // Update local variable
+                            populateSettingsForm(studentData); // Re-populate form
+                            if (sideNavAvatar) sideNavAvatar.src = studentData.profilePicture || 'default-avatar.png'; // Update side nav avatar
+                            showView('dashboard', true); // Go back to dashboard
+                        } else {
+                            throw new Error(data.message || 'Update failed.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error updating settings:', error);
+                        alert(`Failed to update settings: ${error.message}`);
+                    });
+                }
+            });
+        }
 
         // --- Initial Population ---
         resetInactivityTimer(); // Start the timer on page load
-        populateFields(studentData);
-        setProfileView('compact'); // Set the initial view to compact profile
+        populateDobDropdowns(); // Populate the DOB dropdowns on page load
+        const initialView = window.location.hash.substring(1) || 'dashboard';
+        history.replaceState({ view: initialView }, '', `#${initialView}`);
+        showView(initialView);
     };
 
     // --- Navigation Helper ---
