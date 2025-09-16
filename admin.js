@@ -8,7 +8,17 @@ window.addEventListener('pageshow', (event) => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Password Protection Elements ---
+    const passwordOverlay = document.getElementById('password-overlay');
+    const adminPasswordForm = document.getElementById('adminPasswordForm');
+    const adminUsernameInput = document.getElementById('adminUsernameInput');
+    const adminPasswordInput = document.getElementById('adminPasswordInput');
+    const passwordError = document.getElementById('password-error');
+    const correctUsername = 'Raushan_143';
+    const correctPassword = '4gh4m01r';
+
     // --- View Containers and Navigation ---
+    const adminContentWrapper = document.getElementById('admin-content-wrapper');
     const mainDashboardView = document.getElementById('main-dashboard-view');
     const allNotificationsView = document.getElementById('all-notifications-view');
     const backToDashboardBtn = document.getElementById('backToDashboardBtn');
@@ -25,9 +35,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const notificationBadge = document.getElementById('notificationBadge');
     const viewAllNotificationsLink = document.getElementById('viewAllNotificationsLink');
 
-    // --- Search Overlay Elements ---
-    const searchOverlay = document.getElementById('searchOverlay');
-    const closeSearchBtn = document.getElementById('closeSearchBtn');
+    // --- Password Protection Logic ---
+    if (passwordOverlay && adminPasswordForm) {
+        passwordOverlay.style.display = 'flex'; // Make sure it's visible
+        adminPasswordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const enteredUsername = adminUsernameInput.value;
+            const enteredPassword = adminPasswordInput.value;
+
+            if (enteredUsername.toLowerCase() === correctUsername.toLowerCase() && enteredPassword === correctPassword) {
+                // On correct credentials, hide the overlay and show the admin content.
+                passwordOverlay.style.opacity = '0';
+                setTimeout(() => {
+                    passwordOverlay.style.display = 'none';
+                }, 300); // Match the transition duration
+                adminContentWrapper.style.display = 'block';
+                showView('dashboard'); // Show the dashboard view within the main content
+            } else {
+                passwordError.textContent = 'Incorrect username or password. Please try again.';
+                passwordError.style.display = 'block';
+                // For security, only clear the password field.
+                adminPasswordInput.value = '';
+                adminUsernameInput.focus();
+            }
+        });
+    }
 
     // --- Side Navigation Logic ---
     const openNav = () => {
@@ -88,31 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-
-    // --- Search Overlay Logic ---
-    // This logic is now simplified as there is no visible search button, but we keep it for the input field.
-    const searchBtn = document.querySelector('.header-actions-right .icon-btn[title="Search"]');
-    if (searchBtn && searchOverlay && closeSearchBtn) {
-        searchBtn.addEventListener('click', () => {
-            searchOverlay.classList.add('active');
-            document.getElementById('globalSearchInput').focus(); // Auto-focus the input
-        });
-
-        closeSearchBtn.addEventListener('click', () => {
-            searchOverlay.classList.remove('active');
-        });
-
-        // Also close when clicking on the overlay background
-        searchOverlay.addEventListener('click', (event) => {
-            if (event.target === searchOverlay) {
-                searchOverlay.classList.remove('active');
-            }
-        });
-    }
-
-    // --- Initial Page Setup ---
-    // The main content wrapper is now visible by default in the HTML.
-    showView('dashboard'); // Ensure the main dashboard is shown on load.
 
     // --- Navigation Helper ---
     // This is good practice to have, even if session security isn't strict on this page.

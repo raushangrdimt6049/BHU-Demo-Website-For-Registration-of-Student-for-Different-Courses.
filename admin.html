@@ -46,58 +46,6 @@
         .notification-icon.fee-defaulter { background-color: #fffbe6; color: #faad14; }
         .notification-icon.leave-request { background-color: #f6ffed; color: #52c41a; }
 
-        /* --- Search Overlay --- */
-        .search-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(5px);
-            z-index: 4000;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start; /* Align to top */
-            padding-top: 15vh;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s, visibility 0.3s;
-        }
-        .search-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-        .search-modal-content {
-            position: relative;
-            width: 90%;
-            max-width: 600px;
-        }
-        .search-modal-content input {
-            width: 100%;
-            padding: 1rem 1.5rem;
-            font-size: 1.2rem;
-            border-radius: 8px;
-            border: 1px solid var(--input-border);
-            background-color: var(--input-bg);
-            color: var(--text-color);
-        }
-        .search-modal-content input:focus {
-            outline: none;
-            box-shadow: 0 0 0 3px var(--input-focus-shadow);
-        }
-        .close-search-btn {
-            position: absolute;
-            top: 50%;
-            right: 1rem;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            font-size: 2rem;
-            color: var(--text-color);
-            cursor: pointer;
-        }
-
         /* --- Side Navigation --- */
         .side-nav-btn { background: none; border: none; color: var(--text-color); font-size: 1.8rem; cursor: pointer; padding: 0 1rem; display: flex; align-items: center; justify-content: center; height: 100%; }
         .side-nav { position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--bg-main); box-shadow: 4px 0 15px rgba(0,0,0,0.1); transform: translateX(-100%); transition: transform 0.3s ease-in-out; z-index: 3000; display: flex; flex-direction: column; }
@@ -232,10 +180,23 @@
     </style>
 </head>
 <body>
-    <div id="searchOverlay" class="search-overlay">
-        <div class="search-modal-content">
-            <input type="search" id="globalSearchInput" placeholder="Search for students, faculty, courses...">
-            <button id="closeSearchBtn" class="close-search-btn">&times;</button>
+    <div id="password-overlay" class="password-overlay">
+        <div class="password-modal">
+            <h3>Admin Access Required</h3>
+            <p>Enter your pre-assigned administrator credentials to access all records.</p>
+            <form id="adminPasswordForm">
+                <div class="form-group">
+                    <input type="text" id="adminUsernameInput" placeholder="Enter Username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="adminPasswordInput" placeholder="Enter Password" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn">Sign In</button>
+                    <a href="index.html" class="back-btn">Back to Main Portal</a>
+                </div>
+                <p id="password-error" class="error-message" style="margin-top: 1rem;"></p>
+            </form>
         </div>
     </div>
 
@@ -276,7 +237,6 @@
             </div>
         </div>
         <div class="header-actions-right">
-            <button class="icon-btn" title="Search">🔍</button>
             <div class="notification-container">
                 <button id="notificationBtn" class="notification-btn" title="Notifications">
                     🔔
@@ -321,7 +281,7 @@
         </div>
     </header>
     <main class="login-main">
-        <div id="admin-content-wrapper" style="width: 100%;">
+        <div id="admin-content-wrapper" style="display: none; width: 100%;">
             <div id="main-dashboard-view">
                 <div class="admin-dashboard">
                     <!-- KPIs Row -->
