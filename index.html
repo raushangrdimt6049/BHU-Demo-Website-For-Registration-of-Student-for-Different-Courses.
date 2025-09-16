@@ -6,7 +6,6 @@
     <title>DAV PG College - Portal</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
-    <link rel="stylesheet" href="landing.css">
     <script>
         // --- Immediate Theme Application (Flicker-Free) ---
         (function() {
@@ -17,44 +16,217 @@
             } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
         })();
     </script>
+    <style>
+        /* --- New Landing Page Styles --- */
+        /* Header & Navigation */
+        .main-header {
+            justify-content: space-between;
+            padding: 0.5rem 2rem;
+        }
+        .header-branding {
+            justify-content: flex-start;
+            flex-grow: 0;
+        }
+        .main-nav {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+        }
+        .main-nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            margin: 0;
+            padding: 0;
+        }
+        .main-nav ul li a {
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 600;
+            padding: 1.5rem 0;
+            position: relative;
+            display: inline-block;
+        }
+        .main-nav ul li a::after {
+            content: '';
+            position: absolute;
+            bottom: 1rem;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--btn-bg);
+            transition: width 0.3s ease;
+        }
+        .main-nav ul li a:hover::after {
+            width: 100%;
+        }
+
+        .header-actions {
+            position: relative;
+        }
+        .login-btn {
+            background-color: var(--btn-bg);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .login-btn:hover {
+            background-color: var(--btn-hover-bg);
+        }
+        .login-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 5px);
+            right: 0;
+            background-color: var(--bg-main);
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            box-shadow: 0 5px 15px var(--header-shadow);
+            min-width: 160px;
+            z-index: 1001;
+            overflow: hidden;
+        }
+        .login-dropdown.active {
+            display: block;
+        }
+        .login-dropdown a {
+            display: block;
+            padding: 0.8rem 1.2rem;
+            text-decoration: none;
+            color: var(--text-color);
+        }
+        .login-dropdown a:hover {
+            background-color: var(--readonly-bg);
+        }
+
+        /* Hero Section */
+        .landing-main {
+            padding: 0;
+            align-items: stretch;
+            flex-direction: column;
+        }
+        .hero-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 6rem 2rem;
+            color: white;
+            background: linear-gradient(rgba(0, 33, 71, 0.7), rgba(0, 33, 71, 0.7)), url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=2070') no-repeat center center/cover;
+            min-height: 60vh;
+        }
+        .hero-content h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        .hero-content p {
+            font-size: 1.25rem;
+            margin-bottom: 2.5rem;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            opacity: 0.9;
+        }
+        .hero-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .hero-btn {
+            padding: 0.8rem 2rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            border: 2px solid white;
+            color: white;
+            background-color: transparent;
+            transition: all 0.3s ease;
+        }
+        .hero-btn:hover {
+            background-color: white;
+            color: #002147;
+        }
+
+        /* Info Container */
+        .info-container {
+            padding: 4rem 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .info-section {
+            background: var(--bg-main);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px var(--header-shadow);
+        }
+        .info-section h3 {
+            margin-bottom: 1rem;
+            color: var(--btn-bg);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 992px) {
+            .main-nav { display: none; } /* Hide nav on smaller screens for simplicity */
+            .info-container { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .hero-content h1 { font-size: 2.2rem; }
+            .hero-content p { font-size: 1.1rem; }
+        }
+    </style>
 </head>
 <body>
 
     <header class="main-header">
         <div class="header-branding">
             <div class="logo-container">
-                <!-- DAV PG College Logo -->
-                <img src="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" alt="DAV PG College Logo" class="logo">
+                <img src="LMS Logo.png" alt="LMS Logo" class="logo">
             </div>
-            <div class="header-text">
-                <h1>Banaras Hindu University</h1>
-                <h2>DAV PG College, Varanasi</h2>
-            </div>
-            <div class="logo-container">
-                <!-- BHU Logo -->
-                <img src="https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png" alt="BHU Logo" class="logo">
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="#">Home</a></li>
+                <li><a href="#">About</a></li>
+                <li><a href="#">Courses</a></li>
+                <li><a href="#">Notices</a></li>
+                <li><a href="#">Contact</a></li>
+            </ul>
+        </nav>
+        <div class="header-actions">
+            <div class="login-dropdown-container">
+                <button id="loginBtn" class="login-btn">Login</button>
+                <div id="loginDropdown" class="login-dropdown">
+                    <a href="admin.html">Admin Login</a>
+                    <a href="faculty-login.html">Faculty Login</a>
+                    <a href="login.html">Student Login</a>
+                </div>
             </div>
         </div>
     </header>
 
     <main class="landing-main">
-        <div class="portal-selection-container">
-            <a href="students.html" class="portal-circle">
-                <span class="portal-icon">🛡️</span>
-                <h3>Admin Login</h3>
-                <p>Access student records and site management.</p>
-            </a>
-            <a href="faculty-login.html" class="portal-circle">
-                <span class="portal-icon">🧑‍🏫</span>
-                <h3>Faculty Login</h3>
-                <p>Access faculty dashboard and tools.</p>
-            </a>
-            <a href="login.html" class="portal-circle">
-                <span class="portal-icon">🧑‍🎓</span>
-                <h3>Student Login</h3>
-                <p>Access your application and student dashboard.</p>
-            </a>
-        </div>
+        <section class="hero-section">
+            <div class="hero-content">
+                <h1>Welcome to DAV PG College Learning Management System</h1>
+                <p>Access courses, manage attendance, track results, and collaborate — all in one place.</p>
+                <div class="hero-buttons">
+                    <a href="admin.html" class="hero-btn">Admin Login</a>
+                    <a href="faculty-login.html" class="hero-btn">Faculty Login</a>
+                    <a href="login.html" class="hero-btn">Student Login</a>
+                </div>
+            </div>
+        </section>
 
         <div class="info-container">
             <div class="info-section about-bhu">
@@ -71,6 +243,25 @@
     </main>
 
     <script src="theme.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginBtn = document.getElementById('loginBtn');
+            const loginDropdown = document.getElementById('loginDropdown');
+
+            if (loginBtn && loginDropdown) {
+                loginBtn.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    loginDropdown.classList.toggle('active');
+                });
+
+                document.addEventListener('click', (event) => {
+                    if (!loginBtn.contains(event.target) && !loginDropdown.contains(event.target)) {
+                        loginDropdown.classList.remove('active');
+                    }
+                });
+            }
+        });
+    </script>
 
 </body>
 </html>

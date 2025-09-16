@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Faculty Portal - DAV PG College</title>
+    <title>Faculty Portal</title>
     <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="students.css"> <!-- Re-use some styles for consistency -->
@@ -38,6 +38,9 @@
         })();
     </script>
     <style>
+        /* Center the logo in the header */
+        .header-branding { justify-content: center; }
+
         /* --- New Side Navigation Styles (from home.html) --- */
         .header-actions-left { display: flex; align-items: center; }
         .side-nav-btn {
@@ -83,6 +86,7 @@
             transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
         }
         .side-nav-overlay.active { opacity: 1; visibility: visible; }
+        .header-actions-right { display: flex; align-items: center; }
 
         /* --- Faculty Dashboard Styles --- */
         .faculty-dashboard {
@@ -91,14 +95,6 @@
             margin: 0 auto;
         }
 
-        .dashboard-header {
-            display: flex;
-            justify-content: space-between; /* Align items with space between */
-            align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--input-border);
-        }
         .dashboard-header h2 {
             color: var(--text-color);
             margin: 0; /* flex-grow is no longer needed with space-between */
@@ -267,6 +263,22 @@
 </head>
 <body>
     
+    <header class="main-header">
+        <div class="header-actions-left">
+            <button id="sideNavBtn" class="side-nav-btn" title="Main Menu" style="display: flex;">☰</button>
+        </div>
+        <div class="header-branding">
+            <div class="logo-container">
+                <img src="LMS Logo.png" alt="LMS Logo" class="logo">
+            </div>
+        </div>
+        <div class="header-actions-right">
+            <div class="header-controls">
+                <button class="icon-btn" title="Notifications">🔔</button>
+            </div>
+        </div>
+    </header>
+    
     <!-- Side Menu (Sliding Panel) - New Version -->
     <div id="sideNavOverlay" class="side-nav-overlay"></div>
     <nav id="sideNav" class="side-nav">
@@ -286,15 +298,7 @@
 
     <main class="login-main" id="faculty-content">
         <div class="faculty-dashboard">
-            <div class="dashboard-header">
-                <div class="header-actions-left">
-                    <button id="sideNavBtn" class="side-nav-btn" title="Main Menu" style="display: flex;">☰</button>
-                </div>
-                <h2>Faculty Dashboard</h2>
-                <div class="header-controls">
-                    <button class="icon-btn" title="Notifications">🔔</button>
-                </div>
-            </div>
+            <h2 style="text-align: center; margin-bottom: 2rem; border-bottom: 1px solid var(--input-border); padding-bottom: 1rem;">Faculty Dashboard</h2>
 
             <div class="dashboard-grid">
                 <div class="dashboard-col-main">

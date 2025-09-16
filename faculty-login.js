@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const correctUsername = 'Nisha_143';
         const correctPassword = '4gh4m01r';
 
-        if (loginIdentifier === correctUsername && password === correctPassword) {
+        if (loginIdentifier.toLowerCase() === correctUsername.toLowerCase() && password === correctPassword) {
             // --- Login Successful ---
             const facultyData = {
                 username: 'Nisha_143',

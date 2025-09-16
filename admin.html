@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dashboard.css"> <!-- Re-use dashboard styles for container -->
+    <script>
+        // --- Immediate Theme Application (Flicker-Free) ---
+        (function() {
+            try {
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) { /* In case of any errors, do nothing and let the default theme apply */ }
+        })();
+    </script>
+    <style>
+        /* --- New Admin Dashboard Styles --- */
+        .main-header { justify-content: space-between; }
+        .header-branding { justify-content: center; }
+        .header-actions-left, .header-actions-right { display: flex; align-items: center; gap: 1rem; }
+        .icon-btn { background: none; border: none; font-size: 1.6rem; cursor: pointer; color: var(--text-color); }
+
+        /* --- Notification Panel Styles (from home.html) --- */
+        .notification-container { position: relative; }
+        .notification-btn { background: none; border: none; color: var(--text-color); font-size: 1.6rem; cursor: pointer; padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; height: 100%; position: relative; }
+        .notification-badge { position: absolute; top: 8px; right: 4px; background-color: var(--btn-danger-bg); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 0.75rem; font-weight: bold; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bg-header); }
+        .notification-panel { position: absolute; top: 100%; right: 0; width: 380px; background: var(--bg-main); border-radius: 8px; box-shadow: 0 5px 20px var(--header-shadow); border: 1px solid var(--input-border); opacity: 0; visibility: hidden; transform: translateY(10px); transition: opacity 0.2s, transform 0.2s; z-index: 1200; }
+        .notification-panel.active { opacity: 1; visibility: visible; transform: translateY(0); }
+        .notification-header, .notification-footer { padding: 1rem; border-bottom: 1px solid var(--input-border); }
+        .notification-header h4 { margin: 0; font-size: 1.1rem; }
+        .notification-footer { border-top: 1px solid var(--input-border); border-bottom: none; text-align: center; }
+        .notification-footer a { text-decoration: none; color: var(--link-color); font-weight: 600; }
+        .notification-panel ul { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
+        .notification-item { display: flex; padding: 1rem; text-decoration: none; color: var(--text-color); border-bottom: 1px solid var(--input-border); transition: background-color 0.2s; }
+        .notification-item:hover { background-color: var(--bg-hover); }
+        .notification-item:last-child { border-bottom: none; }
+        .notification-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; margin-right: 1rem; }
+        .notification-content p { margin: 0 0 0.25rem 0; font-size: 0.9rem; line-height: 1.4; }
+        .notification-content small { font-size: 0.8rem; color: var(--text-color-light); }
+        /* Custom Admin Notification Icons */
+        .notification-icon.admission { background-color: #e6f7ff; color: #1890ff; }
+        .notification-icon.fee-defaulter { background-color: #fffbe6; color: #faad14; }
+        .notification-icon.leave-request { background-color: #f6ffed; color: #52c41a; }
+
+        /* --- Search Overlay --- */
+        .search-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 4000;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top */
+            padding-top: 15vh;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .search-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .search-modal-content {
+            position: relative;
+            width: 90%;
+            max-width: 600px;
+        }
+        .search-modal-content input {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            font-size: 1.2rem;
+            border-radius: 8px;
+            border: 1px solid var(--input-border);
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+        .search-modal-content input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px var(--input-focus-shadow);
+        }
+        .close-search-btn {
+            position: absolute;
+            top: 50%;
+            right: 1rem;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: var(--text-color);
+            cursor: pointer;
+        }
+
+        /* --- Side Navigation --- */
+        .side-nav-btn { background: none; border: none; color: var(--text-color); font-size: 1.8rem; cursor: pointer; padding: 0 1rem; display: flex; align-items: center; justify-content: center; height: 100%; }
+        .side-nav { position: fixed; top: 0; left: 0; height: 100%; width: 280px; background: var(--bg-main); box-shadow: 4px 0 15px rgba(0,0,0,0.1); transform: translateX(-100%); transition: transform 0.3s ease-in-out; z-index: 3000; display: flex; flex-direction: column; }
+        .side-nav.active { transform: translateX(0); }
+        .side-nav-header { display: flex; align-items: center; padding: 1rem; border-bottom: 1px solid var(--input-border); }
+        .side-nav-header .side-nav-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; margin-right: 1rem; border: 2px solid var(--btn-bg); }
+        .side-nav-header .side-nav-name { flex-grow: 1; margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-color); }
+        .side-nav-header .close-btn { background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--text-color); }
+        .side-nav ul { list-style: none; padding: 1rem 0; margin: 0; overflow-y: auto; flex-grow: 1; }
+        .side-nav ul li a { display: flex; align-items: center; padding: 0.8rem 1.5rem; text-decoration: none; color: var(--text-color); font-size: 0.95rem; transition: background-color 0.2s; }
+        .side-nav ul li a:hover { background-color: var(--bg-hover, #f0f0f0); }
+        .side-nav ul li a .nav-icon { margin-right: 1rem; font-size: 1.1rem; width: 24px; text-align: center; }
+        .side-nav ul li a.active-nav-link { background-color: var(--btn-bg-light, #e0e0e0); color: var(--btn-bg); font-weight: 600; }
+        .side-nav-footer { padding: 1rem; border-top: 1px solid var(--input-border); }
+        .nav-badge {
+            margin-left: auto;
+            background-color: var(--btn-danger-bg);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border-radius: 10px;
+            padding: 2px 8px;
+            min-width: 20px;
+            text-align: center;
+        }
+        .side-nav-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 2999; opacity: 0; visibility: hidden; transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; }
+        .side-nav-overlay.active { opacity: 1; visibility: visible; }
+
+        /* --- Dashboard Content --- */
+        .admin-dashboard { padding: 2rem; max-width: 1600px; margin: 0 auto; }
+        .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
+        .kpi-card { background: var(--bg-main); padding: 1.5rem; border-radius: 12px; box-shadow: 0 3px 10px var(--header-shadow); display: flex; flex-direction: column; }
+        .kpi-card .kpi-title { font-size: 1rem; color: var(--text-color); opacity: 0.8; margin-bottom: 0.5rem; }
+        .kpi-card .kpi-value { font-size: 2.5rem; font-weight: 700; color: var(--btn-bg); }
+        .kpi-card .kpi-icon { font-size: 2rem; margin-left: auto; opacity: 0.3; }
+
+        .dashboard-panel { background: var(--bg-main); padding: 1.5rem; border-radius: 12px; box-shadow: 0 3px 10px var(--header-shadow); }
+        .dashboard-panel h3 { margin-top: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--btn-bg); padding-bottom: 0.5rem; color: var(--btn-bg); }
+
+        .actions-container { display: flex; flex-wrap: wrap; gap: 1rem; }
+        .quick-action-btn { background-color: var(--bg-body); border: 1px solid var(--input-border); padding: 1rem; border-radius: 8px; text-decoration: none; color: var(--text-color); text-align: center; transition: all 0.2s ease; flex: 1; min-width: 150px; }
+        .quick-action-btn:hover { transform: translateY(-3px); box-shadow: 0 4px 12px var(--header-shadow); border-color: var(--btn-bg); }
+        .quick-action-btn .action-icon { font-size: 1.8rem; display: block; margin-bottom: 0.5rem; }
+
+        /* Colored Quick Action Buttons */
+        .quick-action-btn.remove { background-color: #ffebee; border-color: #ef9a9a; }
+        .quick-action-btn.remove .action-icon { color: #c62828; }
+        .quick-action-btn.remove:hover { background-color: #ffcdd2; border-color: #e57373; }
+
+        .quick-action-btn.create { background-color: #e3f2fd; border-color: #90caf9; }
+        .quick-action-btn.create .action-icon { color: #1976d2; }
+        .quick-action-btn.create:hover { background-color: #bbdefb; border-color: #64b5f6; }
+
+        .quick-action-btn.post { background-color: #fff3e0; border-color: #ffcc80; }
+        .quick-action-btn.post .action-icon { color: #f57c00; }
+        .quick-action-btn.post:hover { background-color: #ffe0b2; border-color: #ffb74d; }
+
+        .quick-action-btn.report { background-color: #f3e5f5; border-color: #ce93d8; }
+        .quick-action-btn.report .action-icon { color: #7b1fa2; }
+        .quick-action-btn.report:hover { background-color: #e1bee7; border-color: #ba68c8; }
+
+        .quick-action-btn.add { background-color: #e8f5e9; border-color: #a5d6a7; }
+        .quick-action-btn.add .action-icon { color: #388e3c; }
+        .quick-action-btn.add:hover { background-color: #dcedc8; border-color: #81c784; }
+
+        /* Styles for the full notifications view */
+        .notifications-container {
+            background: var(--bg-main);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px var(--header-shadow);
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto; /* Center it */
+        }
+        .notifications-container h3 { text-align: center; margin-bottom: 2rem; font-size: 1.75rem; }
+        .back-link-container { text-align: center; margin-top: 2rem; }
+
+        .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; margin-top: 2.5rem; }
+        .notification-list { list-style: none; padding: 0; }
+        .notification-list li { display: flex; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid var(--input-border); }
+        .notification-list li:last-child { border-bottom: none; }
+        .notification-list .notif-icon { font-size: 1.5rem; margin-right: 1rem; }
+        .notification-list .notif-text { flex-grow: 1; }
+        .notification-list .notif-action { color: var(--link-color); text-decoration: none; font-weight: 600; }
+
+        @media (max-width: 992px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .admin-dashboard { padding: 1rem; }
+        }
+
+        /* --- Password Overlay Styles --- */
+        .password-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px); /* For Safari */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .password-modal {
+            background: var(--bg-main);
+            padding: 2.5rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 450px;
+        }
+        .password-modal h3 {
+            margin-bottom: 1rem;
+            font-size: 1.75rem;
+        }
+        .password-modal p {
+            margin-bottom: 1.5rem;
+        }
+
+        /* Stack buttons in the admin login modal */
+        .password-modal .form-actions {
+            flex-direction: column;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="searchOverlay" class="search-overlay">
+        <div class="search-modal-content">
+            <input type="search" id="globalSearchInput" placeholder="Search for students, faculty, courses...">
+            <button id="closeSearchBtn" class="close-search-btn">&times;</button>
+        </div>
+    </div>
+
+    <div id="sideNavOverlay" class="side-nav-overlay"></div>
+    <nav id="adminSideNav" class="side-nav">
+        <div class="side-nav-header">
+            <img src="default-avatar.png" alt="Admin Avatar" id="sideNavAvatar" class="side-nav-avatar">
+            <h4 id="sideNavName" class="side-nav-name">Admin</h4>
+            <button id="closeSideNavBtn" class="close-btn">&times;</button>
+        </div>
+        <ul>
+            <li><a href="#" id="sideNavDashboardLink" class="active-nav-link"><span class="nav-icon">📊</span> Dashboard</a></li>
+            <li><a href="#"><span class="nav-icon">👥</span> Users</a></li>
+            <li><a href="#"><span class="nav-icon">📚</span> Courses</a></li>
+            <li><a href="#"><span class="nav-icon">🏢</span> Departments</a></li>
+            <li><a href="#"><span class="nav-icon">📅</span> Timetable</a></li>
+            <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
+            <li><a href="#"><span class="nav-icon">📝</span> Exams & Results</a></li>
+            <li><a href="#" id="sideNavNotificationsLink"><span class="nav-icon">🔔</span> Notifications <span class="nav-badge">3</span></a></li>
+            <li><a href="#"><span class="nav-icon">💳</span> Fees</a></li>
+            <li><a href="#"><span class="nav-icon">🏛️</span> Library</a></li>
+            <li><a href="#"><span class="nav-icon">🏨</span> Hostel</a></li>
+            <li><a href="#"><span class="nav-icon">📄</span> Reports</a></li>
+            <li><a href="#"><span class="nav-icon">⚙️</span> Settings</a></li>
+            <li><a href="#"><span class="nav-icon">🛡️</span> Audit Logs</a></li>
+            <li style="height: 1px; background-color: var(--input-border); margin: 8px 0;"></li>
+            <li><a href="#" id="adminLogoutBtn"><span class="nav-icon">🚪</span> Logout</a></li>
+        </ul>
+    </nav>
+
+    <header class="main-header">
+        <div class="header-actions-left">
+            <button id="sideNavBtn" class="side-nav-btn" title="Main Menu">☰</button>
+        </div>
+        <div class="header-branding">
+            <div class="logo-container">
+                <img src="LMS Logo.png" alt="LMS Logo" class="logo">
+            </div>
+        </div>
+        <div class="header-actions-right">
+            <button class="icon-btn" title="Search">🔍</button>
+            <div class="notification-container">
+                <button id="notificationBtn" class="notification-btn" title="Notifications">
+                    🔔
+                    <span id="notificationBadge" class="notification-badge">3</span>
+                </button>
+                <div id="notificationPanel" class="notification-panel">
+                    <div class="notification-header">
+                        <h4>Notifications & Alerts</h4>
+                    </div>
+                    <ul>
+                        <li>
+                            <a href="#" class="notification-item">
+                                <div class="notification-icon admission">⏳</div>
+                                <div class="notification-content">
+                                    <p><strong>12 new student admissions</strong> are pending approval.</p>
+                                    <small>Just now</small>
+                                </div>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="notification-item">
+                                <div class="notification-icon fee-defaulter">💳</div>
+                                <div class="notification-content">
+                                    <p><strong>8 students</strong> have outstanding fee balances for this semester.</p>
+                                    <small>1 hour ago</small>
+                                </div>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="notification-item">
+                                <div class="notification-icon leave-request">✈️</div>
+                                <div class="notification-content">
+                                    <p><strong>Dr. Sharma</strong> has requested leave from 24th to 26th.</p>
+                                    <small>3 hours ago</small>
+                                </div>
+                            </a>
+                        </li>
+                    </ul>
+                    <div class="notification-footer"><a href="#" id="viewAllNotificationsLink">View All</a></div>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="login-main">
+        <div id="admin-content-wrapper" style="width: 100%;">
+            <div id="main-dashboard-view">
+                <div class="admin-dashboard">
+                    <!-- KPIs Row -->
+                    <div class="kpi-row">
+                        <div class="kpi-card"><span class="kpi-title">Total Students</span><span class="kpi-value">1,250</span><span class="kpi-icon">🧑‍🎓</span></div>
+                        <div class="kpi-card"><span class="kpi-title">Total Faculty</span><span class="kpi-value">85</span><span class="kpi-icon">🧑‍🏫</span></div>
+                        <div class="kpi-card"><span class="kpi-title">Active Courses</span><span class="kpi-value">42</span><span class="kpi-icon">📚</span></div>
+                        <div class="kpi-card"><span class="kpi-title">Pending Approvals</span><span class="kpi-value">5</span><span class="kpi-icon">⏳</span></div>
+                        <div class="kpi-card"><span class="kpi-title">Today's Classes</span><span class="kpi-value">32</span><span class="kpi-icon">📅</span></div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="dashboard-panel" style="margin-bottom: 2.5rem;">
+                        <h3>Quick Actions</h3>
+                        <div class="actions-container">
+                            <a href="#" class="quick-action-btn add"><span class="action-icon">➕</span> Add Student</a>
+                            <a href="#" class="quick-action-btn add"><span class="action-icon">➕</span> Add Faculty</a>
+                            <a href="#" class="quick-action-btn create"><span class="action-icon">➕</span> Create Course</a>
+                            <a href="#" class="quick-action-btn post"><span class="action-icon">📢</span> Post Notice</a>
+                            <a href="#" class="quick-action-btn report"><span class="action-icon">📄</span> Generate Report</a>
+                        </div>
+                    </div>
+
+                    <!-- Notifications Panel -->
+                    <div class="dashboard-panel">
+                        <h3>Notifications & Alerts</h3>
+                        <ul class="notification-list">
+                            <li>
+                                <span class="notif-icon" title="Pending Admission">⏳</span>
+                                <span class="notif-text"><strong>12 new student admissions</strong> are pending approval.</span>
+                                <a href="#" class="notif-action">View</a>
+                            </li>
+                            <li>
+                                <span class="notif-icon" title="Fee Defaulter">💳</span>
+                                <span class="notif-text"><strong>8 students</strong> have outstanding fee balances for this semester.</span>
+                                <a href="#" class="notif-action">View List</a>
+                            </li>
+                            <li>
+                                <span class="notif-icon" title="Leave Request">✈️</span>
+                                <span class="notif-text"><strong>Dr. Sharma</strong> has requested leave from 24th to 26th.</span>
+                                <a href="#" class="notif-action">Approve/Deny</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div id="all-notifications-view" style="display: none;">
+                <div class="admin-dashboard">
+                    <div class="notifications-container">
+                        <h3>All Notifications</h3>
+                        <ul class="notification-list">
+                            <!-- Content from admin-notifications.html will go here -->
+                        </ul>
+                        <div class="back-link-container">
+                            <button id="backToDashboardBtn" class="back-btn">Back to Dashboard</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="theme.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
