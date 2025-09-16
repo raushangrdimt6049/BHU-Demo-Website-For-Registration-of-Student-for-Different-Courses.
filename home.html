@@ -397,7 +397,7 @@
                             </a>
                         </li>
                     </ul>
-                    <div class="notification-footer"><a href="#">View All Notifications</a></div>
+                    <div class="notification-footer"><a href="#" id="viewAllNotificationsLink">View All Notifications</a></div>
                 </div>
             </div>
         </div>
@@ -529,6 +529,53 @@
                 </div>
                 <ul id="searchResultsList"></ul>
                 <p id="no-search-results" style="display: none;">No results found.</p>
+            </div>
+        </div>
+    </div>
+    <!-- All Notifications Modal -->
+    <div id="allNotificationsModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 600px;">
+            <button id="closeAllNotificationsModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view"> <!-- Re-using class for h4 style -->
+                <h4 style="margin-top: 0;">All Notifications</h4>
+                <ul style="list-style: none; padding: 0; margin: 0; max-height: 60vh; overflow-y: auto;">
+                    <li>
+                        <a href="#" class="notification-item">
+                            <div class="notification-icon fee">💰</div>
+                            <div class="notification-content">
+                                <p><strong>Fee Reminder:</strong> Your semester fee payment is due next week.</p>
+                                <small>2 days ago</small>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="notification-item">
+                            <div class="notification-icon assignment">📝</div>
+                            <div class="notification-content">
+                                <p><strong>New Assignment:</strong> A new assignment for PHY101 has been posted.</p>
+                                <small>5 days ago</small>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="notification-item read">
+                            <div class="notification-icon result">🎓</div>
+                            <div class="notification-content">
+                                <p><strong>Results Published:</strong> Your 1st Semester results are now available.</p>
+                                <small>1 week ago</small>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="notification-item read">
+                            <div class="notification-icon fee">📅</div>
+                            <div class="notification-content">
+                                <p><strong>Timetable Updated:</strong> The timetable for the upcoming exams has been updated.</p>
+                                <small>2 weeks ago</small>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>

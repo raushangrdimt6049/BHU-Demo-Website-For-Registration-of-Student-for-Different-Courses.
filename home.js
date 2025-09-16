@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const notificationBtn = document.getElementById('notificationBtn');
         const notificationPanel = document.getElementById('notificationPanel');
         const notificationBadge = document.getElementById('notificationBadge');
+        const viewAllNotificationsLink = document.getElementById('viewAllNotificationsLink');
 
         // --- Settings View References ---
         const settingsFields = {
@@ -126,6 +127,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchResultsList = document.getElementById('searchResultsList');
         const noSearchResultsMessage = document.getElementById('no-search-results');
         let openSearchModalBtn; // Will be defined after dashboard renders
+
+        // --- All Notifications Modal ---
+        const allNotificationsModalOverlay = document.getElementById('allNotificationsModalOverlay');
+        const closeAllNotificationsModalBtn = document.getElementById('closeAllNotificationsModalBtn');
 
 
         // Helper function to generate HTML for each application step
@@ -316,6 +321,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!notificationBtn.contains(event.target) && !notificationPanel.contains(event.target)) {
                     notificationPanel.classList.remove('active');
                 }
+            });
+        }
+
+        // --- All Notifications Modal Logic ---
+        if (viewAllNotificationsLink) {
+            viewAllNotificationsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (notificationPanel) notificationPanel.classList.remove('active'); // Close dropdown
+                openModal(allNotificationsModalOverlay);
+            });
+        }
+        if (closeAllNotificationsModalBtn) {
+            closeAllNotificationsModalBtn.addEventListener('click', () => closeModal(allNotificationsModalOverlay));
+        }
+        if (allNotificationsModalOverlay) {
+            allNotificationsModalOverlay.addEventListener('click', (event) => {
+                if (event.target === allNotificationsModalOverlay) closeModal(allNotificationsModalOverlay);
             });
         }
 
