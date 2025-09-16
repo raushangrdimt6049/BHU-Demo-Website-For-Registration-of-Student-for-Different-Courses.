@@ -66,9 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let studentData = JSON.parse(studentDataString);
 
         // --- View Containers ---
-        const mainDashboardView = document.getElementById('main-dashboard-view');
-        const settingsView = document.getElementById('settings-view');
-        const proceedSection = mainDashboardView.querySelector('.proceed-section');
+        const proceedSection = document.querySelector('.proceed-section');
 
         // --- Side Navigation References ---
         const sideNavBtn = document.getElementById('sideNavBtn');
@@ -108,6 +106,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const modalMobile = document.getElementById('modalMobile');
         const modalRollNo = document.getElementById('modalRollNo');
         const modalEnrollmentNo = document.getElementById('modalEnrollmentNo');
+
+        // --- NEW Settings Modal References ---
+        const settingsModalOverlay = document.getElementById('settingsModalOverlay');
+        const closeSettingsModalBtn = document.getElementById('closeSettingsModalBtn');
 
 
         // Helper function to generate HTML for each application step
@@ -151,33 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
             sideNavOverlay.addEventListener('click', closeNav);
         }
 
-        // --- View Switching Logic ---
-        const showView = (viewToShow, updateHistory = false) => {
-            mainDashboardView.style.display = 'none';
-            settingsView.style.display = 'none';
-
-            sideNavDashboardLink.classList.remove('active-nav-link');
-            if (sideNavSettingsBtn) sideNavSettingsBtn.classList.remove('active-nav-link');
-
-            if (viewToShow === 'settings') {
-                settingsView.style.display = 'block';
-                if (sideNavSettingsBtn) sideNavSettingsBtn.classList.add('active-nav-link');
-                populateSettingsForm(studentData);
-            } else { // Default to dashboard
-                mainDashboardView.style.display = 'block';
-                sideNavDashboardLink.classList.add('active-nav-link');
-            }
-
-            if (updateHistory) {
-                history.pushState({ view: viewToShow }, '', `#${viewToShow}`);
-            }
-        };
-
-        window.addEventListener('popstate', (event) => {
-            const view = (event.state && event.state.view) ? event.state.view : 'dashboard';
-            showView(view, false);
-        });
-
         // --- Populate Side Navigation Header ---
         if (sideNavName) {
             sideNavName.textContent = studentData.name || 'Student';
@@ -207,6 +182,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeProfileModalBtn) closeProfileModalBtn.addEventListener('click', closeProfileModal);
         if (profileModalOverlay) profileModalOverlay.addEventListener('click', (event) => { if (event.target === profileModalOverlay) closeProfileModal(); });
 
+        // --- Settings Modal Logic ---
+        const openSettingsModal = () => {
+            populateSettingsForm(studentData);
+            if (settingsModalOverlay) settingsModalOverlay.classList.add('active');
+            closeNav();
+        };
+        const closeSettingsModal = () => {
+            if (settingsModalOverlay) settingsModalOverlay.classList.remove('active');
+        };
+        if (sideNavSettingsBtn) {
+            sideNavSettingsBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                openSettingsModal();
+            });
+        }
+        if (closeSettingsModalBtn) closeSettingsModalBtn.addEventListener('click', closeSettingsModal);
+        if (settingsModalOverlay) settingsModalOverlay.addEventListener('click', (event) => { if (event.target === settingsModalOverlay) closeSettingsModal(); });
+
         // --- Side Navigation Action Listeners ---
         if (sideNavLogoutBtn) {
             sideNavLogoutBtn.addEventListener('click', (e) => {
@@ -219,15 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sideNavDashboardLink) {
             sideNavDashboardLink.addEventListener('click', (e) => {
                 e.preventDefault();
-                showView('dashboard', true);
-                closeNav();
-            });
-        }
-
-        if (sideNavSettingsBtn) {
-            sideNavSettingsBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                showView('settings', true);
+                // If we are on a different view, this would bring us back.
+                // For now, it just closes the nav.
                 closeNav();
             });
         }
@@ -477,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             studentData = data.studentData; // Update local variable
                             populateSettingsForm(studentData); // Re-populate form
                             if (sideNavAvatar) sideNavAvatar.src = studentData.profilePicture || 'default-avatar.png'; // Update side nav avatar
-                            showView('dashboard', true); // Go back to dashboard
+                            if (typeof closeSettingsModal === 'function') closeSettingsModal(); // Close modal on success
                         } else {
                             throw new Error(data.message || 'Update failed.');
                         }
@@ -493,9 +479,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Initial Population ---
         resetInactivityTimer(); // Start the timer on page load
         populateDobDropdowns(); // Populate the DOB dropdowns on page load
-        const initialView = window.location.hash.substring(1) || 'dashboard';
-        history.replaceState({ view: initialView }, '', `#${initialView}`);
-        showView(initialView);
     };
 
     // --- Navigation Helper ---
