@@ -20,16 +20,23 @@
     <style>
         /* Styles for the new Student Dashboard inside proceed-section */
         .dashboard-view h4 { text-align: center; margin-bottom: 2rem; font-size: 1.75rem; color: var(--text-color); }
-        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
-        .card { background: var(--bg-body); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--input-border); text-align: center; transition: transform 0.2s, box-shadow 0.2s; }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px var(--header-shadow); }
-        .card h4 { margin-top: 0; margin-bottom: 0.5rem; font-size: 1rem; color: var(--btn-bg); }
-        .card p { font-size: 1.8rem; font-weight: 600; margin: 0.5rem 0; color: var(--text-color); }
-        .card a, .card small { font-size: 0.9rem; color: var(--link-color); text-decoration: none; }
-        .card a:hover { text-decoration: underline; }
-        .quick-links-panel { background: var(--bg-body); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--input-border); margin-top: 1rem; }
-        .quick-links-panel h4 { margin-top: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--input-border); padding-bottom: 0.5rem; text-align: left; font-size: 1.2rem; }
-        
+        /* The summary cards have been removed. The quick links panel will now appear directly under the dashboard title. */
+        .quick-links-panel { background: var(--bg-body); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--input-border); }
+        .quick-links-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--input-border);
+            padding-bottom: 0.5rem;
+        }
+        .quick-links-header h4 { margin: 0; border-bottom: none; padding-bottom: 0; text-align: left; font-size: 1.2rem; }
+        .quick-links-panel ul { list-style: none; padding: 0; margin: 0; } /* Keep old style for compatibility if needed */
+        .search-icon-btn {
+            background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0 0.5rem;
+        }
+
         /* Center the logo in the header */
         .header-branding { justify-content: center; }
 
@@ -224,6 +231,68 @@
             width: 100%;
             max-width: 900px;
             transition: background-color 0.3s;
+        }
+
+        /* --- New Quick Links Grid Styles --- */
+        .quick-links-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Two columns */
+            gap: 1rem;
+            padding: 0;
+            list-style: none;
+            margin: 0;
+        }
+        .quick-link-item {
+            display: block;
+            padding: 1.25rem 1rem;
+            text-decoration: none;
+            color: #fff;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            font-size: 1rem;
+        }
+        .quick-link-item:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
+        .ql-color-1 { background-color: #1abc9c; } /* Turquoise */
+        .ql-color-2 { background-color: #3498db; } /* Peter River */
+        .ql-color-3 { background-color: #9b59b6; } /* Amethyst */
+        .ql-color-4 { background-color: #e67e22; } /* Carrot */
+        .ql-color-5 { background-color: #e74c3c; } /* Alizarin */
+        .ql-color-6 { background-color: #2ecc71; } /* Emerald */
+        .ql-color-7 { background-color: #f1c40f; } /* Sun Flower */
+        .ql-color-8 { background-color: #34495e; } /* Wet Asphalt */
+
+        /* --- Search Modal Styles --- */
+        .search-modal-content .search-input-wrapper {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        .search-modal-content .search-input-wrapper .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-color-light);
+            font-size: 1.2rem;
+        }
+        .search-modal-content #searchInput {
+            width: 100%;
+            padding: 0.8rem 1rem 0.8rem 2.8rem; /* Add padding for icon */
+            font-size: 1.1rem;
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+        #searchResultsList { list-style: none; padding: 0; margin: 0; max-height: 50vh; overflow-y: auto; }
+        #searchResultsList li a {
+            display: block; padding: 1rem; text-decoration: none; color: var(--text-color);
+            border-radius: 6px; transition: background-color 0.2s; font-weight: 500;
+        }
+        #searchResultsList li a:hover { background-color: var(--bg-hover); }
+        #no-search-results {
+            text-align: center; padding: 2rem; color: var(--text-color-light);
         }
     </style>
     <script>
@@ -440,6 +509,21 @@
                     </table>
                     <p id="no-history-message" class="no-history-message" style="display: none;">No payment history found.</p>
                 </div>
+            </div>
+        </div>
+    </div>
+    <!-- Search Modal -->
+    <div id="searchModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content search-modal-content" style="max-width: 600px;">
+            <button id="closeSearchModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view"> <!-- Re-using class for h4 style -->
+                <h4>Search Portal</h4>
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Search for courses, links, etc..." autocomplete="off">
+                </div>
+                <ul id="searchResultsList"></ul>
+                <p id="no-search-results" style="display: none;">No results found.</p>
             </div>
         </div>
     </div>

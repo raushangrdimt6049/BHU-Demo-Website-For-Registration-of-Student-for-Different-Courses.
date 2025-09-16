@@ -118,8 +118,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const historyTableBody = document.getElementById('history-table-body');
         const noHistoryMessage = document.getElementById('no-history-message');
 
-        // --- Dashboard Card Links ---
-        let dashboardHistoryLink; // Will be defined after the dashboard is rendered
+        // --- Search Modal References ---
+        const searchModalOverlay = document.getElementById('searchModalOverlay');
+        const closeSearchModalBtn = document.getElementById('closeSearchModalBtn');
+        const searchInput = document.getElementById('searchInput');
+        const searchResultsList = document.getElementById('searchResultsList');
+        const noSearchResultsMessage = document.getElementById('no-search-results');
+        let openSearchModalBtn; // Will be defined after dashboard renders
 
 
         // Helper function to generate HTML for each application step
@@ -278,6 +283,58 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeHistoryModalBtn) closeHistoryModalBtn.addEventListener('click', () => closeModal(historyModalOverlay));
         if (historyModalOverlay) historyModalOverlay.addEventListener('click', (event) => { if (event.target === historyModalOverlay) closeModal(historyModalOverlay); });
 
+        // --- Search Modal Logic ---
+        if (closeSearchModalBtn) closeSearchModalBtn.addEventListener('click', () => closeModal(searchModalOverlay));
+        if (searchModalOverlay) searchModalOverlay.addEventListener('click', (event) => { if (event.target === searchModalOverlay) closeModal(searchModalOverlay); });
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                // This will only work in the dashboard view where quick links exist
+                const allQuickLinks = document.querySelectorAll('.quick-link-item');
+                
+                searchResultsList.innerHTML = ''; // Clear previous results
+                noSearchResultsMessage.style.display = 'none';
+
+                if (searchTerm === '' || allQuickLinks.length === 0) {
+                    return; // Don't show anything if search is empty or no links to search
+                }
+
+                const matchingLinks = [];
+                allQuickLinks.forEach(link => {
+                    if (link.textContent.toLowerCase().includes(searchTerm)) {
+                        matchingLinks.push(link);
+                    }
+                });
+
+                if (matchingLinks.length > 0) {
+                    matchingLinks.forEach(originalLink => {
+                        const listItem = document.createElement('li');
+                        const newLink = document.createElement('a');
+                        newLink.href = originalLink.href;
+                        newLink.textContent = originalLink.textContent;
+                        
+                        // Add click listener that mimics the original link's behavior
+                        newLink.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            // Manually trigger the original link's function or navigation
+                            if (originalLink.id === 'quickLinkPaymentHistory') {
+                                openHistoryModal();
+                            } else if (originalLink.href && originalLink.href !== '#') {
+                                sessionStorage.setItem('navigationAllowed', 'true');
+                                window.location.href = originalLink.href;
+                            }
+                            closeModal(searchModalOverlay);
+                        });
+                        listItem.appendChild(newLink);
+                        searchResultsList.appendChild(listItem);
+                    });
+                } else {
+                    noSearchResultsMessage.style.display = 'block';
+                }
+            });
+        }
+
         // --- Side Navigation Action Listeners ---
         if (sideNavLogoutBtn) {
             sideNavLogoutBtn.addEventListener('click', (e) => {
@@ -336,50 +393,64 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Render Page Based on Payment Status ---
         if (isPaid) {
             // --- POST-PAYMENT VIEW (LOCKED) ---
-            const courseName = parsedCourse.branch || 'Your Enrolled Course';
             proceedSection.innerHTML = `
                 <div class="dashboard-view">
                     <h4>My Dashboard</h4>
-                    <div class="summary-cards">
-                        <div class="card">
-                            <h4>Enrolled Course</h4>
-                            <p style="font-size: 1.2rem; font-weight: 500; min-height: 58px; display: flex; align-items: center; justify-content: center;">${courseName}</p>
-                            <a href="payment-summary.html">View Admission Summary</a>
-                        </div>
-                        <div class="card">
-                            <h4>Attendance</h4>
-                            <p>N/A</p>
-                            <a href="#">View Details</a>
-                        </div>
-                        <div class="card">
-                            <h4>Upcoming Deadlines</h4>
-                            <p>None</p>
-                            <a href="#">View Calendar</a>
-                        </div>
-                        <div class="card">
-                            <h4>Fee Balance</h4>
-                            <p>₹ 0.00</p>
-                            <a href="#" id="dashboardHistoryLink">Payment History</a>
-                        </div>
-                    </div>
                     <div class="quick-links-panel">
-                         <h4>Quick Links</h4>
-                         <ul>
-                            <li><a href="#">View Timetable</a></li>
-                            <li><a href="#">Check Results</a></li>
-                            <li><a href="#">Library Portal</a></li>
-                            <li><a href="#">Submit Help Ticket</a></li>
-                        </ul>
+                         <div class="quick-links-header">
+                            <h4>Quick Links</h4>
+                            <button id="openSearchModalBtn" class="search-icon-btn" title="Search">🔍</button>
+                         </div>
+                         <div class="quick-links-grid">
+                            <a href="#" class="quick-link-item">Enrolled Courses</a>
+                            <a href="payment-summary.html" class="quick-link-item">Admission Summary</a>
+                            <a href="#" class="quick-link-item">Attendance Details</a>
+                            <a href="#" class="quick-link-item">Upcoming Events</a>
+                            <a href="#" id="quickLinkPaymentHistory" class="quick-link-item">Payment Details</a>
+                            <a href="#" class="quick-link-item">Time Table</a>
+                            <a href="#" class="quick-link-item">Check Results</a>
+                            <a href="#" class="quick-link-item">Library Portal</a>
+                        </div>
                     </div>
                 </div>
             `;
 
-            // After rendering the dashboard, find the link and attach the event listener
-            dashboardHistoryLink = document.getElementById('dashboardHistoryLink');
-            if (dashboardHistoryLink) {
-                dashboardHistoryLink.addEventListener('click', (e) => {
+            // --- New logic for Quick Links ---
+            const quickLinks = document.querySelectorAll('.quick-link-item');
+            const colorClasses = ['ql-color-1', 'ql-color-2', 'ql-color-3', 'ql-color-4', 'ql-color-5', 'ql-color-6', 'ql-color-7', 'ql-color-8'];
+
+            // Function to shuffle an array (Fisher-Yates shuffle)
+            const shuffle = (array) => {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            };
+
+            const shuffledColors = shuffle([...colorClasses]);
+            quickLinks.forEach((link, index) => {
+                link.classList.add(shuffledColors[index % shuffledColors.length]);
+            });
+
+            // --- Attach event listeners for this view ---
+            const quickLinkPaymentHistory = document.getElementById('quickLinkPaymentHistory');
+            if (quickLinkPaymentHistory) {
+                quickLinkPaymentHistory.addEventListener('click', (e) => {
                     e.preventDefault();
                     openHistoryModal();
+                });
+            }
+
+            // Attach listener for the search button
+            openSearchModalBtn = document.getElementById('openSearchModalBtn');
+            if (openSearchModalBtn) {
+                openSearchModalBtn.addEventListener('click', () => {
+                    openModal(searchModalOverlay);
+                    searchInput.value = ''; // Clear search input on open
+                    searchResultsList.innerHTML = ''; // Clear results on open
+                    noSearchResultsMessage.style.display = 'none';
+                    searchInput.focus(); // Focus the input
                 });
             }
         } else {
