@@ -361,7 +361,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             proceedSection.innerHTML = `
                 <div class="dashboard-view">
-                    <h4>My Dashboard</h4>
+                    <div class="welcome-banner">
+                        <marquee behavior="scroll" direction="left">Welcome to Student Portal</marquee>
+                    </div>
                     <div class="quick-links-panel">
                          <div class="quick-links-header">
                             <h4>Quick Links</h4>
@@ -383,20 +385,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // --- New logic for Quick Links ---
             const quickLinks = document.querySelectorAll('.quick-link-item');
-            const colorClasses = ['ql-color-1', 'ql-color-2', 'ql-color-3', 'ql-color-4', 'ql-color-5', 'ql-color-6', 'ql-color-7', 'ql-color-8'];
 
-            // Function to shuffle an array (Fisher-Yates shuffle)
-            const shuffle = (array) => {
-                for (let i = array.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [array[i], array[j]] = [array[j], array[i]];
-                }
-                return array;
-            };
-
-            const shuffledColors = shuffle([...colorClasses]);
             quickLinks.forEach((link, index) => {
-                link.classList.add(shuffledColors[index % shuffledColors.length]);
+                // Determine row index (0-based, since there are 2 items per row)
+                const rowIndex = Math.floor(index / 2);
+
+                // Apply color based on whether the row is even or odd
+                if (rowIndex % 2 === 0) {
+                    link.classList.add('ql-dark-blue'); // For rows 1 and 3
+                } else {
+                    link.classList.add('ql-light-blue'); // For rows 2 and 4
+                }
             });
 
             // --- Attach event listeners for this view ---

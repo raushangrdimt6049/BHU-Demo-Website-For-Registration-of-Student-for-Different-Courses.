@@ -19,7 +19,6 @@
     </script>
     <style>
         /* Styles for the new Student Dashboard inside proceed-section */
-        .dashboard-view h4 { text-align: center; margin-bottom: 2rem; font-size: 1.75rem; color: var(--text-color); }
         /* The summary cards have been removed. The quick links panel will now appear directly under the dashboard title. */
         .quick-links-panel { background: var(--bg-body); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--input-border); }
         .quick-links-header {
@@ -35,6 +34,18 @@
         .quick-links-panel ul { list-style: none; padding: 0; margin: 0; } /* Keep old style for compatibility if needed */
         .search-icon-btn {
             background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0 0.5rem;
+        }
+
+        /* --- New Welcome Banner Styles --- */
+        .welcome-banner {
+            background-color: var(--btn-bg-light);
+            color: var(--btn-bg);
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            border: 1px solid var(--btn-bg);
         }
 
         /* Center the logo in the header */
@@ -254,14 +265,8 @@
             font-size: 1rem;
         }
         .quick-link-item:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
-        .ql-color-1 { background-color: #1abc9c; } /* Turquoise */
-        .ql-color-2 { background-color: #3498db; } /* Peter River */
-        .ql-color-3 { background-color: #9b59b6; } /* Amethyst */
-        .ql-color-4 { background-color: #e67e22; } /* Carrot */
-        .ql-color-5 { background-color: #e74c3c; } /* Alizarin */
-        .ql-color-6 { background-color: #2ecc71; } /* Emerald */
-        .ql-color-7 { background-color: #f1c40f; } /* Sun Flower */
-        .ql-color-8 { background-color: #34495e; } /* Wet Asphalt */
+        .ql-dark-blue { background-color: #2980b9; } /* Dark Blue */
+        .ql-light-blue { background-color: #85c1e9; } /* Light Blue */
 
         /* --- Search Modal Styles --- */
         .search-modal-content .search-input-wrapper {
