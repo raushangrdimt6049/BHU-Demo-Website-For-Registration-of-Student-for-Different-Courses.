@@ -75,7 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const closeSideNavBtn = document.getElementById('closeSideNavBtn');
         const sideNavDashboardLink = document.querySelector('a[href="home.html"]');
         const sideNavSettingsBtn = document.getElementById('sideNavSettingsBtn');
-        const sideNavFeeHistoryBtn = document.getElementById('sideNavFeeHistoryBtn');
         const sideNavLogoutBtn = document.getElementById('sideNavLogoutBtn');
         const sideNavAvatar = document.getElementById('sideNavAvatar');
         const sideNavName = document.getElementById('sideNavName');
@@ -219,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                const response = await fetch(`/payment-history?rollNumber=${studentData.rollNumber}`);
+                const response = await fetch(`/payment-history/${studentData.rollNumber}`);
                 if (!response.ok) throw new Error('Failed to fetch history');
                 
                 const history = await response.json();
@@ -234,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         row.innerHTML = `
                             <td>${record.orderId}</td>
                             <td>${record.paymentId}</td>
-                            <td>${record.courseName}</td>
+                            <td>${record.course}</td>
                             <td>₹${record.amount.toFixed(2)}</td>
                             <td>${paymentDate}</td>
                         `;
@@ -257,7 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
             closeNav();
         };
         const closeHistoryModal = () => { if (historyModalOverlay) historyModalOverlay.classList.remove('active'); };
-        if (sideNavFeeHistoryBtn) { sideNavFeeHistoryBtn.addEventListener('click', (e) => { e.preventDefault(); openHistoryModal(); }); }
         if (closeHistoryModalBtn) closeHistoryModalBtn.addEventListener('click', closeHistoryModal);
         if (historyModalOverlay) historyModalOverlay.addEventListener('click', (event) => { if (event.target === historyModalOverlay) closeHistoryModal(); });
 
