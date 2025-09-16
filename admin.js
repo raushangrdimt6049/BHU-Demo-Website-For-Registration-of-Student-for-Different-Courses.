@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('click', (e) => {
         const link = e.target.closest('a');
         // Ensure it's a valid, internal link before setting the flag.
-        if (link && link.href && link.hostname === window.location.hostname) {
+        if (link && link.href && (link.hostname === window.location.hostname || !link.hostname)) {
             if (link.id !== 'adminLogoutBtn') {
                 sessionStorage.setItem('navigationAllowed', 'true');
             }

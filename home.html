@@ -198,6 +198,23 @@
         #sideNavAvatar { cursor: pointer; transition: transform 0.2s; }
         #sideNavAvatar:hover { transform: scale(1.1); }
 
+        /* --- Payment History Modal --- */
+        .history-table-container { max-height: 60vh; overflow-y: auto; }
+        .history-table-container table { width: 100%; border-collapse: collapse; }
+        .history-table-container th, .history-table-container td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--input-border);
+        }
+        .history-table-container th {
+            background-color: var(--bg-body);
+            position: sticky;
+            top: 0;
+        }
+        .history-table-container .no-history-message {
+            text-align: center; padding: 2rem;
+        }
+
         /* New container for the main content area */
         .main-content-container {
             background: var(--bg-main);
@@ -248,7 +265,7 @@
             <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Assignments</a></li>
             <li><a href="#"><span class="nav-icon">🎓</span> Results</a></li>
-            <li><a href="dashboard.html"><span class="nav-icon">💳</span> Fee Payment History</a></li>
+            <li><a href="#" id="sideNavFeeHistoryBtn"><span class="nav-icon">💳</span> Fee Payment History</a></li>
             <li><a href="#"><span class="nav-icon">🏛️</span> Library</a></li>
             <li><a href="#"><span class="nav-icon">📢</span> Notices</a></li>
             <li><a href="#"><span class="nav-icon">❓</span> Support / Helpdesk</a></li>
@@ -398,6 +415,30 @@
 
                 <div class="button-group">
                     <button id="saveSettingsBtn" class="submit-btn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Payment History Modal -->
+    <div id="historyModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 800px;">
+            <button id="closeHistoryModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view"> <!-- Re-using class for h4 style -->
+                <h4>Payment History</h4>
+                <div class="history-table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Payment ID</th>
+                                <th>Course</th>
+                                <th>Amount</th>
+                                <th>Payment Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body"></tbody>
+                    </table>
+                    <p id="no-history-message" class="no-history-message" style="display: none;">No payment history found.</p>
                 </div>
             </div>
         </div>

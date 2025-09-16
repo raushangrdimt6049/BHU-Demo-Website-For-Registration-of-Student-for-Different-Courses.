@@ -75,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const closeSideNavBtn = document.getElementById('closeSideNavBtn');
         const sideNavDashboardLink = document.querySelector('a[href="home.html"]');
         const sideNavSettingsBtn = document.getElementById('sideNavSettingsBtn');
+        const sideNavFeeHistoryBtn = document.getElementById('sideNavFeeHistoryBtn');
         const sideNavLogoutBtn = document.getElementById('sideNavLogoutBtn');
         const sideNavAvatar = document.getElementById('sideNavAvatar');
         const sideNavName = document.getElementById('sideNavName');
@@ -110,6 +111,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- NEW Settings Modal References ---
         const settingsModalOverlay = document.getElementById('settingsModalOverlay');
         const closeSettingsModalBtn = document.getElementById('closeSettingsModalBtn');
+
+        // --- Payment History Modal References ---
+        const historyModalOverlay = document.getElementById('historyModalOverlay');
+        const closeHistoryModalBtn = document.getElementById('closeHistoryModalBtn');
+        const historyTableBody = document.getElementById('history-table-body');
+        const noHistoryMessage = document.getElementById('no-history-message');
 
 
         // Helper function to generate HTML for each application step
@@ -199,6 +206,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (closeSettingsModalBtn) closeSettingsModalBtn.addEventListener('click', closeSettingsModal);
         if (settingsModalOverlay) settingsModalOverlay.addEventListener('click', (event) => { if (event.target === settingsModalOverlay) closeSettingsModal(); });
+
+        // --- Payment History Modal Logic ---
+        const fetchAndDisplayPaymentHistory = async () => {
+            if (!historyTableBody || !noHistoryMessage) return;
+            if (!studentData || !studentData.rollNumber) {
+                console.error("Cannot fetch payment history: student roll number is missing from session data.");
+                historyTableBody.innerHTML = '';
+                noHistoryMessage.textContent = 'Could not load history (student data missing).';
+                noHistoryMessage.style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/payment-history/${studentData.rollNumber}`);
+                if (!response.ok) throw new Error('Failed to fetch history');
+                
+                const history = await response.json();
+
+                historyTableBody.innerHTML = ''; // Clear previous entries
+
+                if (history.length > 0) {
+                    noHistoryMessage.style.display = 'none';
+                    history.forEach(record => {
+                        const row = document.createElement('tr');
+                        const paymentDate = new Date(record.paymentDate).toLocaleDateString('en-IN');
+                        row.innerHTML = `
+                            <td>${record.orderId}</td>
+                            <td>${record.paymentId}</td>
+                            <td>${record.courseName}</td>
+                            <td>₹${record.amount.toFixed(2)}</td>
+                            <td>${paymentDate}</td>
+                        `;
+                        historyTableBody.appendChild(row);
+                    });
+                } else {
+                    noHistoryMessage.textContent = 'No payment history found.';
+                    noHistoryMessage.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error fetching payment history:', error);
+                historyTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Could not load payment history. Please check your connection and try again.</td></tr>`;
+                noHistoryMessage.style.display = 'none';
+            }
+        };
+
+        const openHistoryModal = () => {
+            fetchAndDisplayPaymentHistory();
+            if (historyModalOverlay) historyModalOverlay.classList.add('active');
+            closeNav();
+        };
+        const closeHistoryModal = () => { if (historyModalOverlay) historyModalOverlay.classList.remove('active'); };
+        if (sideNavFeeHistoryBtn) { sideNavFeeHistoryBtn.addEventListener('click', (e) => { e.preventDefault(); openHistoryModal(); }); }
+        if (closeHistoryModalBtn) closeHistoryModalBtn.addEventListener('click', closeHistoryModal);
+        if (historyModalOverlay) historyModalOverlay.addEventListener('click', (event) => { if (event.target === historyModalOverlay) closeHistoryModal(); });
 
         // --- Side Navigation Action Listeners ---
         if (sideNavLogoutBtn) {
@@ -486,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('click', (e) => {
         const link = e.target.closest('a');
         // Ensure it's a valid, internal link before setting the flag.
-        if (link && link.href && link.hostname === window.location.hostname) {
+        if (link && link.href && (link.hostname === window.location.hostname || !link.hostname)) {
             // Exclude the new logout button from this logic.
             if (link.id !== 'sideNavLogoutBtn') {
                 sessionStorage.setItem('navigationAllowed', 'true');
