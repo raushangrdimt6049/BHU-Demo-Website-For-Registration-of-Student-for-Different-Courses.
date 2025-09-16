@@ -70,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td>${payment.course || 'N/A'}</td>
                         <td>${amount}</td>
                         <td>${paymentDate}</td>
-                        <td><a href="/download-receipt/${payment.orderId}" target="_blank" class="submit-btn" style="padding: 5px 10px; font-size: 0.8rem; text-decoration: none;">Download</a></td>
                     `;
                     tableBody.appendChild(row);
                 });
