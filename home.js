@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sideNavOverlay = document.getElementById('sideNavOverlay');
         const closeSideNavBtn = document.getElementById('closeSideNavBtn');
         const sideNavDashboardLink = document.querySelector('a[href="home.html"]');
+        const sideNavHistoryBtn = document.getElementById('sideNavHistoryBtn');
         const sideNavSettingsBtn = document.getElementById('sideNavSettingsBtn');
         const sideNavLogoutBtn = document.getElementById('sideNavLogoutBtn');
         const sideNavAvatar = document.getElementById('sideNavAvatar');
@@ -116,6 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const closeHistoryModalBtn = document.getElementById('closeHistoryModalBtn');
         const historyTableBody = document.getElementById('history-table-body');
         const noHistoryMessage = document.getElementById('no-history-message');
+
+        // --- Dashboard Card Links ---
+        let dashboardHistoryLink; // Will be defined after the dashboard is rendered
 
 
         // Helper function to generate HTML for each application step
@@ -184,18 +188,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeNav(); // Close the side nav if it's open
             });
         }
-        const closeProfileModal = () => { if (profileModalOverlay) profileModalOverlay.classList.remove('active'); };
-        if (closeProfileModalBtn) closeProfileModalBtn.addEventListener('click', closeProfileModal);
-        if (profileModalOverlay) profileModalOverlay.addEventListener('click', (event) => { if (event.target === profileModalOverlay) closeProfileModal(); });
+
+        // --- Generic Modal Logic ---
+        const openModal = (modalOverlay) => {
+            if (modalOverlay) modalOverlay.classList.add('active');
+        };
+        const closeModal = (modalOverlay) => {
+            if (modalOverlay) modalOverlay.classList.remove('active');
+        };
+
+        if (closeProfileModalBtn) closeProfileModalBtn.addEventListener('click', () => closeModal(profileModalOverlay));
+        if (profileModalOverlay) profileModalOverlay.addEventListener('click', (event) => { if (event.target === profileModalOverlay) closeModal(profileModalOverlay); });
 
         // --- Settings Modal Logic ---
         const openSettingsModal = () => {
             populateSettingsForm(studentData);
-            if (settingsModalOverlay) settingsModalOverlay.classList.add('active');
+            openModal(settingsModalOverlay);
             closeNav();
-        };
-        const closeSettingsModal = () => {
-            if (settingsModalOverlay) settingsModalOverlay.classList.remove('active');
         };
         if (sideNavSettingsBtn) {
             sideNavSettingsBtn.addEventListener('click', (e) => {
@@ -203,8 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 openSettingsModal();
             });
         }
-        if (closeSettingsModalBtn) closeSettingsModalBtn.addEventListener('click', closeSettingsModal);
-        if (settingsModalOverlay) settingsModalOverlay.addEventListener('click', (event) => { if (event.target === settingsModalOverlay) closeSettingsModal(); });
+        if (closeSettingsModalBtn) closeSettingsModalBtn.addEventListener('click', () => closeModal(settingsModalOverlay));
+        if (settingsModalOverlay) settingsModalOverlay.addEventListener('click', (event) => { if (event.target === settingsModalOverlay) closeModal(settingsModalOverlay); });
 
         // --- Payment History Modal Logic ---
         const fetchAndDisplayPaymentHistory = async () => {
@@ -252,12 +261,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const openHistoryModal = () => {
             fetchAndDisplayPaymentHistory();
-            if (historyModalOverlay) historyModalOverlay.classList.add('active');
+            openModal(historyModalOverlay);
             closeNav();
         };
-        const closeHistoryModal = () => { if (historyModalOverlay) historyModalOverlay.classList.remove('active'); };
-        if (closeHistoryModalBtn) closeHistoryModalBtn.addEventListener('click', closeHistoryModal);
-        if (historyModalOverlay) historyModalOverlay.addEventListener('click', (event) => { if (event.target === historyModalOverlay) closeHistoryModal(); });
+
+        // Listeners for opening the history modal
+        if (sideNavHistoryBtn) {
+            sideNavHistoryBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                openHistoryModal();
+            });
+        }
+        // The dashboard link listener is added after the dashboard is rendered.
+
+        // Listeners for closing the history modal
+        if (closeHistoryModalBtn) closeHistoryModalBtn.addEventListener('click', () => closeModal(historyModalOverlay));
+        if (historyModalOverlay) historyModalOverlay.addEventListener('click', (event) => { if (event.target === historyModalOverlay) closeModal(historyModalOverlay); });
 
         // --- Side Navigation Action Listeners ---
         if (sideNavLogoutBtn) {
@@ -340,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="card">
                             <h4>Fee Balance</h4>
                             <p>₹ 0.00</p>
-                            <a href="dashboard.html">Payment History</a>
+                            <a href="#" id="dashboardHistoryLink">Payment History</a>
                         </div>
                     </div>
                     <div class="quick-links-panel">
@@ -354,6 +373,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `;
+
+            // After rendering the dashboard, find the link and attach the event listener
+            dashboardHistoryLink = document.getElementById('dashboardHistoryLink');
+            if (dashboardHistoryLink) {
+                dashboardHistoryLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openHistoryModal();
+                });
+            }
         } else {
             // --- PRE-PAYMENT VIEW (UNLOCKED) ---
             const contactDone = studentData.addressLine1 && studentData.addressLine1.trim() !== '';
@@ -446,17 +474,39 @@ document.addEventListener('DOMContentLoaded', () => {
         function populateSettingsForm(data) {
             settingsFields.name.value = data.name || '';
             settingsFields.email.value = data.email || '';
+
+            // --- Handle Date of Birth ---
             if (data.dob) {
                 const dobDate = new Date(data.dob);
                 settingsFields.dobDay.value = String(dobDate.getUTCDate()).padStart(2, '0');
                 settingsFields.dobMonth.value = String(dobDate.getUTCMonth() + 1).padStart(2, '0');
                 settingsFields.dobYear.value = dobDate.getUTCFullYear();
+                // Make DOB fields read-only if already set
+                [settingsFields.dobDay, settingsFields.dobMonth, settingsFields.dobYear].forEach(el => {
+                    el.disabled = true;
+                    el.setAttribute('title', 'Date of Birth cannot be changed once set.');
+                });
             } else {
                 settingsFields.dobDay.value = '';
                 settingsFields.dobMonth.value = '';
                 settingsFields.dobYear.value = '';
+                // Make sure they are enabled if not set
+                [settingsFields.dobDay, settingsFields.dobMonth, settingsFields.dobYear].forEach(el => {
+                    el.disabled = false;
+                    el.removeAttribute('title');
+                });
             }
+
+            // --- Handle Gender ---
             settingsFields.gender.value = data.gender || '';
+            if (data.gender) {
+                // Make Gender field read-only if already set
+                settingsFields.gender.disabled = true;
+                settingsFields.gender.setAttribute('title', 'Gender cannot be changed once set.');
+            } else {
+                settingsFields.gender.disabled = false;
+                settingsFields.gender.removeAttribute('title');
+            }
 
             if (profilePictureImg) {
                 profilePictureImg.src = data.profilePicture || 'default-avatar.png';
@@ -476,36 +526,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (saveSettingsBtn) {
             saveSettingsBtn.addEventListener('click', () => {
                 if (window.confirm('Are you sure you want to save these changes?')) {
-                    let formattedDobForSave = '';
-                    const day = settingsFields.dobDay.value;
-                    const month = settingsFields.dobMonth.value;
-                    const year = settingsFields.dobYear.value;
+                    const formData = new FormData();
+                    formData.append('rollNumber', studentData.rollNumber);
 
-                    if (day && month && year) {
-                        // Basic validation for date validity
-                        const date = new Date(year, month - 1, day);
-                        if (date.getFullYear() !== parseInt(year, 10) || date.getMonth() !== parseInt(month, 10) - 1 || date.getDate() !== parseInt(day, 10)) {
-                            alert('The selected date is not a valid calendar date (e.g., Feb 30).');
+                    // --- Handle DOB ---
+                    // Only process DOB if the fields are not disabled (i.e., it's being set for the first time)
+                    if (!settingsFields.dobDay.disabled) {
+                        let formattedDobForSave = '';
+                        const day = settingsFields.dobDay.value;
+                        const month = settingsFields.dobMonth.value;
+                        const year = settingsFields.dobYear.value;
+
+                        if (day && month && year) {
+                            // Basic validation for date validity
+                            const date = new Date(year, month - 1, day);
+                            if (date.getFullYear() !== parseInt(year, 10) || date.getMonth() !== parseInt(month, 10) - 1 || date.getDate() !== parseInt(day, 10)) {
+                                alert('The selected date is not a valid calendar date (e.g., Feb 30).');
+                                return;
+                            }
+                            formattedDobForSave = `${year}-${month}-${day}`;
+                            formData.append('dob', formattedDobForSave);
+                        } else if (day || month || year) {
+                            // If some but not all are selected
+                            alert('Please select your full date of birth or leave it blank.');
                             return;
                         }
-                        formattedDobForSave = `${year}-${month}-${day}`;
-                    } else if (day || month || year) {
-                        // If some but not all are selected
-                        alert('Please select your full date of birth or leave it blank.');
-                        return;
-                    } else {
-                        // If all are blank, check if DOB was previously set.
-                        // This logic prevents accidentally clearing a required field.
-                        if (studentData.dob) {
-                            alert('Date of Birth cannot be cleared once set. Please select a valid date.');
-                            return;
+                        // If all are blank, we just don't append 'dob' to formData.
+                    }
+
+                    // --- Handle Gender ---
+                    // Only process Gender if the field is not disabled
+                    if (!settingsFields.gender.disabled) {
+                        if (settingsFields.gender.value) {
+                             formData.append('gender', settingsFields.gender.value);
                         }
                     }
 
-                    const formData = new FormData();
-                    formData.append('rollNumber', studentData.rollNumber);
-                    formData.append('dob', formattedDobForSave);
-                    formData.append('gender', settingsFields.gender.value);
+                    // Handle profile picture upload
                     if (editProfilePictureInput.files[0]) {
                         formData.append('profilePicture', editProfilePictureInput.files[0]);
                     }
@@ -520,9 +577,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             alert('Settings updated successfully!');
                             sessionStorage.setItem('currentStudent', JSON.stringify(data.studentData));
                             studentData = data.studentData; // Update local variable
-                            populateSettingsForm(studentData); // Re-populate form
+                            populateSettingsForm(studentData); // Re-populate form to apply disabled states
                             if (sideNavAvatar) sideNavAvatar.src = studentData.profilePicture || 'default-avatar.png'; // Update side nav avatar
-                            if (typeof closeSettingsModal === 'function') closeSettingsModal(); // Close modal on success
+                            closeModal(settingsModalOverlay); // Close modal on success
                         } else {
                             throw new Error(data.message || 'Update failed.');
                         }
