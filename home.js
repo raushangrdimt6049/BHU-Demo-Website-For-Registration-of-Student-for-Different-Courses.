@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let studentData = JSON.parse(studentDataString);
+        let searchableItems = []; // Define the array to hold all searchable items
 
         // --- View Containers ---
         const proceedSection = document.querySelector('.proceed-section');
@@ -283,58 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeHistoryModalBtn) closeHistoryModalBtn.addEventListener('click', () => closeModal(historyModalOverlay));
         if (historyModalOverlay) historyModalOverlay.addEventListener('click', (event) => { if (event.target === historyModalOverlay) closeModal(historyModalOverlay); });
 
-        // --- Search Modal Logic ---
-        if (closeSearchModalBtn) closeSearchModalBtn.addEventListener('click', () => closeModal(searchModalOverlay));
-        if (searchModalOverlay) searchModalOverlay.addEventListener('click', (event) => { if (event.target === searchModalOverlay) closeModal(searchModalOverlay); });
-
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                const searchTerm = searchInput.value.toLowerCase().trim();
-                // This will only work in the dashboard view where quick links exist
-                const allQuickLinks = document.querySelectorAll('.quick-link-item');
-                
-                searchResultsList.innerHTML = ''; // Clear previous results
-                noSearchResultsMessage.style.display = 'none';
-
-                if (searchTerm === '' || allQuickLinks.length === 0) {
-                    return; // Don't show anything if search is empty or no links to search
-                }
-
-                const matchingLinks = [];
-                allQuickLinks.forEach(link => {
-                    if (link.textContent.toLowerCase().includes(searchTerm)) {
-                        matchingLinks.push(link);
-                    }
-                });
-
-                if (matchingLinks.length > 0) {
-                    matchingLinks.forEach(originalLink => {
-                        const listItem = document.createElement('li');
-                        const newLink = document.createElement('a');
-                        newLink.href = originalLink.href;
-                        newLink.textContent = originalLink.textContent;
-                        
-                        // Add click listener that mimics the original link's behavior
-                        newLink.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            // Manually trigger the original link's function or navigation
-                            if (originalLink.id === 'quickLinkPaymentHistory') {
-                                openHistoryModal();
-                            } else if (originalLink.href && originalLink.href !== '#') {
-                                sessionStorage.setItem('navigationAllowed', 'true');
-                                window.location.href = originalLink.href;
-                            }
-                            closeModal(searchModalOverlay);
-                        });
-                        listItem.appendChild(newLink);
-                        searchResultsList.appendChild(listItem);
-                    });
-                } else {
-                    noSearchResultsMessage.style.display = 'block';
-                }
-            });
-        }
-
         // --- Side Navigation Action Listeners ---
         if (sideNavLogoutBtn) {
             sideNavLogoutBtn.addEventListener('click', (e) => {
@@ -393,6 +342,23 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Render Page Based on Payment Status ---
         if (isPaid) {
             // --- POST-PAYMENT VIEW (LOCKED) ---
+            // --- Define Searchable Items for POST-PAYMENT view ---
+            searchableItems = [
+                { title: 'Dashboard', keywords: 'home main', action: { type: 'link', href: 'home.html' } },
+                { title: 'Enrolled Courses', keywords: 'my courses subjects enrolled', action: { type: 'link', href: '#' } },
+                { title: 'Admission Summary', keywords: 'form details', action: { type: 'link', href: 'payment-summary.html' } },
+                { title: 'Attendance Details', keywords: 'present absent', action: { type: 'link', href: '#' } },
+                { title: 'Upcoming Events', keywords: 'calendar', action: { type: 'link', href: '#' } },
+                { title: 'Time Table', keywords: 'schedule class routine', action: { type: 'link', href: '#' } },
+                { title: 'Check Results', keywords: 'grades marks', action: { type: 'link', href: '#' } },
+                { title: 'Library Portal', keywords: 'books', action: { type: 'link', href: '#' } },
+                { title: 'Notices', keywords: 'announcements updates', action: { type: 'link', href: '#' } },
+                { title: 'Support / Helpdesk', keywords: 'help ticket', action: { type: 'link', href: '#' } },
+                { title: 'Fee Payment History', keywords: 'fee payment transaction receipt details', action: { type: 'function', func: openHistoryModal } },
+                { title: 'Settings', keywords: 'profile edit change password', action: { type: 'function', func: openSettingsModal } },
+                { title: 'Logout', keywords: 'sign out exit', action: { type: 'function', func: () => { if(sideNavLogoutBtn) sideNavLogoutBtn.click(); } } }
+            ];
+
             proceedSection.innerHTML = `
                 <div class="dashboard-view">
                     <h4>My Dashboard</h4>
@@ -462,6 +428,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // A course is considered "selected" if a valid course object (with an amount) was parsed from the student data.
             const courseSelected = !!parsedCourse.amount;
 
+            // --- Define Searchable Items for PRE-PAYMENT view ---
+            searchableItems = [
+                { title: 'Dashboard', keywords: 'home main progress', action: { type: 'link', href: 'home.html' } },
+                { title: 'Address & Parents Detail', keywords: 'contact parent', action: { type: 'link', href: 'contact-details.html' }, enabled: true },
+                { title: 'Academic Details', keywords: 'marks results 10th 12th', action: { type: 'link', href: 'academic-details.html' }, enabled: contactDone },
+                { title: 'Upload Documents', keywords: 'photo signature marksheet', action: { type: 'link', href: 'document-upload.html' }, enabled: academicDone },
+                { title: 'Course Selection', keywords: 'subject choose', action: { type: 'link', href: 'course-selection.html' }, enabled: documentsDone },
+                { title: 'Preview Application', keywords: 'review form', action: { type: 'link', href: 'preview.html' }, enabled: (contactDone && academicDone && documentsDone && courseSelected) },
+                { title: 'Fee Payment History', keywords: 'fee payment transaction receipt details', action: { type: 'function', func: openHistoryModal } },
+                { title: 'Settings', keywords: 'profile edit change password', action: { type: 'function', func: openSettingsModal } },
+                { title: 'Logout', keywords: 'sign out exit', action: { type: 'function', func: () => { if(sideNavLogoutBtn) sideNavLogoutBtn.click(); } } }
+            ];
+
             const stepsContainer = document.createElement('div');
             stepsContainer.className = 'application-steps';
             stepsContainer.innerHTML = '<h4>Application Progress</h4>';
@@ -502,6 +481,57 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
                 proceedSection.appendChild(previewSection);
             }
+        }
+
+        // --- Search Modal Logic ---
+        if (closeSearchModalBtn) closeSearchModalBtn.addEventListener('click', () => closeModal(searchModalOverlay));
+        if (searchModalOverlay) searchModalOverlay.addEventListener('click', (event) => { if (event.target === searchModalOverlay) closeModal(searchModalOverlay); });
+
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                
+                searchResultsList.innerHTML = '';
+                noSearchResultsMessage.style.display = 'none';
+
+                if (searchTerm === '') {
+                    return;
+                }
+
+                const matchingItems = searchableItems.filter(item => {
+                    // For pre-payment view, only show enabled items. For post-payment, 'enabled' is undefined, so it passes.
+                    if (item.enabled === false) return false;
+                    
+                    const searchString = `${item.title.toLowerCase()} ${item.keywords.toLowerCase()}`;
+                    return searchString.includes(searchTerm);
+                });
+
+                if (matchingItems.length > 0) {
+                    matchingItems.forEach(item => {
+                        const listItem = document.createElement('li');
+                        const newLink = document.createElement('a');
+                        newLink.href = '#'; // Use a generic href
+                        newLink.textContent = item.title;
+                        
+                        newLink.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            const action = item.action;
+                            if (action.type === 'link') {
+                                sessionStorage.setItem('navigationAllowed', 'true');
+                                window.location.href = action.href;
+                            } else if (action.type === 'function') {
+                                action.func();
+                            }
+                            closeModal(searchModalOverlay);
+                        });
+
+                        listItem.appendChild(newLink);
+                        searchResultsList.appendChild(listItem);
+                    });
+                } else {
+                    noSearchResultsMessage.style.display = 'block';
+                }
+            });
         }
 
         // --- Settings View Logic ---
