@@ -580,6 +580,88 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // --- Notification Logic ---
+        const fetchAndDisplayNotifications = async () => {
+            if (!studentData || !studentData.rollNumber) return;
+
+            try {
+                const response = await fetch(`/api/notifications/${studentData.rollNumber}`);
+                if (!response.ok) throw new Error('Failed to fetch notifications');
+                
+                const notifications = await response.json();
+
+                // Clear existing lists
+                if (notificationList) notificationList.innerHTML = '';
+                if (allNotificationsList) allNotificationsList.innerHTML = '';
+
+                const unreadCount = notifications.filter(n => !n.isRead).length;
+
+                // Update badge
+                if (notificationBadge) {
+                    if (unreadCount > 0) {
+                        notificationBadge.textContent = unreadCount;
+                        notificationBadge.style.display = 'flex';
+                    } else {
+                        notificationBadge.style.display = 'none';
+                    }
+                }
+
+                if (notifications.length === 0) {
+                    const noNotificationHTML = '<li class="notification-item" style="justify-content: center; color: var(--text-color-light);">No notifications yet.</li>';
+                    if (notificationList) notificationList.innerHTML = noNotificationHTML;
+                    if (allNotificationsList) allNotificationsList.innerHTML = noNotificationHTML;
+                    return;
+                }
+
+                notifications.forEach(notification => {
+                    const notificationHTML = createNotificationHTML(notification);
+                    if (notificationList) notificationList.insertAdjacentHTML('beforeend', notificationHTML);
+                    if (allNotificationsList) allNotificationsList.insertAdjacentHTML('beforeend', notificationHTML);
+                });
+
+                // Add event listeners after populating
+                document.querySelectorAll('.notification-item[data-id]').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const notificationId = item.dataset.id;
+                        const notification = notifications.find(n => n.id == notificationId);
+                        if (notification) {
+                            handleNotificationClick(notification);
+                        }
+                    });
+                });
+
+            } catch (error) {
+                console.error('Error fetching notifications:', error);
+                if (notificationList) notificationList.innerHTML = '<li class="notification-item" style="justify-content: center; color: var(--btn-danger-bg);">Could not load.</li>';
+            }
+        };
+
+        const createNotificationHTML = (notification) => {
+            const isReadClass = notification.isRead ? 'read' : '';
+            const timeAgo = formatTimeAgo(notification.createdAt);
+            let iconClass = '';
+            let icon = '🔔'; // Default icon
+
+            switch (notification.type) {
+                case 'new_course': iconClass = 'result'; icon = '🎓'; break;
+                case 'fee_reminder': iconClass = 'fee'; icon = '💰'; break;
+                case 'admin_notice': iconClass = 'notice'; icon = '📢'; break;
+            }
+
+            return `
+                <li>
+                    <a href="#" class="notification-item ${isReadClass}" data-id="${notification.id}" data-type="${notification.type}">
+                        <div class="notification-icon ${iconClass}">${icon}</div>
+                        <div class="notification-content">
+                            <p>${notification.message}</p>
+                            <small>${timeAgo}</small>
+                        </div>
+                    </a>
+                </li>
+            `;
+        };
+
         const handleNotificationClick = async (notification) => {
             // Mark as read on the server if it's unread
             if (!notification.isRead) {
