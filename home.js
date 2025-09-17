@@ -63,6 +63,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- Course Data (from course-selection.js) ---
+        const COURSES = {
+            "Physics": { name: "Physics", fee: 150000 }, // ₹1,500.00
+            "Chemistry": { name: "Chemistry", fee: 165000 }, // ₹1,650.00
+            "Mathematics": { name: "Mathematics", fee: 145000 }, // ₹1,450.00
+            "Botany": { name: "Botany", fee: 155000 }, // ₹1,550.00
+            "Zoology": { name: "Zoology", fee: 155000 }, // ₹1,550.00
+            "Computer Science": { name: "Computer Science", fee: 250000 }, // ₹2,500.00
+            "Commerce": { name: "Commerce", fee: 120000 }, // ₹1,200.00
+            "History": { name: "History", fee: 110000 }, // ₹1,100.00
+            "Political Science": { name: "Political Science", fee: 110000 }, // ₹1,100.00
+            "Economics": { name: "Economics", fee: 135000 }, // ₹1,350.00
+            "English": { name: "English", fee: 115000 }, // ₹1,150.00
+            "Hindi": { name: "Hindi", fee: 105000 }  // ₹1,050.00
+        };
+
         let studentData = JSON.parse(studentDataString);
         let searchableItems = []; // Define the array to hold all searchable items
 
@@ -75,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sideNavOverlay = document.getElementById('sideNavOverlay');
         const closeSideNavBtn = document.getElementById('closeSideNavBtn');
         const sideNavDashboardLink = document.querySelector('a[href="home.html"]');
-        const sideNavHistoryBtn = document.getElementById('sideNavHistoryBtn');
+        const sideNavFeeStructureBtn = document.getElementById('sideNavFeeStructureBtn');
         const sideNavSettingsBtn = document.getElementById('sideNavSettingsBtn');
         const sideNavLogoutBtn = document.getElementById('sideNavLogoutBtn');
         const sideNavAvatar = document.getElementById('sideNavAvatar');
@@ -119,6 +135,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const closeHistoryModalBtn = document.getElementById('closeHistoryModalBtn');
         const historyTableBody = document.getElementById('history-table-body');
         const noHistoryMessage = document.getElementById('no-history-message');
+
+        // --- Fee Structure Modal References ---
+        const feeStructureModalOverlay = document.getElementById('feeStructureModalOverlay');
+        const closeFeeStructureModalBtn = document.getElementById('closeFeeStructureModalBtn');
+        const feeStructureContainer = document.getElementById('fee-structure-container');
+        const feeModalHistoryTableBody = document.getElementById('fee-modal-history-table-body');
+        const feeModalNoHistoryMessage = document.getElementById('fee-modal-no-history-message');
 
         // --- Search Modal References ---
         const searchModalOverlay = document.getElementById('searchModalOverlay');
@@ -211,6 +234,66 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeProfileModalBtn) closeProfileModalBtn.addEventListener('click', () => closeModal(profileModalOverlay));
         if (profileModalOverlay) profileModalOverlay.addEventListener('click', (event) => { if (event.target === profileModalOverlay) closeModal(profileModalOverlay); });
 
+        // --- Fee Structure Modal Logic ---
+        const populateFeeStructureTable = () => {
+            if (!feeStructureContainer) return;
+
+            let tableHTML = '<table><thead><tr><th>Course Name</th><th>Fee</th></tr></thead><tbody>';
+            for (const key in COURSES) {
+                const course = COURSES[key];
+                tableHTML += `<tr><td>${course.name}</td><td>₹${(course.fee / 100).toLocaleString('en-IN')}</td></tr>`;
+            }
+            tableHTML += '</tbody></table>';
+            feeStructureContainer.innerHTML = tableHTML;
+        };
+
+        const fetchAndDisplayModalPaymentHistory = async () => {
+            if (!feeModalHistoryTableBody || !feeModalNoHistoryMessage) return;
+
+            try {
+                const response = await fetch(`/payment-history/${studentData.rollNumber}`);
+                if (!response.ok) throw new Error('Failed to fetch history');
+                
+                const history = await response.json();
+                feeModalHistoryTableBody.innerHTML = ''; // Clear previous
+
+                if (history.length > 0) {
+                    feeModalNoHistoryMessage.style.display = 'none';
+                    history.forEach(record => {
+                        const row = document.createElement('tr');
+                        const statusClass = record.status === 'success' ? 'status-success' : 'status-failure';
+                        const statusText = record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'N/A';
+                        const amountValue = parseFloat(record.amount);
+                        const formattedAmount = !isNaN(amountValue) ? amountValue.toFixed(2) : '0.00';
+                        const paymentDate = new Date(record.paymentDate).toLocaleDateString('en-IN');
+
+                        row.innerHTML = `
+                            <td>${record.paymentId || 'N/A'}</td>
+                            <td>${record.orderId || 'N/A'}</td>
+                            <td>₹${formattedAmount}</td>
+                            <td>${paymentDate}</td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        `;
+                        feeModalHistoryTableBody.appendChild(row);
+                    });
+                } else {
+                    feeModalNoHistoryMessage.textContent = 'No payment history found.';
+                    feeModalNoHistoryMessage.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error fetching payment history for modal:', error);
+                feeModalHistoryTableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:red;">Could not load payment history.</td></tr>`;
+                feeModalNoHistoryMessage.style.display = 'none';
+            }
+        };
+
+        const openFeeStructureModal = () => {
+            populateFeeStructureTable();
+            fetchAndDisplayModalPaymentHistory();
+            openModal(feeStructureModalOverlay);
+            closeNav();
+        };
+
         // --- Settings Modal Logic ---
         const openSettingsModal = () => {
             populateSettingsForm(studentData);
@@ -285,10 +368,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // Listeners for opening the history modal
-        if (sideNavHistoryBtn) {
-            sideNavHistoryBtn.addEventListener('click', (e) => {
+        if (sideNavFeeStructureBtn) {
+            sideNavFeeStructureBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                openHistoryModal();
+                openFeeStructureModal();
             });
         }
         // The dashboard link listener is added after the dashboard is rendered.
@@ -296,6 +379,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Listeners for closing the history modal
         if (closeHistoryModalBtn) closeHistoryModalBtn.addEventListener('click', () => closeModal(historyModalOverlay));
         if (historyModalOverlay) historyModalOverlay.addEventListener('click', (event) => { if (event.target === historyModalOverlay) closeModal(historyModalOverlay); });
+
+        // Listeners for closing the new fee structure modal
+        if (closeFeeStructureModalBtn) closeFeeStructureModalBtn.addEventListener('click', () => closeModal(feeStructureModalOverlay));
+        if (feeStructureModalOverlay) feeStructureModalOverlay.addEventListener('click', (event) => { if (event.target === feeStructureModalOverlay) closeModal(feeStructureModalOverlay); });
 
         // --- Side Navigation Action Listeners ---
         if (sideNavLogoutBtn) {
@@ -385,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { title: 'Notices', keywords: 'announcements updates', action: { type: 'link', href: '#' } },
                 { title: 'Support / Helpdesk', keywords: 'help ticket', action: { type: 'link', href: '#' } },
                 { title: 'Fee Payment History', keywords: 'fee payment transaction receipt details', action: { type: 'function', func: openHistoryModal } },
+                { title: 'Fee Structure', keywords: 'course fees price', action: { type: 'function', func: openFeeStructureModal } },
                 { title: 'Settings', keywords: 'profile edit change password', action: { type: 'function', func: openSettingsModal } },
                 { title: 'Logout', keywords: 'sign out exit', action: { type: 'function', func: () => { if(sideNavLogoutBtn) sideNavLogoutBtn.click(); } } }
             ];
@@ -465,6 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { title: 'Upload Documents', keywords: 'photo signature marksheet', action: { type: 'link', href: 'document-upload.html' }, enabled: academicDone },
                 { title: 'Course Selection', keywords: 'subject choose', action: { type: 'link', href: 'course-selection.html' }, enabled: documentsDone },
                 { title: 'Preview Application', keywords: 'review form', action: { type: 'link', href: 'preview.html' }, enabled: (contactDone && academicDone && documentsDone && courseSelected) },
+                { title: 'Fee Structure', keywords: 'course fees price', action: { type: 'function', func: openFeeStructureModal } },
                 { title: 'Fee Payment History', keywords: 'fee payment transaction receipt details', action: { type: 'function', func: openHistoryModal } },
                 { title: 'Settings', keywords: 'profile edit change password', action: { type: 'function', func: openSettingsModal } },
                 { title: 'Logout', keywords: 'sign out exit', action: { type: 'function', func: () => { if(sideNavLogoutBtn) sideNavLogoutBtn.click(); } } }

@@ -361,8 +361,9 @@
         </div>
         <ul>
             <li><a href="home.html" class="active-nav-link"><span class="nav-icon">🏠</span> Dashboard</a></li>
-            <li><a href="#"><span class="nav-icon">📚</span> My Courses</a></li>
+            <li><a href="#" id="sideNavMyCoursesBtn"><span class="nav-icon">📚</span> My Courses</a></li>
             <li><a href="#"><span class="nav-icon">📅</span> Timetable</a></li>
+            <li><a href="#" id="sideNavFeeStructureBtn"><span class="nav-icon">💰</span> Fee Structure</a></li>
             <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Assignments</a></li>
             <li><a href="#"><span class="nav-icon">🎓</span> Results</a></li>
@@ -539,6 +540,35 @@
                         <tbody id="history-table-body"></tbody>
                     </table>
                     <p id="no-history-message" class="no-history-message" style="display: none;">No payment history found.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Fee Structure & History Modal -->
+    <div id="feeStructureModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 800px;">
+            <button id="closeFeeStructureModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view"> <!-- Re-using class for h4 style -->
+                <h4>Fee Structure</h4>
+                <div id="fee-structure-container" class="history-table-container" style="margin-bottom: 2rem; max-height: 30vh;">
+                    <!-- Fee structure table will be populated by JS -->
+                </div>
+
+                <h4 style="text-align: center; margin-top: 2rem; margin-bottom: 1rem;">Payment History</h4>
+                <div class="history-table-container" style="max-height: 30vh;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Payment ID</th>
+                                <th>Order ID</th>
+                                <th>Amount</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fee-modal-history-table-body"></tbody>
+                    </table>
+                    <p id="fee-modal-no-history-message" class="no-history-message" style="display: none;">No payment history found.</p>
                 </div>
             </div>
         </div>
