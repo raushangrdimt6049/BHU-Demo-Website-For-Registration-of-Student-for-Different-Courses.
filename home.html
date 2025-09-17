@@ -36,16 +36,28 @@
             background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0 0.5rem;
         }
 
-        /* --- New Welcome Banner Styles --- */
+        /* --- Welcome Banner Styles --- */
         .welcome-banner {
             background-color: var(--btn-bg-light);
             color: var(--btn-bg);
-            padding: 0.75rem;
+            padding: 1rem;
             border-radius: 8px;
-            margin-bottom: 2rem;
-            font-weight: 600;
-            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            overflow: hidden; /* Good practice for scale transforms */
             border: 1px solid var(--btn-bg);
+        }
+
+        .welcome-banner h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            animation: zoomInOut 5s ease-in-out infinite;
+        }
+
+        @keyframes zoomInOut {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); } /* A more subtle zoom */
         }
 
         /* Center the logo in the header */
@@ -232,11 +244,26 @@
         .history-table-container .no-history-message {
             text-align: center; padding: 2rem;
         }
+        .status-badge {
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #fff;
+            text-transform: capitalize;
+        }
+        .status-badge.status-success {
+            background-color: var(--btn-success-bg);
+        }
+        .status-badge.status-failure {
+            background-color: var(--btn-danger-bg);
+        }
+
 
         /* New container for the main content area */
         .main-content-container {
             background: var(--bg-main);
-            padding: 2.5rem;
+            padding: 1rem 2.5rem 2.5rem;
             border-radius: 12px;
             box-shadow: 0 5px 15px var(--header-shadow);
             width: 100%;
@@ -343,7 +370,6 @@
             <li><a href="#"><span class="nav-icon">📢</span> Notices</a></li>
             <li><a href="#"><span class="nav-icon">❓</span> Support / Helpdesk</a></li>
             <li style="height: 1px; background-color: var(--input-border); margin: 8px 20px;"></li>
-            <li><a href="#" id="sideNavHistoryBtn"><span class="nav-icon">💳</span> Fee Payment History</a></li>
             <li><a href="#" id="sideNavSettingsBtn"><span class="nav-icon">⚙️</span> Settings</a></li>
             <li><a href="#" id="sideNavLogoutBtn"><span class="nav-icon">🚪</span> Logout</a></li>
         </ul>
@@ -503,11 +529,11 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Order ID</th>
+                                <th>Student Name</th>
                                 <th>Payment ID</th>
-                                <th>Course</th>
+                                <th>Order ID</th>
                                 <th>Amount</th>
-                                <th>Payment Date</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody id="history-table-body"></tbody>

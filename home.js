@@ -249,13 +249,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     noHistoryMessage.style.display = 'none';
                     history.forEach(record => {
                         const row = document.createElement('tr');
-                        const paymentDate = new Date(record.paymentDate).toLocaleDateString('en-IN');
+                        // Add a class for styling based on status
+                        const statusClass = record.status === 'success' ? 'status-success' : 'status-failure';
+                        const statusText = record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'N/A';
+
+                        // Safely parse the amount to a number before formatting.
+                        // The DB driver might return it as a string.
+                        const amountValue = parseFloat(record.amount);
+                        const formattedAmount = !isNaN(amountValue) ? amountValue.toFixed(2) : '0.00';
+
                         row.innerHTML = `
-                            <td>${record.orderId}</td>
-                            <td>${record.paymentId}</td>
-                            <td>${record.course}</td>
-                            <td>₹${record.amount.toFixed(2)}</td>
-                            <td>${paymentDate}</td>
+                            <td>${record.studentName || 'N/A'}</td>
+                            <td>${record.paymentId || 'N/A'}</td>
+                            <td>${record.orderId || 'N/A'}</td>
+                            <td>₹${formattedAmount}</td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                         `;
                         historyTableBody.appendChild(row);
                     });
@@ -384,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
             proceedSection.innerHTML = `
                 <div class="dashboard-view">
                     <div class="welcome-banner">
-                        <marquee behavior="scroll" direction="left">Welcome to Student Portal</marquee>
+                        <h2>Welcome, ${studentData.name || 'Student'}</h2>
                     </div>
                     <div class="quick-links-panel">
                          <div class="quick-links-header">
