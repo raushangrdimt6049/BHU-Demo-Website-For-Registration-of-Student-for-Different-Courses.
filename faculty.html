@@ -155,6 +155,20 @@
             color: var(--btn-bg);
         }
 
+        /* Quick Links Panel Styles (from home.html) */
+        .quick-links-panel { background: var(--bg-body); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--input-border); margin-bottom: 2rem; }
+        .quick-links-header { display: flex; justify-content: space-between; align-items: center; margin-top: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--input-border); padding-bottom: 0.5rem; }
+        .quick-links-header h4 { margin: 0; border-bottom: none; padding-bottom: 0; text-align: left; font-size: 1.2rem; }
+        .quick-links-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }
+        .quick-link-item { display: block; padding: 1rem; text-decoration: none; color: #fff; border-radius: 8px; text-align: center; font-weight: 600; transition: transform 0.2s ease, box-shadow 0.2s ease; font-size: 1rem; }
+        .quick-link-item:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.2); }
+        .ql-dark-blue { background-color: #2980b9; }
+        .ql-light-blue { background-color: #85c1e9; }
+        .ql-green { background-color: #27ae60; }
+        .ql-orange { background-color: #f39c12; }
+        .ql-purple { background-color: #8e44ad; }
+        .ql-red { background-color: #c0392b; }
+
         /* Course List & Schedule List */
         .course-list, .schedule-list {
             list-style: none;
@@ -299,6 +313,19 @@
     <main class="login-main" id="faculty-content">
         <div class="faculty-dashboard">
             <h2 style="text-align: center; margin-bottom: 2rem; border-bottom: 1px solid var(--input-border); padding-bottom: 1rem;">Faculty Dashboard</h2>
+
+            <div class="quick-links-panel">
+                 <div class="quick-links-header">
+                    <h4>Quick Actions</h4>
+                 </div>
+                 <div class="quick-links-grid">
+                    <a href="#" class="quick-link-item ql-dark-blue">Mark Attendance</a>
+                    <a href="#" class="quick-link-item ql-green">Upload Material</a>
+                    <a href="#" class="quick-link-item ql-orange">Create Assignment</a>
+                    <a href="#" class="quick-link-item ql-purple">Enter Marks</a>
+                    <a href="#" class="quick-link-item ql-red">Post Notice</a>
+                </div>
+            </div>
 
             <div class="dashboard-grid">
                 <div class="dashboard-col-main">

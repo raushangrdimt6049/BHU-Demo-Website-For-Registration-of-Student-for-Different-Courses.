@@ -50,6 +50,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const noticeHistoryList = document.getElementById('noticeHistoryList');
     const closeNoticeHistoryBtn = document.getElementById('closeNoticeHistoryBtn');
 
+    // --- Search Modal Elements ---
+    const searchUsersBtn = document.getElementById('searchUsersBtn');
+    const searchModalOverlay = document.getElementById('searchModalOverlay');
+    const adminSearchInput = document.getElementById('adminSearchInput');
+    const adminSearchResultsList = document.getElementById('adminSearchResultsList');
+    const adminNoSearchResults = document.getElementById('admin-no-search-results');
+    const closeSearchModalBtn = document.getElementById('closeSearchModalBtn');
+
+    // --- User Detail Modal Elements ---
+    const userDetailModalOverlay = document.getElementById('userDetailModalOverlay');
+    const userDetailName = document.getElementById('userDetailName');
+    const studentDetailSection = document.getElementById('studentDetailSection');
+    const facultyDetailSection = document.getElementById('facultyDetailSection');
+    const closeUserDetailBtn = document.getElementById('closeUserDetailBtn');
+
     // --- Password Protection Logic ---
     if (passwordOverlay && adminPasswordForm) {
         passwordOverlay.style.display = 'flex'; // Make sure it's visible
@@ -66,6 +81,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 300); // Match the transition duration
                 adminContentWrapper.style.display = 'block';
                 showView('dashboard'); // Show the dashboard view within the main content
+
+                // --- New logic for Quick Action Button colors ---
+                const quickActionBtns = document.querySelectorAll('.quick-action-btn');
+                const colors = ['#2980b9', '#27ae60', '#f39c12', '#8e44ad', '#c0392b']; // Dark Blue, Green, Orange, Purple, Red
+
+                quickActionBtns.forEach((btn, index) => {
+                    // Apply colors in a repeating cycle
+                    btn.style.backgroundColor = colors[index % colors.length];
+                    btn.style.color = '#fff'; // Set text color to white for better contrast
+                    btn.style.borderColor = 'transparent'; // Remove border for a cleaner look
+                    // Remove old hover effects if they were class-based
+                    btn.classList.remove('add', 'post', 'report');
+                });
+
             } else {
                 passwordError.textContent = 'Incorrect username or password. Please try again.';
                 passwordError.style.display = 'block';
@@ -122,7 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Open Post Notice modal from side nav
     if (sideNavPostNoticeBtn) {
         sideNavPostNoticeBtn.addEventListener('click', (e) => {
-            e.preventDefault();
             e.preventDefault();
             if (postNoticeModalOverlay) {
                 postNoticeModalOverlay.style.display = 'flex';
@@ -257,6 +285,152 @@ document.addEventListener('DOMContentLoaded', () => {
             if (noticeHistoryModalOverlay) noticeHistoryModalOverlay.style.display = 'none';
         });
     }
+
+    // --- Debounce function for search ---
+    const debounce = (func, delay) => {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                func.apply(this, args);
+            }, delay);
+        };
+    };
+
+    // --- Search Modal Logic ---
+    if (searchUsersBtn) {
+        searchUsersBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (searchModalOverlay) {
+                searchModalOverlay.style.display = 'flex';
+                adminSearchInput.value = '';
+                adminSearchResultsList.innerHTML = '';
+                adminNoSearchResults.style.display = 'none';
+                adminSearchInput.focus();
+            }
+        });
+    }
+
+    if (closeSearchModalBtn) {
+        closeSearchModalBtn.addEventListener('click', () => {
+            if (searchModalOverlay) searchModalOverlay.style.display = 'none';
+        });
+    }
+
+    // --- User Detail Modal Logic ---
+    if (closeUserDetailBtn) {
+        closeUserDetailBtn.addEventListener('click', () => {
+            if (userDetailModalOverlay) userDetailModalOverlay.style.display = 'none';
+        });
+    }
+
+    // --- Search Input Handler ---
+    const handleSearch = async () => {
+        const query = adminSearchInput.value.trim();
+        adminSearchResultsList.innerHTML = '';
+        adminNoSearchResults.style.display = 'none';
+
+        if (query.length < 2) return;
+
+        try {
+            const response = await fetch(`/api/admin/search-users?query=${encodeURIComponent(query)}`);
+            const results = await response.json();
+
+            if (results.length === 0) {
+                adminNoSearchResults.style.display = 'block';
+                return;
+            }
+
+            results.forEach(user => {
+                const listItem = document.createElement('li');
+                const link = document.createElement('a');
+                link.href = '#';
+                link.dataset.identifier = user.identifier;
+                link.dataset.type = user.type;
+                link.innerHTML = `${user.name} <span class="user-type">${user.type}</span>`;
+                link.addEventListener('click', handleResultClick);
+                listItem.appendChild(link);
+                adminSearchResultsList.appendChild(listItem);
+            });
+        } catch (error) {
+            console.error('Search failed:', error);
+            adminSearchResultsList.innerHTML = '<li><p style="color: red;">Search failed. Please try again.</p></li>';
+        }
+    };
+
+    if (adminSearchInput) {
+        adminSearchInput.addEventListener('input', debounce(handleSearch, 300));
+    }
+
+    // --- Result Click Handler ---
+    const handleResultClick = async (e) => {
+        e.preventDefault();
+        const identifier = e.currentTarget.dataset.identifier;
+        const type = e.currentTarget.dataset.type;
+
+        if (searchModalOverlay) searchModalOverlay.style.display = 'none';
+        if (userDetailModalOverlay) userDetailModalOverlay.style.display = 'flex';
+
+        studentDetailSection.style.display = 'none';
+        facultyDetailSection.style.display = 'none';
+        userDetailName.textContent = 'Loading...';
+
+        try {
+            if (type === 'Student') {
+                const response = await fetch(`/student-data/${identifier}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Failed to fetch student details.');
+                displayStudentDetails(data.studentData);
+            } else if (type === 'Faculty') {
+                const response = await fetch(`/api/faculty/${identifier}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Failed to fetch faculty details.');
+                displayFacultyDetails(data);
+            }
+        } catch (error) {
+            console.error('Error fetching user details:', error);
+            userDetailName.textContent = 'Error';
+            alert(`Could not load details: ${error.message}`);
+        }
+    };
+
+    // --- Display Functions ---
+    const displayStudentDetails = (data) => {
+        studentDetailSection.style.display = 'block';
+        facultyDetailSection.style.display = 'none';
+        userDetailName.textContent = data.name || 'Student Details';
+        const formatDate = (ds) => ds ? new Date(ds).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+        document.getElementById('detailStudentRoll').textContent = data.rollNumber || 'N/A';
+        document.getElementById('detailStudentEnroll').textContent = data.enrollmentNumber || 'N/A';
+        document.getElementById('detailStudentEmail').textContent = data.email || 'N/A';
+        document.getElementById('detailStudentMobile').textContent = data.mobileNumber || 'N/A';
+        document.getElementById('detailStudentGender').textContent = data.gender || 'N/A';
+        document.getElementById('detailStudentDob').textContent = formatDate(data.dob);
+        document.getElementById('detailStudentAddress').textContent = [data.addressLine1, data.addressLine2, data.city, data.state, data.pincode].filter(Boolean).join(', ') || 'N/A';
+        document.getElementById('detailStudentCity').textContent = data.city || 'N/A';
+        document.getElementById('detailStudentFather').textContent = data.fatherName || 'N/A';
+        document.getElementById('detailStudentMother').textContent = data.motherName || 'N/A';
+        document.getElementById('detailStudentBoard10').textContent = data.board10 || 'N/A';
+        document.getElementById('detailStudentPercent10').textContent = data.percentage10 ? `${data.percentage10}%` : 'N/A';
+        document.getElementById('detailStudentBoard12').textContent = data.board12 || 'N/A';
+        document.getElementById('detailStudentPercent12').textContent = data.percentage12 ? `${data.percentage12}%` : 'N/A';
+        let mainCourse = 'Not enrolled';
+        if (data.selectedCourse && data.selectedCourse.trim().startsWith('{')) { try { const c = JSON.parse(data.selectedCourse); if (c.paymentStatus === 'paid') mainCourse = c.branch; } catch(e) {} }
+        document.getElementById('detailStudentCourse').textContent = mainCourse;
+        let hobbyCourses = 'None';
+        if (data.hobbyCourses && Array.isArray(data.hobbyCourses) && data.hobbyCourses.length > 0) { hobbyCourses = data.hobbyCourses.map(c => c.name).join(', '); }
+        document.getElementById('detailStudentHobby').textContent = hobbyCourses;
+    };
+
+    const displayFacultyDetails = (data) => {
+        facultyDetailSection.style.display = 'block';
+        studentDetailSection.style.display = 'none';
+        userDetailName.textContent = data.name || 'Faculty Details';
+        const formatDate = (ds) => ds ? new Date(ds).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+        document.getElementById('detailFacultyUsername').textContent = data.username || 'N/A';
+        document.getElementById('detailFacultyEmail').textContent = data.email || 'N/A';
+        document.getElementById('detailFacultyCreated').textContent = formatDate(data.createdAt);
+    };
 
     // --- Navigation Helper ---
     // This is good practice to have, even if session security isn't strict on this page.

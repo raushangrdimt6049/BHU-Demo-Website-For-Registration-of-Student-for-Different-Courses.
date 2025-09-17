@@ -350,11 +350,17 @@ async function generateAdmissionSummaryPdf(studentData, courseData, orderId) {
             <div class="footer"><p>This is a computer-generated document and does not require a signature.</p></div></div></main></body></html>`;
 
     // --- 2. Generate PDF ---
-    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+    });
     const page = await browser.newPage();
 
     await page.setContent(summaryHtmlContent, { waitUntil: 'networkidle0' });
-    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } });
 
     await browser.close();
     return pdfBuffer;
@@ -507,7 +513,13 @@ async function generatePaymentHistoryPdf(studentName, rollNumber, history) {
             </div>
         </body></html>`;
 
-    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const browser = await puppeteer.launch({
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+    });
     const page = await browser.newPage();
     await page.setContent(historyHtmlContent, { waitUntil: 'networkidle0' });
     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } });
@@ -1215,95 +1227,55 @@ app.get('/api/admin/notices', async (req, res) => {
     }
 });
 
-/**
- * =============================================================================
- * FACULTY-FACING ENDPOINTS
- * =============================================================================
- */
+// New endpoint for admin to search for users (students and faculty)
+app.get('/api/admin/search-users', async (req, res) => {
+    const { query } = req.query;
+    if (!query || query.trim().length < 2) {
+        return res.json([]); // Return empty if query is too short
+    }
+    console.log(`Admin searching for user with query: ${query}`);
 
-// Endpoint for faculty registration
-app.post('/api/faculty/register', jsonParser, async (req, res) => {
-    const { name, username, email, password, securityQuestion, securityAnswer } = req.body;
-    console.log(`Faculty registration attempt for username: ${username}`);
+    const searchTerm = `%${query.trim()}%`;
 
     try {
-        const passwordHash = await bcrypt.hash(password, saltRounds);
-        const query = `
-            INSERT INTO faculty (name, username, email, passwordhash, securityquestion, securityanswer)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, name, username, email;
-        `;
-        const values = [name, username, email.toLowerCase(), passwordHash, securityQuestion, securityAnswer];
-        const { rows } = await pool.query(query, values);
+        const studentQuery = pool.query(
+            "SELECT name, rollnumber as identifier, 'Student' as type FROM students WHERE name ILIKE $1 LIMIT 5",
+            [searchTerm]
+        );
+
+        const facultyQuery = pool.query(
+            "SELECT name, username as identifier, 'Faculty' as type FROM faculty WHERE name ILIKE $1 LIMIT 5",
+            [searchTerm]
+        );
+
+        const [studentResults, facultyResults] = await Promise.all([studentQuery, facultyQuery]);
+
+        const combinedResults = [...studentResults.rows, ...facultyResults.rows];
         
-        console.log(`Faculty member ${username} registered successfully.`);
-        res.status(201).json({ message: 'Faculty registration successful!', facultyData: rows[0] });
+        res.json(combinedResults);
     } catch (error) {
-        if (error.code === '23505') { // unique_violation
-            return res.status(409).json({ message: 'A faculty member with this username or email already exists.' });
-        }
-        console.error('Error during faculty registration:', error);
-        res.status(500).json({ message: 'Server error during registration.' });
+        console.error('Error during user search:', error);
+        res.status(500).json({ message: 'Server error during search.' });
     }
 });
 
-// Endpoint for faculty login
-app.post('/api/faculty/login', jsonParser, async (req, res) => {
-    const { loginIdentifier, password } = req.body;
-    console.log(`Faculty login attempt for identifier: ${loginIdentifier}`);
+// New endpoint to get full details for a specific faculty member
+app.get('/api/faculty/:identifier', async (req, res) => {
+    const { identifier } = req.params;
+    console.log(`Fetching full details for faculty: ${identifier}`);
 
     try {
-        // Allow login with either username or email
-        const query = 'SELECT * FROM faculty WHERE username = $1 OR email = $1';
-        const { rows } = await pool.query(query, [loginIdentifier]);
+        const query = 'SELECT id, username, name, email, createdat FROM faculty WHERE username = $1 OR id::text = $1';
+        const { rows } = await pool.query(query, [identifier]);
 
         if (rows.length === 0) {
-            return res.status(401).json({ message: 'Username or email not found.' });
+            return res.status(404).json({ message: 'Faculty member not found.' });
         }
 
-        const faculty = rows[0];
-        const isPasswordMatch = await bcrypt.compare(password, faculty.passwordhash);
-
-        if (!isPasswordMatch) {
-            return res.status(401).json({ message: 'Incorrect password.' });
-        }
-
-        delete faculty.passwordhash;
-        delete faculty.securityanswer;
-
-        res.status(200).json({ message: 'Login successful', facultyData: mapDbToCamelCase(faculty) });
+        res.json(mapDbToCamelCase(rows[0]));
     } catch (error) {
-        console.error('Error during faculty login:', error);
-        res.status(500).json({ message: 'Server error during login.' });
-    }
-});
-
-// Endpoint for faculty password reset
-app.post('/api/faculty/reset-password', jsonParser, async (req, res) => {
-    const { identifier, securityQuestion, securityAnswer, newPassword } = req.body;
-    console.log(`Faculty password reset attempt for identifier: ${identifier}`);
-
-    try {
-        const query = 'SELECT * FROM faculty WHERE (username = $1 OR email = $1) AND securityquestion = $2';
-        const { rows } = await pool.query(query, [identifier, securityQuestion]);
-
-        if (rows.length === 0) {
-            return res.status(401).json({ message: 'Invalid identifier or security question.' });
-        }
-
-        const faculty = rows[0];
-        if (faculty.securityanswer.toLowerCase() !== securityAnswer.toLowerCase()) {
-            return res.status(401).json({ message: 'Incorrect security answer.' });
-        }
-
-        const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
-        await pool.query('UPDATE faculty SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE id = $2', [newPasswordHash, faculty.id]);
-
-        console.log(`Password successfully reset for faculty: ${faculty.username}`);
-        res.status(200).json({ message: 'Password reset successful' });
-    } catch (error) {
-        console.error('Error during faculty password reset:', error);
-        res.status(500).json({ message: 'Server error during password reset.' });
+        console.error('Error fetching faculty details:', error);
+        res.status(500).json({ message: 'Server error while fetching faculty details.' });
     }
 });
 
