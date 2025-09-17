@@ -171,6 +171,16 @@
         .password-modal p {
             margin-bottom: 1.5rem;
         }
+        #noticeHistoryList { list-style: none; padding: 0; max-height: 60vh; overflow-y: auto; }
+        #noticeHistoryList li {
+            background-color: var(--bg-body);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            border: 1px solid var(--input-border);
+        }
+        #noticeHistoryList li p { margin: 0 0 0.5rem 0; }
+        #noticeHistoryList li small { color: var(--text-color-light); }
         .password-modal textarea {
             width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; font-size: 1rem; background-color: var(--input-bg); color: var(--text-color); resize: vertical;
         }
@@ -203,6 +213,19 @@
         </div>
     </div>
 
+    <!-- Notice History Modal -->
+    <div id="noticeHistoryModalOverlay" class="password-overlay" style="display: none;">
+        <div class="password-modal" style="max-width: 700px; text-align: left;">
+            <h3 style="text-align: center;">History of Posted Notices</h3>
+            <ul id="noticeHistoryList">
+                <!-- History will be populated here -->
+            </ul>
+            <div class="form-actions" style="justify-content: center; margin-top: 1rem;">
+                <button type="button" id="closeNoticeHistoryBtn" class="back-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div id="postNoticeModalOverlay" class="password-overlay" style="display: none;">
         <div class="password-modal">
             <h3>Post a Notice to All Students</h3>
@@ -214,6 +237,9 @@
                 <div class="form-actions">
                     <button type="submit" class="submit-btn">Send Notice</button>
                     <button type="button" id="cancelNoticeBtn" class="back-btn">Cancel</button>
+                </div>
+                <div style="text-align: center; margin-top: 1.5rem; border-top: 1px solid var(--input-border); padding-top: 1rem;">
+                    <button type="button" id="viewNoticeHistoryBtn" class="back-btn" style="background-color: var(--btn-secondary-bg); width: auto;">View History of Posted Notices</button>
                 </div>
                 <p id="notice-error" class="error-message" style="margin-top: 1rem;"></p>
             </form>
@@ -236,6 +262,7 @@
             <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Exams & Results</a></li>
             <li><a href="#" id="sideNavNotificationsLink"><span class="nav-icon">🔔</span> Notifications <span class="nav-badge">3</span></a></li>
+            <li><a href="#" id="sideNavPostNoticeBtn"><span class="nav-icon">📢</span> Post Notice</a></li>
             <li><a href="#"><span class="nav-icon">💳</span> Fees</a></li>
             <li><a href="#"><span class="nav-icon">🏛️</span> Library</a></li>
             <li><a href="#"><span class="nav-icon">🏨</span> Hostel</a></li>

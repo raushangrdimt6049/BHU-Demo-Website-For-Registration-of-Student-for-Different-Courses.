@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeSideNavBtn = document.getElementById('closeSideNavBtn');
     const adminLogoutBtn = document.getElementById('adminLogoutBtn');
     const sideNavNotificationsLink = document.getElementById('sideNavNotificationsLink');
+    const sideNavPostNoticeBtn = document.getElementById('sideNavPostNoticeBtn');
     // --- Notification Panel References ---
     const notificationBtn = document.getElementById('notificationBtn');
     const notificationPanel = document.getElementById('notificationPanel');
@@ -42,6 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const noticeMessageInput = document.getElementById('noticeMessageInput');
     const cancelNoticeBtn = document.getElementById('cancelNoticeBtn');
     const noticeError = document.getElementById('notice-error');
+    const viewNoticeHistoryBtn = document.getElementById('viewNoticeHistoryBtn');
+
+    // --- Notice History Modal Elements ---
+    const noticeHistoryModalOverlay = document.getElementById('noticeHistoryModalOverlay');
+    const noticeHistoryList = document.getElementById('noticeHistoryList');
+    const closeNoticeHistoryBtn = document.getElementById('closeNoticeHistoryBtn');
 
     // --- Password Protection Logic ---
     if (passwordOverlay && adminPasswordForm) {
@@ -109,6 +116,20 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             // For consistency with other portals, logout should return to the main index page.
             window.location.href = 'index.html';
+        });
+    }
+
+    // Open Post Notice modal from side nav
+    if (sideNavPostNoticeBtn) {
+        sideNavPostNoticeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.preventDefault();
+            if (postNoticeModalOverlay) {
+                postNoticeModalOverlay.style.display = 'flex';
+                noticeMessageInput.value = '';
+                noticeError.style.display = 'none';
+            }
+            closeNav(); // Close the side nav
         });
     }
 
@@ -185,6 +206,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Send Notice';
             }
+        });
+    }
+
+    // --- Notice History Modal Logic ---
+    if (viewNoticeHistoryBtn) {
+        viewNoticeHistoryBtn.addEventListener('click', async () => {
+            // Hide post notice modal
+            if (postNoticeModalOverlay) {
+                postNoticeModalOverlay.style.display = 'none';
+            }
+
+            // Show history modal and fetch data
+            if (noticeHistoryModalOverlay) {
+                noticeHistoryModalOverlay.style.display = 'flex';
+                noticeHistoryList.innerHTML = '<li><p>Loading history...</p></li>';
+
+                try {
+                    const response = await fetch('/api/admin/notices');
+                    const notices = await response.json();
+
+                    if (!response.ok) throw new Error(notices.message || 'Failed to fetch history.');
+
+                    noticeHistoryList.innerHTML = ''; // Clear loading message
+
+                    if (notices.length === 0) {
+                        noticeHistoryList.innerHTML = '<li><p>No notices have been posted yet.</p></li>';
+                    } else {
+                        notices.forEach(notice => {
+                            const listItem = document.createElement('li');
+                            const date = new Date(notice.createdAt).toLocaleString('en-IN', {
+                                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                            });
+                            listItem.innerHTML = `
+                                <p>${notice.message}</p>
+                                <small>Posted on: ${date}</small>
+                            `;
+                            noticeHistoryList.appendChild(listItem);
+                        });
+                    }
+                } catch (error) {
+                    noticeHistoryList.innerHTML = `<li><p style="color: red;">Error: ${error.message}</p></li>`;
+                }
+            }
+        });
+    }
+
+    if (closeNoticeHistoryBtn) {
+        closeNoticeHistoryBtn.addEventListener('click', () => {
+            if (noticeHistoryModalOverlay) noticeHistoryModalOverlay.style.display = 'none';
         });
     }
 

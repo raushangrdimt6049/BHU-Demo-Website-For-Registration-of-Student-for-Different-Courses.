@@ -1194,6 +1194,27 @@ app.get('/student-data/:rollNumber', async (req, res) => {
  * =============================================================================
  */
 
+// New endpoint to get history of admin notices
+app.get('/api/admin/notices', async (req, res) => {
+    console.log('Fetching history of admin notices.');
+    try {
+        // Group by message and get the most recent creation date for each unique message.
+        const query = `
+            SELECT message, MAX(createdat) as createdat
+            FROM notifications
+            WHERE type = 'admin_notice'
+            GROUP BY message
+            ORDER BY MAX(createdat) DESC;
+        `;
+        const { rows } = await pool.query(query);
+        // The mapDbToCamelCase function will correctly handle 'createdat'
+        res.json(rows.map(notice => mapDbToCamelCase(notice)));
+    } catch (error) {
+        console.error('Error fetching admin notice history:', error);
+        res.status(500).json({ message: 'Server error while fetching notice history.' });
+    }
+});
+
 // New endpoint for admin to send a notification to all students
 app.post('/api/admin/send-notification', jsonParser, async (req, res) => {
     const { message } = req.body;
