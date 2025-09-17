@@ -180,6 +180,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const allNotificationsModalOverlay = document.getElementById('allNotificationsModalOverlay');
         const closeAllNotificationsModalBtn = document.getElementById('closeAllNotificationsModalBtn');
 
+        // --- Notification Detail Modal ---
+        const notificationDetailModalOverlay = document.getElementById('notificationDetailModalOverlay');
+        const closeNotificationDetailModalBtn = document.getElementById('closeNotificationDetailModalBtn');
+        const notificationDetailTitle = document.getElementById('notificationDetailTitle');
+        const notificationDetailMessage = document.getElementById('notificationDetailMessage');
+        const notificationDetailDate = document.getElementById('notificationDetailDate');
+
 
         // Helper function to generate HTML for each application step
         function createStepHTML(title, description, link, isDone, isEnabled) {
@@ -545,6 +552,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeFeeStructureModalBtn) closeFeeStructureModalBtn.addEventListener('click', () => closeModal(feeStructureModalOverlay));
         if (feeStructureModalOverlay) feeStructureModalOverlay.addEventListener('click', (event) => { if (event.target === feeStructureModalOverlay) closeModal(feeStructureModalOverlay); });
 
+        // --- Notification Detail Modal Logic ---
+        const openNotificationDetailModal = (notification) => {
+            if (!notificationDetailModalOverlay) return;
+
+            let title = 'Notification Details';
+            if (notification.type === 'admin_notice') {
+                title = 'Notice from Admin';
+            } else if (notification.type === 'new_course') {
+                title = 'Course Enrollment Confirmation';
+            }
+
+            notificationDetailTitle.textContent = title;
+            notificationDetailMessage.textContent = notification.message;
+            notificationDetailDate.textContent = `Received: ${formatTimeAgo(notification.createdAt)}`;
+
+            if (notificationPanel) notificationPanel.classList.remove('active'); // Close dropdown
+            openModal(notificationDetailModalOverlay);
+        };
+
+        if (closeNotificationDetailModalBtn) closeNotificationDetailModalBtn.addEventListener('click', () => closeModal(notificationDetailModalOverlay));
+        if (notificationDetailModalOverlay) notificationDetailModalOverlay.addEventListener('click', (event) => { if (event.target === notificationDetailModalOverlay) closeModal(notificationDetailModalOverlay); });
+
         // --- Side Navigation Action Listeners ---
         if (sideNavLogoutBtn) {
             sideNavLogoutBtn.addEventListener('click', (e) => {
@@ -688,11 +717,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Perform action based on type
-            if (notification.type === 'new_course') {
-                if (notificationPanel) notificationPanel.classList.remove('active'); // Close dropdown
-                openMyCoursesModal();
+            switch (notification.type) {
+                case 'new_course':
+                    // For course enrollment, it's more useful to go directly to the course list
+                    if (notificationPanel) notificationPanel.classList.remove('active'); // Close dropdown
+                    openMyCoursesModal();
+                    break;
+                case 'admin_notice':
+                default:
+                    // For general notices and other types, open the detail view
+                    openNotificationDetailModal(notification);
+                    break;
             }
-            // Add other actions for other notification types here
         };
 
         // Helper to format time

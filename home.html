@@ -675,6 +675,19 @@
             </div>
         </div>
     </div>
+    <!-- Notification Detail Modal -->
+    <div id="notificationDetailModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 600px;">
+            <button id="closeNotificationDetailModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view"> <!-- Re-using class for h4 style -->
+                <h4 id="notificationDetailTitle" style="margin-top: 0; text-align: left; border-bottom: 1px solid var(--input-border); padding-bottom: 0.75rem;">Notification Details</h4>
+                <div id="notificationDetailContent" style="margin-top: 1.5rem; line-height: 1.7;">
+                    <p id="notificationDetailMessage"></p>
+                    <small id="notificationDetailDate" style="display: block; margin-top: 1rem; text-align: right; color: var(--text-color-light);"></small>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="home.js"></script>
 </body>
 </html>

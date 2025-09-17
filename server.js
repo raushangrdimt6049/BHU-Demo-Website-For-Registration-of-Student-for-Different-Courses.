@@ -1215,6 +1215,98 @@ app.get('/api/admin/notices', async (req, res) => {
     }
 });
 
+/**
+ * =============================================================================
+ * FACULTY-FACING ENDPOINTS
+ * =============================================================================
+ */
+
+// Endpoint for faculty registration
+app.post('/api/faculty/register', jsonParser, async (req, res) => {
+    const { name, username, email, password, securityQuestion, securityAnswer } = req.body;
+    console.log(`Faculty registration attempt for username: ${username}`);
+
+    try {
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        const query = `
+            INSERT INTO faculty (name, username, email, passwordhash, securityquestion, securityanswer)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, name, username, email;
+        `;
+        const values = [name, username, email.toLowerCase(), passwordHash, securityQuestion, securityAnswer];
+        const { rows } = await pool.query(query, values);
+        
+        console.log(`Faculty member ${username} registered successfully.`);
+        res.status(201).json({ message: 'Faculty registration successful!', facultyData: rows[0] });
+    } catch (error) {
+        if (error.code === '23505') { // unique_violation
+            return res.status(409).json({ message: 'A faculty member with this username or email already exists.' });
+        }
+        console.error('Error during faculty registration:', error);
+        res.status(500).json({ message: 'Server error during registration.' });
+    }
+});
+
+// Endpoint for faculty login
+app.post('/api/faculty/login', jsonParser, async (req, res) => {
+    const { loginIdentifier, password } = req.body;
+    console.log(`Faculty login attempt for identifier: ${loginIdentifier}`);
+
+    try {
+        // Allow login with either username or email
+        const query = 'SELECT * FROM faculty WHERE username = $1 OR email = $1';
+        const { rows } = await pool.query(query, [loginIdentifier]);
+
+        if (rows.length === 0) {
+            return res.status(401).json({ message: 'Username or email not found.' });
+        }
+
+        const faculty = rows[0];
+        const isPasswordMatch = await bcrypt.compare(password, faculty.passwordhash);
+
+        if (!isPasswordMatch) {
+            return res.status(401).json({ message: 'Incorrect password.' });
+        }
+
+        delete faculty.passwordhash;
+        delete faculty.securityanswer;
+
+        res.status(200).json({ message: 'Login successful', facultyData: mapDbToCamelCase(faculty) });
+    } catch (error) {
+        console.error('Error during faculty login:', error);
+        res.status(500).json({ message: 'Server error during login.' });
+    }
+});
+
+// Endpoint for faculty password reset
+app.post('/api/faculty/reset-password', jsonParser, async (req, res) => {
+    const { identifier, securityQuestion, securityAnswer, newPassword } = req.body;
+    console.log(`Faculty password reset attempt for identifier: ${identifier}`);
+
+    try {
+        const query = 'SELECT * FROM faculty WHERE (username = $1 OR email = $1) AND securityquestion = $2';
+        const { rows } = await pool.query(query, [identifier, securityQuestion]);
+
+        if (rows.length === 0) {
+            return res.status(401).json({ message: 'Invalid identifier or security question.' });
+        }
+
+        const faculty = rows[0];
+        if (faculty.securityanswer.toLowerCase() !== securityAnswer.toLowerCase()) {
+            return res.status(401).json({ message: 'Incorrect security answer.' });
+        }
+
+        const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+        await pool.query('UPDATE faculty SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE id = $2', [newPasswordHash, faculty.id]);
+
+        console.log(`Password successfully reset for faculty: ${faculty.username}`);
+        res.status(200).json({ message: 'Password reset successful' });
+    } catch (error) {
+        console.error('Error during faculty password reset:', error);
+        res.status(500).json({ message: 'Server error during password reset.' });
+    }
+});
+
 // New endpoint for admin to send a notification to all students
 app.post('/api/admin/send-notification', jsonParser, async (req, res) => {
     const { message } = req.body;
