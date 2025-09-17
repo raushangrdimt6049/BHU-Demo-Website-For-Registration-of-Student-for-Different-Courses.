@@ -63,6 +63,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // --- Hobby Course Data ---
+        const HOBBY_COURSES = {
+            "Dancing": { name: "Dancing", fee: 50000 }, // ₹500.00
+            "Music": { name: "Music (Vocal)", fee: 60000 }, // ₹600.00
+            "Guitar": { name: "Guitar Lessons", fee: 75000 }, // ₹750.00
+            "Painting": { name: "Painting & Sketching", fee: 45000 }, // ₹450.00
+            "Yoga": { name: "Yoga & Wellness", fee: 30000 } // ₹300.00
+        };
+
         // --- Course Data (from course-selection.js) ---
         const COURSES = {
             "Physics": { name: "Physics", fee: 150000 }, // ₹1,500.00
@@ -91,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sideNavOverlay = document.getElementById('sideNavOverlay');
         const closeSideNavBtn = document.getElementById('closeSideNavBtn');
         const sideNavDashboardLink = document.querySelector('a[href="home.html"]');
+        const sideNavMyCoursesBtn = document.getElementById('sideNavMyCoursesBtn');
         const sideNavFeeStructureBtn = document.getElementById('sideNavFeeStructureBtn');
         const sideNavSettingsBtn = document.getElementById('sideNavSettingsBtn');
         const sideNavLogoutBtn = document.getElementById('sideNavLogoutBtn');
@@ -135,6 +145,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const closeHistoryModalBtn = document.getElementById('closeHistoryModalBtn');
         const historyTableBody = document.getElementById('history-table-body');
         const noHistoryMessage = document.getElementById('no-history-message');
+
+        // --- My Courses Modal References ---
+        const myCoursesModalOverlay = document.getElementById('myCoursesModalOverlay');
+        const closeMyCoursesModalBtn = document.getElementById('closeMyCoursesModalBtn');
+        const enrolledCoursesContainer = document.getElementById('enrolledCoursesContainer');
+        const showHobbyCoursesBtn = document.getElementById('showHobbyCoursesBtn');
+        const hobbyCourseSelectionContainer = document.getElementById('hobbyCourseSelectionContainer');
+        const hobbyCoursesList = document.getElementById('hobby-courses-list');
+        const proceedToHobbyPaymentBtn = document.getElementById('proceedToHobbyPaymentBtn');
 
         // --- Fee Structure Modal References ---
         const feeStructureModalOverlay = document.getElementById('feeStructureModalOverlay');
@@ -234,6 +253,96 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeProfileModalBtn) closeProfileModalBtn.addEventListener('click', () => closeModal(profileModalOverlay));
         if (profileModalOverlay) profileModalOverlay.addEventListener('click', (event) => { if (event.target === profileModalOverlay) closeModal(profileModalOverlay); });
 
+        // --- My Courses Modal Logic ---
+        const populateEnrolledCourses = () => {
+            if (!enrolledCoursesContainer) return;
+
+            let tableHTML = '<table><thead><tr><th>Course Name</th><th>Amount Paid</th></tr></thead><tbody>';
+            let hasCourses = false;
+
+            // 1. Main admission course
+            if (studentData.selectedCourse && studentData.selectedCourse.trim().startsWith('{')) {
+                try {
+                    const mainCourse = JSON.parse(studentData.selectedCourse);
+                    if (mainCourse.paymentStatus === 'paid') {
+                        tableHTML += `<tr><td>${mainCourse.branch} (Admission)</td><td>₹${(mainCourse.amount / 100).toLocaleString('en-IN')}</td></tr>`;
+                        hasCourses = true;
+                    }
+                } catch (e) { console.error("Error parsing main course", e); }
+            }
+
+            // 2. Hobby courses (from the new 'hobbyCourses' array)
+            if (studentData.hobbyCourses && Array.isArray(studentData.hobbyCourses)) {
+                studentData.hobbyCourses.forEach(course => {
+                    tableHTML += `<tr><td>${course.name} (Hobby)</td><td>₹${(course.fee / 100).toLocaleString('en-IN')}</td></tr>`;
+                    hasCourses = true;
+                });
+            }
+
+            if (!hasCourses) {
+                enrolledCoursesContainer.innerHTML = '<p class="no-history-message">You have not enrolled in any courses yet.</p>';
+            } else {
+                tableHTML += '</tbody></table>';
+                enrolledCoursesContainer.innerHTML = tableHTML;
+            }
+        };
+
+        const populateHobbyCourses = () => {
+            if (!hobbyCoursesList) return;
+            hobbyCoursesList.innerHTML = ''; // Clear list
+
+            Object.keys(HOBBY_COURSES).forEach(key => {
+                const course = HOBBY_COURSES[key];
+                const radioId = `hobby-${key.replace(/\s+/g, '-')}`;
+
+                const radioWrapper = document.createElement('label');
+                radioWrapper.className = 'radio-option';
+                radioWrapper.htmlFor = radioId;
+
+                const radioInput = document.createElement('input');
+                radioInput.type = 'radio';
+                radioInput.name = 'hobby-subject';
+                radioInput.value = key;
+                radioInput.id = radioId;
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'course-name';
+                nameSpan.textContent = course.name;
+
+                const feeSpan = document.createElement('span');
+                feeSpan.className = 'course-fee';
+                feeSpan.textContent = `₹${(course.fee / 100).toLocaleString('en-IN')}`;
+
+                radioWrapper.appendChild(radioInput);
+                radioWrapper.appendChild(nameSpan);
+                radioWrapper.appendChild(feeSpan);
+
+                hobbyCoursesList.appendChild(radioWrapper);
+            });
+
+            // Add click handler for highlighting
+            hobbyCoursesList.addEventListener('click', (event) => {
+                const targetLabel = event.target.closest('.radio-option');
+                if (targetLabel) {
+                    hobbyCoursesList.querySelectorAll('.radio-option').forEach(label => label.classList.remove('selected'));
+                    targetLabel.classList.add('selected');
+                }
+            });
+        };
+
+        const openMyCoursesModal = () => {
+            populateEnrolledCourses();
+            populateHobbyCourses();
+            hobbyCourseSelectionContainer.style.display = 'none'; // Reset view
+            showHobbyCoursesBtn.style.display = 'inline-block'; // Ensure button is visible
+            openModal(myCoursesModalOverlay);
+            closeNav();
+        };
+
+        if (sideNavMyCoursesBtn) sideNavMyCoursesBtn.addEventListener('click', (e) => { e.preventDefault(); openMyCoursesModal(); });
+        if (closeMyCoursesModalBtn) closeMyCoursesModalBtn.addEventListener('click', () => closeModal(myCoursesModalOverlay));
+        if (myCoursesModalOverlay) myCoursesModalOverlay.addEventListener('click', (event) => { if (event.target === myCoursesModalOverlay) closeModal(myCoursesModalOverlay); });
+
         // --- Fee Structure Modal Logic ---
         const populateFeeStructureTable = () => {
             if (!feeStructureContainer) return;
@@ -293,6 +402,27 @@ document.addEventListener('DOMContentLoaded', () => {
             openModal(feeStructureModalOverlay);
             closeNav();
         };
+
+        if (showHobbyCoursesBtn) {
+            showHobbyCoursesBtn.addEventListener('click', () => {
+                hobbyCourseSelectionContainer.style.display = 'block';
+                showHobbyCoursesBtn.style.display = 'none'; // Hide the button after clicking
+            });
+        }
+
+        if (proceedToHobbyPaymentBtn) {
+            proceedToHobbyPaymentBtn.addEventListener('click', () => {
+                const selectedHobbyInput = hobbyCoursesList.querySelector('input[name="hobby-subject"]:checked');
+                if (!selectedHobbyInput) {
+                    alert('Please select a hobby course to proceed.');
+                    return;
+                }
+                const selectedCourseKey = selectedHobbyInput.value;
+                sessionStorage.setItem('newHobbyCourse', JSON.stringify(HOBBY_COURSES[selectedCourseKey]));
+                sessionStorage.setItem('navigationAllowed', 'true');
+                window.location.href = 'hobby-payment.html';
+            });
+        }
 
         // --- Settings Modal Logic ---
         const openSettingsModal = () => {
@@ -380,6 +510,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeHistoryModalBtn) closeHistoryModalBtn.addEventListener('click', () => closeModal(historyModalOverlay));
         if (historyModalOverlay) historyModalOverlay.addEventListener('click', (event) => { if (event.target === historyModalOverlay) closeModal(historyModalOverlay); });
 
+        // Listeners for closing the My Courses modal
+        if (closeMyCoursesModalBtn) closeMyCoursesModalBtn.addEventListener('click', () => closeModal(myCoursesModalOverlay));
+        if (myCoursesModalOverlay) myCoursesModalOverlay.addEventListener('click', (event) => { if (event.target === myCoursesModalOverlay) closeModal(myCoursesModalOverlay); });
+
         // Listeners for closing the new fee structure modal
         if (closeFeeStructureModalBtn) closeFeeStructureModalBtn.addEventListener('click', () => closeModal(feeStructureModalOverlay));
         if (feeStructureModalOverlay) feeStructureModalOverlay.addEventListener('click', (event) => { if (event.target === feeStructureModalOverlay) closeModal(feeStructureModalOverlay); });
@@ -461,8 +595,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // --- POST-PAYMENT VIEW (LOCKED) ---
             // --- Define Searchable Items for POST-PAYMENT view ---
             searchableItems = [
-                { title: 'Dashboard', keywords: 'home main', action: { type: 'link', href: 'home.html' } },
-                { title: 'Enrolled Courses', keywords: 'my courses subjects enrolled', action: { type: 'link', href: '#' } },
+                { title: 'Dashboard', keywords: 'home main', action: { type: 'function', func: () => { closeModal(searchModalOverlay); } } },
+                { title: 'My Courses', keywords: 'my courses subjects enrolled', action: { type: 'function', func: openMyCoursesModal } },
                 { title: 'Admission Summary', keywords: 'form details', action: { type: 'link', href: 'payment-summary.html' } },
                 { title: 'Attendance Details', keywords: 'present absent', action: { type: 'link', href: '#' } },
                 { title: 'Upcoming Events', keywords: 'calendar', action: { type: 'link', href: '#' } },
@@ -488,7 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <button id="openSearchModalBtn" class="search-icon-btn" title="Search">🔍</button>
                          </div>
                          <div class="quick-links-grid">
-                            <a href="#" class="quick-link-item">Enrolled Courses</a>
+                            <a href="#" id="quickLinkMyCourses" class="quick-link-item">My Courses</a>
                             <a href="payment-summary.html" class="quick-link-item">Admission Summary</a>
                             <a href="#" class="quick-link-item">Attendance Details</a>
                             <a href="#" class="quick-link-item">Upcoming Events</a>
@@ -517,6 +651,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // --- Attach event listeners for this view ---
+            const quickLinkMyCourses = document.getElementById('quickLinkMyCourses');
+            if (quickLinkMyCourses) {
+                quickLinkMyCourses.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openMyCoursesModal();
+                });
+            }
+
             const quickLinkPaymentHistory = document.getElementById('quickLinkPaymentHistory');
             if (quickLinkPaymentHistory) {
                 quickLinkPaymentHistory.addEventListener('click', (e) => {
@@ -547,7 +689,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // --- Define Searchable Items for PRE-PAYMENT view ---
             searchableItems = [
-                { title: 'Dashboard', keywords: 'home main progress', action: { type: 'link', href: 'home.html' } },
+                { title: 'Dashboard', keywords: 'home main progress', action: { type: 'function', func: () => { closeModal(searchModalOverlay); } } },
+                { title: 'My Courses', keywords: 'my courses subjects enrolled', action: { type: 'function', func: openMyCoursesModal } },
                 { title: 'Address & Parents Detail', keywords: 'contact parent', action: { type: 'link', href: 'contact-details.html' }, enabled: true },
                 { title: 'Academic Details', keywords: 'marks results 10th 12th', action: { type: 'link', href: 'academic-details.html' }, enabled: contactDone },
                 { title: 'Upload Documents', keywords: 'photo signature marksheet', action: { type: 'link', href: 'document-upload.html' }, enabled: academicDone },

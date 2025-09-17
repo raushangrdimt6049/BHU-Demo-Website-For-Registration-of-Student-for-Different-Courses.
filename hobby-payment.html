@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hobby Course Payment - DAV PG College</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="login.css"> <!-- Re-use styles -->
+    <link rel="stylesheet" href="payment.css"> <!-- Re-use styles -->
+    <script>
+        // --- Strict Session Security Check ---
+        (function() {
+            const isAllowed = sessionStorage.getItem('navigationAllowed') === 'true';
+            if (isAllowed) {
+                sessionStorage.removeItem('navigationAllowed');
+            } else {
+                sessionStorage.clear();
+                window.location.replace('index.html');
+            }
+            if (!sessionStorage.getItem('currentStudent') || !sessionStorage.getItem('newHobbyCourse')) {
+                alert('Required course data not found. Redirecting to home.');
+                sessionStorage.setItem('navigationAllowed', 'true');
+                window.location.replace('home.html');
+            }
+        })();
+    </script>
+    <style>
+        .header-branding { justify-content: center; }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-branding">
+            <div class="logo-container">
+                <img src="LMS Logo.png" alt="LMS Logo" class="logo">
+            </div>
+        </div>
+    </header>
+
+    <main class="login-main">
+        <div class="welcome-container" style="max-width: 600px;">
+            <div class="login-form">
+                <h3>Confirm Your Payment</h3>
+                <p>Please confirm the details below before making the payment for your hobby course.</p>
+                
+                <div class="payment-summary">
+                    <div class="summary-item">
+                        <label>Student Name:</label>
+                        <span id="studentName"></span>
+                    </div>
+                    <div class="summary-item">
+                        <label>Roll Number:</label>
+                        <span id="rollNumber"></span>
+                    </div>
+                    <div class="summary-item">
+                        <label>Hobby Course:</label>
+                        <span id="courseName"></span>
+                    </div>
+                    <div class="summary-item payment-total">
+                        <label>Amount to Pay:</label>
+                        <span id="paymentAmount"></span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <a href="home.html" class="back-btn">Cancel</a>
+                    <button id="payNowBtn" class="submit-btn">Pay Now</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="theme.js"></script>
+    <script src="hobby-payment.js"></script>
+</body>
+</html>

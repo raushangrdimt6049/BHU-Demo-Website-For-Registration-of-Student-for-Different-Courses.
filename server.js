@@ -931,6 +931,75 @@ app.post('/verify-payment', jsonParser, async (req, res) => {
     }
 });
 
+// POST endpoint to verify HOBBY COURSE payment signature
+app.post('/verify-hobby-payment', jsonParser, async (req, res) => {
+    console.log("Received a request at /verify-hobby-payment endpoint.");
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, rollNumber, course } = req.body;
+    const key_secret = razorpay.key_secret;
+
+    const shasum = crypto.createHmac('sha256', key_secret);
+    shasum.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const generated_signature = shasum.digest('hex');
+
+    if (generated_signature === razorpay_signature) {
+        console.log("Hobby course payment is successful and signature is valid.");
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // --- Part 1: Get current student data ---
+            const studentResult = await client.query('SELECT name, hobbycourses FROM students WHERE rollnumber = $1', [rollNumber]);
+            if (studentResult.rows.length === 0) {
+                throw new Error('Student not found during payment verification.');
+            }
+            const studentName = studentResult.rows[0].name;
+            // Get existing hobby courses, defaulting to an empty array if null/undefined
+            const existingHobbyCourses = studentResult.rows[0].hobbycourses || [];
+
+            // --- Part 2: Save Payment History ---
+            const paymentQuery = `
+                INSERT INTO payments (paymentid, orderid, studentrollnumber, studentname, coursedetails, amount, currency, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+            `;
+            const paymentValues = [
+                razorpay_payment_id, razorpay_order_id, rollNumber, studentName,
+                `${course.name} (Hobby)`, course.fee / 100, 'INR', 'success'
+            ];
+            await client.query(paymentQuery, paymentValues);
+
+            // --- Part 3: Update Student Record with the new hobby course ---
+            // Add the new course to the array of existing courses
+            const updatedHobbyCourses = [...existingHobbyCourses, course];
+
+            const updateStudentQuery = `
+                UPDATE students 
+                SET hobbycourses = $1, updatedat = CURRENT_TIMESTAMP 
+                WHERE rollnumber = $2 
+                RETURNING *;
+            `;
+            const studentUpdateResult = await client.query(updateStudentQuery, [JSON.stringify(updatedHobbyCourses), rollNumber]);
+
+            await client.query('COMMIT');
+
+            const finalUpdatedStudent = studentUpdateResult.rows[0];
+            delete finalUpdatedStudent.passwordhash;
+            console.log('Hobby course payment history saved and student record updated for roll number:', rollNumber);
+            
+            res.json({ status: 'success', orderId: razorpay_order_id, studentData: mapDbToCamelCase(finalUpdatedStudent) });
+        } catch (error) {
+            await client.query('ROLLBACK');
+            console.error('Error saving hobby course payment:', error);
+            res.status(500).json({ status: 'failure', message: 'Error saving payment details.' });
+        } finally {
+            client.release();
+        }
+    } else {
+        console.error("Hobby course payment verification failed. Signature mismatch.");
+        res.status(400).json({ status: 'failure' });
+    }
+});
+
 app.get('/payment-history/:rollNumber', async (req, res) => {
     const { rollNumber } = req.params;
     console.log(`Fetching payment history for roll number: ${rollNumber}`);
@@ -1161,6 +1230,7 @@ function mapDbToCamelCase(dbObject) {
             percentage12: 'percentage12',
             year12: 'year12',
             selectedcourse: 'selectedCourse',
+            hobbycourses: 'hobbyCourses',
             createdat: 'createdAt',
             updatedat: 'updatedAt'
         };

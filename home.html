@@ -544,6 +544,36 @@
             </div>
         </div>
     </div>
+    <!-- My Courses Modal -->
+    <div id="myCoursesModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 800px;">
+            <button id="closeMyCoursesModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view">
+                <h4 style="margin-top: 0;">My Enrolled Courses</h4>
+                
+                <!-- Section for currently enrolled courses -->
+                <div id="enrolledCoursesContainer" class="history-table-container" style="margin-bottom: 2rem;">
+                    <!-- Enrolled courses will be populated here by JS -->
+                </div>
+
+                <!-- Button to show hobby course selection -->
+                <div id="addCourseBtnContainer" style="text-align: center; margin-bottom: 2rem;">
+                    <button id="showHobbyCoursesBtn" class="submit-btn" style="width: auto;">Add Additional Course</button>
+                </div>
+
+                <!-- Section for selecting new hobby courses (initially hidden) -->
+                <div id="hobbyCourseSelectionContainer" style="display: none;">
+                    <h4 style="text-align: center; margin-top: 2rem; margin-bottom: 1rem;">Select a Hobby Course</h4>
+                    <div id="hobby-courses-list" class="radio-group-container" style="max-height: 30vh;">
+                        <!-- Hobby courses will be populated here by JS -->
+                    </div>
+                    <div class="button-group" style="margin-top: 1.5rem;">
+                        <button id="proceedToHobbyPaymentBtn" class="submit-btn">Proceed to Payment</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Fee Structure & History Modal -->
     <div id="feeStructureModalOverlay" class="profile-modal-overlay">
         <div class="profile-modal-content" style="max-width: 800px;">
