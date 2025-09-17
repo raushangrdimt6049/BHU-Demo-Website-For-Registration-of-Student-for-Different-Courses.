@@ -171,6 +171,9 @@
         .password-modal p {
             margin-bottom: 1.5rem;
         }
+        .password-modal textarea {
+            width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; font-size: 1rem; background-color: var(--input-bg); color: var(--text-color); resize: vertical;
+        }
 
         /* Stack buttons in the admin login modal */
         .password-modal .form-actions {
@@ -196,6 +199,23 @@
                     <a href="index.html" class="back-btn">Back to Main Portal</a>
                 </div>
                 <p id="password-error" class="error-message" style="margin-top: 1rem;"></p>
+            </form>
+        </div>
+    </div>
+
+    <div id="postNoticeModalOverlay" class="password-overlay" style="display: none;">
+        <div class="password-modal">
+            <h3>Post a Notice to All Students</h3>
+            <p>This message will be sent as a notification to every registered student.</p>
+            <form id="postNoticeForm">
+                <div class="form-group">
+                    <textarea id="noticeMessageInput" placeholder="Enter your notice message here..." required rows="5"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn">Send Notice</button>
+                    <button type="button" id="cancelNoticeBtn" class="back-btn">Cancel</button>
+                </div>
+                <p id="notice-error" class="error-message" style="margin-top: 1rem;"></p>
             </form>
         </div>
     </div>
@@ -299,8 +319,7 @@
                         <div class="actions-container">
                             <a href="#" class="quick-action-btn add"><span class="action-icon">➕</span> Add Student</a>
                             <a href="#" class="quick-action-btn add"><span class="action-icon">➕</span> Add Faculty</a>
-                            <a href="#" class="quick-action-btn create"><span class="action-icon">➕</span> Create Course</a>
-                            <a href="#" class="quick-action-btn post"><span class="action-icon">📢</span> Post Notice</a>
+                            <a href="#" id="postNoticeBtn" class="quick-action-btn post"><span class="action-icon">📢</span> Post Notice</a>
                             <a href="#" class="quick-action-btn report"><span class="action-icon">📄</span> Generate Report</a>
                         </div>
                     </div>

@@ -149,6 +149,7 @@
         .notification-icon.fee { background-color: #e6f7ff; color: #1890ff; }
         .notification-icon.assignment { background-color: #fffbe6; color: #faad14; }
         .notification-icon.result { background-color: #f6ffed; color: #52c41a; }
+        .notification-icon.notice { background-color: #fff0f6; color: #eb2f96; }
         .notification-content p { margin: 0 0 0.25rem 0; font-size: 0.9rem; line-height: 1.4; }
         .notification-content small { font-size: 0.8rem; color: var(--text-color-light); }
 
@@ -356,7 +357,7 @@
         /* --- Styles for Course Selection Radio/Checkbox Groups --- */
         .radio-group-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: 1fr; /* This creates a single, responsive column */
             gap: 0.75rem;
             border: 1px solid var(--input-border);
             border-radius: 6px;
@@ -578,7 +579,7 @@
                     </table>
                     <p id="no-history-message" class="no-history-message" style="display: none;">No payment history found.</p>
                 </div>
-                <div class="modal-footer" style="text-align: center; margin-top: 1.5rem;">
+                <div class="modal-footer" style="display: flex; justify-content: center; margin-top: 1.5rem;">
                     <button id="printHistoryPdfBtn" class="submit-btn" style="width: auto;">Print as PDF</button>
                 </div>
             </div>
@@ -605,15 +606,15 @@
     </div>
     <!-- Add Hobby Course Modal -->
     <div id="addHobbyCourseModalOverlay" class="profile-modal-overlay">
-        <div class="profile-modal-content" style="max-width: 800px;">
+        <div class="profile-modal-content" style="max-width: 600px;">
             <button id="closeAddHobbyCourseModalBtn" class="close-modal-btn">&times;</button>
             <div class="settings-view">
                 <h4 style="text-align: center; margin-top: 0; margin-bottom: 1rem;">Select a Hobby Course</h4>
-                <div id="hobby-courses-list" class="radio-group-container" style="max-height: 40vh;">
+                <div id="hobby-courses-list" class="radio-group-container">
                     <!-- Hobby courses will be populated here by JS -->
                 </div>
-                <div class="button-group" style="margin-top: 1.5rem;">
-                    <button id="proceedToHobbyPaymentBtn" class="submit-btn">Proceed to Payment</button>
+                <div class="button-group" style="margin-top: 1rem;">
+                    <button id="proceedToHobbyPaymentBtn" class="submit-btn" style="width: auto;">Proceed to Payment</button>
                 </div>
             </div>
         </div>

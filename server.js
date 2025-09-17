@@ -1194,6 +1194,46 @@ app.get('/student-data/:rollNumber', async (req, res) => {
  * =============================================================================
  */
 
+// New endpoint for admin to send a notification to all students
+app.post('/api/admin/send-notification', jsonParser, async (req, res) => {
+    const { message } = req.body;
+    console.log(`Received request to send notice to all students: "${message}"`);
+
+    if (!message || message.trim() === '') {
+        return res.status(400).json({ message: 'Notification message cannot be empty.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Get all student roll numbers to ensure there are students to notify
+        const { rows: students } = await client.query('SELECT rollnumber FROM students');
+        if (students.length === 0) {
+            return res.status(404).json({ message: 'No students found to send notifications to.' });
+        }
+
+        // 2. Prepare a single, efficient query to insert notifications for all students
+        const notificationQuery = `
+            INSERT INTO notifications (studentrollnumber, type, message, link)
+            SELECT rollnumber, 'admin_notice', $1, '#'
+            FROM students;
+        `;
+        const result = await client.query(notificationQuery, [message.trim()]);
+
+        await client.query('COMMIT');
+
+        console.log(`Successfully created ${result.rowCount} notifications for all students.`);
+        res.status(200).json({ message: `Notice successfully sent to ${result.rowCount} students.` });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error sending notification to all students:', error);
+        res.status(500).json({ message: 'Server error while sending notifications.' });
+    } finally {
+        client.release();
+    }
+});
+
 // New endpoint to get all student records for an admin view
 app.get('/api/all-students', async (req, res) => {
     console.log('Fetching all student records for admin view.');

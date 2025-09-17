@@ -35,6 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const notificationBadge = document.getElementById('notificationBadge');
     const viewAllNotificationsLink = document.getElementById('viewAllNotificationsLink');
 
+    // --- Post Notice Modal Elements ---
+    const postNoticeBtn = document.getElementById('postNoticeBtn');
+    const postNoticeModalOverlay = document.getElementById('postNoticeModalOverlay');
+    const postNoticeForm = document.getElementById('postNoticeForm');
+    const noticeMessageInput = document.getElementById('noticeMessageInput');
+    const cancelNoticeBtn = document.getElementById('cancelNoticeBtn');
+    const noticeError = document.getElementById('notice-error');
+
     // --- Password Protection Logic ---
     if (passwordOverlay && adminPasswordForm) {
         passwordOverlay.style.display = 'flex'; // Make sure it's visible
@@ -117,6 +125,65 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('click', (event) => {
             if (!notificationBtn.contains(event.target) && !notificationPanel.contains(event.target)) {
                 notificationPanel.classList.remove('active');
+            }
+        });
+    }
+
+    // --- Post Notice Modal Logic ---
+    if (postNoticeBtn) {
+        postNoticeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (postNoticeModalOverlay) {
+                postNoticeModalOverlay.style.display = 'flex';
+                noticeMessageInput.value = '';
+                noticeError.style.display = 'none';
+            }
+        });
+    }
+
+    if (cancelNoticeBtn) {
+        cancelNoticeBtn.addEventListener('click', () => {
+            if (postNoticeModalOverlay) {
+                postNoticeModalOverlay.style.display = 'none';
+            }
+        });
+    }
+
+    if (postNoticeForm) {
+        postNoticeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = noticeMessageInput.value.trim();
+            if (!message) {
+                noticeError.textContent = 'Notice message cannot be empty.';
+                noticeError.style.display = 'block';
+                return;
+            }
+
+            if (!confirm('Are you sure you want to send this notice to ALL students? This action cannot be undone.')) {
+                return;
+            }
+
+            const submitBtn = postNoticeForm.querySelector('.submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+            noticeError.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/admin/send-notification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Failed to send notice.');
+                alert(result.message);
+                postNoticeModalOverlay.style.display = 'none';
+            } catch (error) {
+                noticeError.textContent = error.message;
+                noticeError.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send Notice';
             }
         });
     }
