@@ -6,10 +6,39 @@
     <title>Payment Successful - DAV PG College</title>
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
-    <link rel="stylesheet" href="payment-success.css">
+    <link rel="stylesheet" href="login.css"> <!-- Re-use for .welcome-container -->
+    <link rel="stylesheet" href="payment.css"> <!-- Re-use for .detail-item -->
+    <script>
+        // --- Strict Session Security Check ---
+        (function() {
+            if (!sessionStorage.getItem('currentStudent')) {
+                sessionStorage.clear();
+                window.location.replace('index.html');
+            }
+        })();
+    </script>
     <style>
-        .header-branding {
-            justify-content: center; /* Center the logo */
+        .header-branding { justify-content: center; }
+        .receipt-container {
+            background: var(--bg-main);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px var(--header-shadow);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+        .receipt-details {
+            text-align: left;
+            margin: 2rem 0;
+            border-top: 1px solid var(--input-border);
+            border-bottom: 1px solid var(--input-border);
+            padding: 1.5rem 0;
+        }
+        @media print {
+            body, main, .receipt-container { margin: 0; padding: 0; box-shadow: none; }
+            .main-header, .button-group { display: none; }
+            .receipt-container { max-width: 100%; border: none; }
         }
     </style>
 </head>
@@ -25,10 +54,9 @@
     <main class="login-main">
         <div class="receipt-container">
             <h2>Payment Successful!</h2>
-            <p>Thank you for your payment. Your transaction has been completed successfully.</p>
+            <p>Thank you for your payment. Here is a summary of your transaction.</p>
             
             <div class="receipt-details">
-                <h3>Payment Receipt</h3>
                 <div class="detail-item">
                     <span>Order ID:</span>
                     <span id="orderId"></span>
@@ -38,18 +66,18 @@
                     <span id="paymentDate"></span>
                 </div>
                 <div class="detail-item">
-                    <span>Amount Paid:</span>
-                    <span id="amountPaid"></span>
-                </div>
-                 <div class="detail-item">
                     <span>Course Details:</span>
                     <span id="courseDetails"></span>
                 </div>
+                <div class="detail-item total-amount">
+                    <span>Amount Paid:</span>
+                    <span id="amountPaid"></span>
+                </div>
             </div>
 
-            <div class="button-group no-print">
-                <button onclick="window.print()" class="submit-btn">Print Payment Slip</button>
-                <a href="home.html" class="back-btn">Back to Student Dashboard</a>
+            <div class="button-group">
+                <button id="printReceiptBtn" class="submit-btn">Print Receipt</button>
+                <a href="home.html" class="back-btn">Back to Home</a>
             </div>
         </div>
     </main>

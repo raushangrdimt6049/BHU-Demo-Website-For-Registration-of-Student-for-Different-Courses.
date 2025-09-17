@@ -259,6 +259,32 @@
             background-color: var(--btn-danger-bg);
         }
 
+        /* --- Print-specific styles for modals --- */
+        @media print {
+            body.printing-modal > *:not(#historyModalOverlay) {
+                display: none;
+            }
+            body.printing-modal #historyModalOverlay {
+                position: static;
+                background: none;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                padding: 0;
+                overflow: visible;
+                display: block !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+            body.printing-modal #historyModalOverlay .profile-modal-content {
+                box-shadow: none; border: none; max-width: 100%; width: 100%; padding: 0; transform: none;
+            }
+            body.printing-modal #historyModalOverlay .close-modal-btn,
+            body.printing-modal #historyModalOverlay .modal-footer {
+                display: none;
+            }
+            body.printing-modal .history-table-container { max-height: none; overflow-y: visible; }
+        }
+
 
         /* New container for the main content area */
         .main-content-container {
@@ -325,6 +351,43 @@
         #searchResultsList li a:hover { background-color: var(--bg-hover); }
         #no-search-results {
             text-align: center; padding: 2rem; color: var(--text-color-light);
+        }
+
+        /* --- Styles for Course Selection Radio/Checkbox Groups --- */
+        .radio-group-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 0.75rem;
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            padding: 1rem;
+            background-color: var(--input-bg);
+        }
+        .radio-option {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            color: var(--text-color);
+            border: 1px solid var(--input-border);
+            background-color: var(--bg-main);
+        }
+        .radio-option:hover {
+            border-color: var(--input-focus-border);
+            background-color: var(--readonly-bg);
+        }
+        .radio-option.selected {
+             background-color: var(--input-focus-shadow);
+             border-color: var(--input-focus-border);
+             font-weight: 600;
+        }
+        .radio-option .course-name { flex-grow: 1; }
+        .radio-option .course-fee { font-weight: bold; color: var(--btn-success-bg); }
+        .radio-option input[type="radio"],
+        .radio-option input[type="checkbox"] {
+            display: none; /* Visually hide the input; selection is indicated by the parent label's style */
         }
     </style>
     <script>
@@ -395,34 +458,8 @@
                     <div class="notification-header">
                         <h4>Notifications</h4>
                     </div>
-                    <ul>
-                        <li>
-                            <a href="#" class="notification-item">
-                                <div class="notification-icon fee">💰</div>
-                                <div class="notification-content">
-                                    <p><strong>Fee Reminder:</strong> Your semester fee payment is due next week.</p>
-                                    <small>2 days ago</small>
-                                </div>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="#" class="notification-item">
-                                <div class="notification-icon assignment">📝</div>
-                                <div class="notification-content">
-                                    <p><strong>New Assignment:</strong> A new assignment for PHY101 has been posted.</p>
-                                    <small>5 days ago</small>
-                                </div>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="#" class="notification-item read">
-                                <div class="notification-icon result">🎓</div>
-                                <div class="notification-content">
-                                    <p><strong>Results Published:</strong> Your 1st Semester results are now available.</p>
-                                    <small>1 week ago</small>
-                                </div>
-                            </a>
-                        </li>
+                    <ul id="notificationList">
+                        <!-- Notifications will be populated by home.js -->
                     </ul>
                     <div class="notification-footer"><a href="#" id="viewAllNotificationsLink">View All Notifications</a></div>
                 </div>
@@ -541,6 +578,9 @@
                     </table>
                     <p id="no-history-message" class="no-history-message" style="display: none;">No payment history found.</p>
                 </div>
+                <div class="modal-footer" style="text-align: center; margin-top: 1.5rem;">
+                    <button id="printHistoryPdfBtn" class="submit-btn" style="width: auto;">Print as PDF</button>
+                </div>
             </div>
         </div>
     </div>
@@ -560,16 +600,20 @@
                 <div id="addCourseBtnContainer" style="text-align: center; margin-bottom: 2rem;">
                     <button id="showHobbyCoursesBtn" class="submit-btn" style="width: auto;">Add Additional Course</button>
                 </div>
-
-                <!-- Section for selecting new hobby courses (initially hidden) -->
-                <div id="hobbyCourseSelectionContainer" style="display: none;">
-                    <h4 style="text-align: center; margin-top: 2rem; margin-bottom: 1rem;">Select a Hobby Course</h4>
-                    <div id="hobby-courses-list" class="radio-group-container" style="max-height: 30vh;">
-                        <!-- Hobby courses will be populated here by JS -->
-                    </div>
-                    <div class="button-group" style="margin-top: 1.5rem;">
-                        <button id="proceedToHobbyPaymentBtn" class="submit-btn">Proceed to Payment</button>
-                    </div>
+            </div>
+        </div>
+    </div>
+    <!-- Add Hobby Course Modal -->
+    <div id="addHobbyCourseModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 800px;">
+            <button id="closeAddHobbyCourseModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view">
+                <h4 style="text-align: center; margin-top: 0; margin-bottom: 1rem;">Select a Hobby Course</h4>
+                <div id="hobby-courses-list" class="radio-group-container" style="max-height: 40vh;">
+                    <!-- Hobby courses will be populated here by JS -->
+                </div>
+                <div class="button-group" style="margin-top: 1.5rem;">
+                    <button id="proceedToHobbyPaymentBtn" class="submit-btn">Proceed to Payment</button>
                 </div>
             </div>
         </div>
@@ -624,43 +668,8 @@
             <button id="closeAllNotificationsModalBtn" class="close-modal-btn">&times;</button>
             <div class="settings-view"> <!-- Re-using class for h4 style -->
                 <h4 style="margin-top: 0;">All Notifications</h4>
-                <ul style="list-style: none; padding: 0; margin: 0; max-height: 60vh; overflow-y: auto;">
-                    <li>
-                        <a href="#" class="notification-item">
-                            <div class="notification-icon fee">💰</div>
-                            <div class="notification-content">
-                                <p><strong>Fee Reminder:</strong> Your semester fee payment is due next week.</p>
-                                <small>2 days ago</small>
-                            </div>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="notification-item">
-                            <div class="notification-icon assignment">📝</div>
-                            <div class="notification-content">
-                                <p><strong>New Assignment:</strong> A new assignment for PHY101 has been posted.</p>
-                                <small>5 days ago</small>
-                            </div>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="notification-item read">
-                            <div class="notification-icon result">🎓</div>
-                            <div class="notification-content">
-                                <p><strong>Results Published:</strong> Your 1st Semester results are now available.</p>
-                                <small>1 week ago</small>
-                            </div>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="notification-item read">
-                            <div class="notification-icon fee">📅</div>
-                            <div class="notification-content">
-                                <p><strong>Timetable Updated:</strong> The timetable for the upcoming exams has been updated.</p>
-                                <small>2 weeks ago</small>
-                            </div>
-                        </a>
-                    </li>
+                <ul id="allNotificationsList" style="list-style: none; padding: 0; margin: 0; max-height: 60vh; overflow-y: auto;">
+                    <!-- All notifications will be populated by home.js -->
                 </ul>
             </div>
         </div>

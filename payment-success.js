@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const paymentDetails = JSON.parse(paymentDetailsString);
 
         document.getElementById('orderId').textContent = paymentDetails.orderId;
-        document.getElementById('paymentDate').textContent = new Date().toLocaleDateString('en-IN', {
+        document.getElementById('paymentDate').textContent = new Date(paymentDetails.paymentDate).toLocaleDateString('en-IN', {
             year: 'numeric', month: 'long', day: 'numeric'
         });
         document.getElementById('amountPaid').textContent = `₹ ${paymentDetails.amount / 100}`;
@@ -26,6 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <a href="home.html" class="submit-btn">Back to Home</a>
             </div>
         `;
+    }
+
+    // --- Print Button Logic ---
+    const printBtn = document.getElementById('printReceiptBtn');
+    if (printBtn) {
+        printBtn.addEventListener('click', () => {
+            window.print();
+        });
     }
 
     // --- Navigation Helper ---

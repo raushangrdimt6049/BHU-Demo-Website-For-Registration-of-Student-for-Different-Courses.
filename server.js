@@ -456,6 +456,65 @@ async function sendPaymentReceiptEmail(studentData, courseData, orderId) {
     }
 }
 
+// --- PDF Generation Helper for Payment History ---
+async function generatePaymentHistoryPdf(studentName, rollNumber, history) {
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    let tableRows = '';
+    if (history.length > 0) {
+        history.forEach(record => {
+            const statusClass = record.status === 'success' ? 'status-success' : 'status-failure';
+            tableRows += `
+                <tr>
+                    <td>${record.paymentId || 'N/A'}</td>
+                    <td>${record.orderId || 'N/A'}</td>
+                    <td>${record.course || 'N/A'}</td>
+                    <td>₹${record.amount ? parseFloat(record.amount).toFixed(2) : '0.00'}</td>
+                    <td>${formatDate(record.paymentDate)}</td>
+                    <td class="${statusClass}">${record.status || 'N/A'}</td>
+                </tr>
+            `;
+        });
+    } else {
+        tableRows = '<tr><td colspan="6" style="text-align: center;">No payment history found.</td></tr>';
+    }
+
+    const historyHtmlContent = `
+        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Payment History</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #333; margin: 0; padding: 20px; background-color: #fff; }
+            .container { max-width: 800px; margin: 0 auto; }
+            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #0056b3; padding-bottom: 10px; }
+            .header h1 { color: #002147; margin: 0; }
+            .header h2 { font-weight: 400; margin: 5px 0 0 0; }
+            .student-info { margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: 600; }
+            .status-success { color: #155724; background-color: #d4edda; text-transform: capitalize; }
+            .status-failure { color: #721c24; background-color: #f8d7da; text-transform: capitalize; }
+            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #888; }
+        </style></head><body>
+            <div class="container">
+                <div class="header"><h1>DAV PG College, Varanasi</h1><h2>Payment History Report</h2></div>
+                <div class="student-info"><p><strong>Student Name:</strong> ${studentName}</p><p><strong>Roll Number:</strong> ${rollNumber}</p><p><strong>Date Generated:</strong> ${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</p></div>
+                <table><thead><tr><th>Payment ID</th><th>Order ID</th><th>Details</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead><tbody>${tableRows}</tbody></table>
+                <div class="footer"><p>This is a computer-generated document.</p></div>
+            </div>
+        </body></html>`;
+
+    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const page = await browser.newPage();
+    await page.setContent(historyHtmlContent, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } });
+    await browser.close();
+    return pdfBuffer;
+}
+
 // POST endpoint to handle updating registration data
 app.post('/update', upload.single('profilePicture'), async (req, res) => {
     console.log("Received a request at /update endpoint.");
@@ -980,11 +1039,19 @@ app.post('/verify-hobby-payment', jsonParser, async (req, res) => {
             `;
             const studentUpdateResult = await client.query(updateStudentQuery, [JSON.stringify(updatedHobbyCourses), rollNumber]);
 
+            // --- Part 4: Create Notification ---
+            const notificationMessage = `You have successfully enrolled in the "${course.name}" course.`;
+            const notificationQuery = `
+                INSERT INTO notifications (studentrollnumber, type, message, link)
+                VALUES ($1, 'new_course', $2, '#');
+            `;
+            await client.query(notificationQuery, [rollNumber, notificationMessage]);
+
             await client.query('COMMIT');
 
             const finalUpdatedStudent = studentUpdateResult.rows[0];
             delete finalUpdatedStudent.passwordhash;
-            console.log('Hobby course payment history saved and student record updated for roll number:', rollNumber);
+            console.log(`Hobby course payment and notification saved for roll number: ${rollNumber}`);
             
             res.json({ status: 'success', orderId: razorpay_order_id, studentData: mapDbToCamelCase(finalUpdatedStudent) });
         } catch (error) {
@@ -997,6 +1064,42 @@ app.post('/verify-hobby-payment', jsonParser, async (req, res) => {
     } else {
         console.error("Hobby course payment verification failed. Signature mismatch.");
         res.status(400).json({ status: 'failure' });
+    }
+});
+
+// GET endpoint to fetch all notifications for a student
+app.get('/api/notifications/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    try {
+        const query = 'SELECT * FROM notifications WHERE studentrollnumber = $1 ORDER BY createdat DESC';
+        const { rows } = await pool.query(query, [rollNumber]);
+        res.json(rows.map(n => mapDbToCamelCase(n)));
+    } catch (error) {
+        console.error(`Error fetching notifications for ${rollNumber}:`, error);
+        res.status(500).json({ message: 'Server error while fetching notifications.' });
+    }
+});
+
+// POST endpoint to mark notifications as read
+app.post('/api/notifications/mark-as-read', jsonParser, async (req, res) => {
+    const { notificationIds } = req.body; // Expect an array of IDs
+    if (!notificationIds || !Array.isArray(notificationIds) || notificationIds.length === 0) {
+        return res.status(400).json({ message: 'Notification IDs are required.' });
+    }
+
+    try {
+        // Use ANY($1::int[]) to efficiently update multiple rows
+        const query = 'UPDATE notifications SET isread = TRUE WHERE id = ANY($1::int[])';
+        const result = await pool.query(query, [notificationIds]);
+        
+        if (result.rowCount > 0) {
+            res.status(200).json({ message: 'Notifications marked as read.' });
+        } else {
+            res.status(404).json({ message: 'No matching notifications found to update.' });
+        }
+    } catch (error) {
+        console.error('Error marking notifications as read:', error);
+        res.status(500).json({ message: 'Server error while updating notifications.' });
     }
 });
 
@@ -1023,6 +1126,44 @@ app.get('/payment-history/:rollNumber', async (req, res) => {
     } catch (error) {
         console.error('Error fetching payment history:', error);
         res.status(500).json({ message: 'Server error while fetching payment history.' });
+    }
+});
+
+// New endpoint to download payment history as PDF
+app.get('/download-payment-history/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Received request to download payment history PDF for roll number: ${rollNumber}`);
+
+    try {
+        // Fetch student name and payment history in parallel
+        const studentQuery = pool.query('SELECT name FROM students WHERE rollnumber = $1', [rollNumber]);
+        const historyQuery = pool.query('SELECT * FROM payments WHERE studentrollnumber = $1 ORDER BY paymentdate DESC', [rollNumber]);
+
+        const [studentResult, historyResult] = await Promise.all([studentQuery, historyQuery]);
+
+        if (studentResult.rows.length === 0) {
+            return res.status(404).send('Student not found.');
+        }
+        const studentName = studentResult.rows[0].name;
+        
+        // Map DB rows to camelCase for consistency
+        const history = historyResult.rows.map(payment => ({
+            paymentId: payment.paymentid,
+            orderId: payment.orderid,
+            course: payment.coursedetails,
+            amount: payment.amount,
+            status: payment.status,
+            paymentDate: payment.paymentdate
+        }));
+
+        const pdfBuffer = await generatePaymentHistoryPdf(studentName, rollNumber, history);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Payment_History_${rollNumber}.pdf"`);
+        res.send(pdfBuffer);
+    } catch (error) {
+        console.error('Error generating payment history PDF:', error);
+        res.status(500).send('Could not generate PDF. Please try again later.');
     }
 });
 
@@ -1231,6 +1372,7 @@ function mapDbToCamelCase(dbObject) {
             year12: 'year12',
             selectedcourse: 'selectedCourse',
             hobbycourses: 'hobbyCourses',
+            isread: 'isRead',
             createdat: 'createdAt',
             updatedat: 'updatedAt'
         };

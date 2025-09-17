@@ -71,7 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         const lastPaymentDetails = {
                             orderId: verificationData.orderId,
                             amount: hobbyCourse.fee,
-                            course: hobbyCourse.name
+                            course: hobbyCourse.name,
+                            paymentDate: new Date().toISOString() // Capture the exact payment time
                         };
                         sessionStorage.setItem('lastPaymentDetails', JSON.stringify(lastPaymentDetails));
                         sessionStorage.removeItem('newHobbyCourse');

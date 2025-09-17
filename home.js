@@ -111,6 +111,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const notificationBtn = document.getElementById('notificationBtn');
         const notificationPanel = document.getElementById('notificationPanel');
         const notificationBadge = document.getElementById('notificationBadge');
+        const notificationList = document.getElementById('notificationList');
+        const allNotificationsList = document.getElementById('allNotificationsList');
         const viewAllNotificationsLink = document.getElementById('viewAllNotificationsLink');
 
         // --- Settings View References ---
@@ -145,13 +147,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const closeHistoryModalBtn = document.getElementById('closeHistoryModalBtn');
         const historyTableBody = document.getElementById('history-table-body');
         const noHistoryMessage = document.getElementById('no-history-message');
+        const printHistoryPdfBtn = document.getElementById('printHistoryPdfBtn');
 
         // --- My Courses Modal References ---
         const myCoursesModalOverlay = document.getElementById('myCoursesModalOverlay');
         const closeMyCoursesModalBtn = document.getElementById('closeMyCoursesModalBtn');
         const enrolledCoursesContainer = document.getElementById('enrolledCoursesContainer');
         const showHobbyCoursesBtn = document.getElementById('showHobbyCoursesBtn');
-        const hobbyCourseSelectionContainer = document.getElementById('hobbyCourseSelectionContainer');
+
+        // --- Add Hobby Course Modal References ---
+        const addHobbyCourseModalOverlay = document.getElementById('addHobbyCourseModalOverlay');
+        const closeAddHobbyCourseModalBtn = document.getElementById('closeAddHobbyCourseModalBtn');
         const hobbyCoursesList = document.getElementById('hobby-courses-list');
         const proceedToHobbyPaymentBtn = document.getElementById('proceedToHobbyPaymentBtn');
 
@@ -332,9 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const openMyCoursesModal = () => {
             populateEnrolledCourses();
-            populateHobbyCourses();
-            hobbyCourseSelectionContainer.style.display = 'none'; // Reset view
-            showHobbyCoursesBtn.style.display = 'inline-block'; // Ensure button is visible
+            // Hobby course population is now handled in its own modal
             openModal(myCoursesModalOverlay);
             closeNav();
         };
@@ -342,6 +346,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sideNavMyCoursesBtn) sideNavMyCoursesBtn.addEventListener('click', (e) => { e.preventDefault(); openMyCoursesModal(); });
         if (closeMyCoursesModalBtn) closeMyCoursesModalBtn.addEventListener('click', () => closeModal(myCoursesModalOverlay));
         if (myCoursesModalOverlay) myCoursesModalOverlay.addEventListener('click', (event) => { if (event.target === myCoursesModalOverlay) closeModal(myCoursesModalOverlay); });
+
+        // This function will now open the new modal for adding courses
+        const openAddHobbyCourseModal = () => {
+            populateHobbyCourses(); // Populate the list when the modal is opened
+            closeModal(myCoursesModalOverlay); // Close the 'My Courses' modal
+            openModal(addHobbyCourseModalOverlay); // Open the 'Add Hobby Course' modal
+        };
 
         // --- Fee Structure Modal Logic ---
         const populateFeeStructureTable = () => {
@@ -404,10 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         if (showHobbyCoursesBtn) {
-            showHobbyCoursesBtn.addEventListener('click', () => {
-                hobbyCourseSelectionContainer.style.display = 'block';
-                showHobbyCoursesBtn.style.display = 'none'; // Hide the button after clicking
-            });
+            showHobbyCoursesBtn.addEventListener('click', openAddHobbyCourseModal);
         }
 
         if (proceedToHobbyPaymentBtn) {
@@ -510,9 +518,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeHistoryModalBtn) closeHistoryModalBtn.addEventListener('click', () => closeModal(historyModalOverlay));
         if (historyModalOverlay) historyModalOverlay.addEventListener('click', (event) => { if (event.target === historyModalOverlay) closeModal(historyModalOverlay); });
 
+        // --- Listener for printing payment history ---
+        if (printHistoryPdfBtn) {
+            printHistoryPdfBtn.addEventListener('click', () => {
+                // Add a class to the body to control print styles via CSS
+                document.body.classList.add('printing-modal');
+                
+                window.print();
+
+                // The 'afterprint' event is more reliable than a timeout for cleanup.
+                window.addEventListener('afterprint', () => {
+                    document.body.classList.remove('printing-modal');
+                }, { once: true }); // Ensure the listener only fires once.
+            });
+        }
+
         // Listeners for closing the My Courses modal
         if (closeMyCoursesModalBtn) closeMyCoursesModalBtn.addEventListener('click', () => closeModal(myCoursesModalOverlay));
         if (myCoursesModalOverlay) myCoursesModalOverlay.addEventListener('click', (event) => { if (event.target === myCoursesModalOverlay) closeModal(myCoursesModalOverlay); });
+
+        // Listeners for closing the new Add Hobby Course modal
+        if (closeAddHobbyCourseModalBtn) closeAddHobbyCourseModalBtn.addEventListener('click', () => closeModal(addHobbyCourseModalOverlay));
+        if (addHobbyCourseModalOverlay) addHobbyCourseModalOverlay.addEventListener('click', (event) => { if (event.target === addHobbyCourseModalOverlay) closeModal(addHobbyCourseModalOverlay); });
 
         // Listeners for closing the new fee structure modal
         if (closeFeeStructureModalBtn) closeFeeStructureModalBtn.addEventListener('click', () => closeModal(feeStructureModalOverlay));
@@ -552,6 +579,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
+
+        const handleNotificationClick = async (notification) => {
+            // Mark as read on the server if it's unread
+            if (!notification.isRead) {
+                try {
+                    await fetch('/api/notifications/mark-as-read', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ notificationIds: [notification.id] })
+                    });
+
+                    // Update UI immediately
+                    document.querySelectorAll(`.notification-item[data-id="${notification.id}"]`).forEach(el => el.classList.add('read'));
+                    notification.isRead = true; // Update local state
+
+                    const currentCount = parseInt(notificationBadge.textContent, 10);
+                    if (!isNaN(currentCount) && currentCount > 1) {
+                        notificationBadge.textContent = currentCount - 1;
+                    } else {
+                        notificationBadge.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Failed to mark notification as read:', error);
+                }
+            }
+
+            // Perform action based on type
+            if (notification.type === 'new_course') {
+                if (notificationPanel) notificationPanel.classList.remove('active'); // Close dropdown
+                openMyCoursesModal();
+            }
+            // Add other actions for other notification types here
+        };
+
+        // Helper to format time
+        const formatTimeAgo = (dateString) => {
+            const date = new Date(dateString);
+            const now = new Date();
+            const seconds = Math.floor((now - date) / 1000);
+
+            let interval = Math.floor(seconds / 31536000); if (interval > 1) return interval + " years ago";
+            interval = Math.floor(seconds / 2592000); if (interval > 1) return interval + " months ago";
+            interval = Math.floor(seconds / 86400); if (interval > 1) return interval + " days ago";
+            interval = Math.floor(seconds / 3600); if (interval > 1) return interval + " hours ago";
+            interval = Math.floor(seconds / 60); if (interval > 1) return interval + " minutes ago";
+            return Math.floor(seconds) + " seconds ago";
+        };
 
         // --- All Notifications Modal Logic ---
         if (viewAllNotificationsLink) {
@@ -957,6 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Initial Population ---
         resetInactivityTimer(); // Start the timer on page load
         populateDobDropdowns(); // Populate the DOB dropdowns on page load
+        fetchAndDisplayNotifications(); // Fetch and display notifications
     };
 
     // --- Navigation Helper ---
