@@ -1478,6 +1478,69 @@ app.put('/api/student/:rollNumber', jsonParser, async (req, res) => {
     }
 });
 
+// New endpoint to delete a student record
+app.delete('/api/student/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Received request to delete student with roll number: ${rollNumber}`);
+
+    if (!rollNumber) {
+        return res.status(400).json({ message: 'Roll number is required.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        // --- Step 1: Fetch file paths BEFORE deleting the record ---
+        const studentRes = await client.query(
+            'SELECT profilepicture FROM students WHERE rollnumber = $1',
+            [rollNumber]
+        );
+
+        if (studentRes.rowCount === 0) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+        const studentFiles = studentRes.rows[0];
+
+        // --- Step 2: Perform database deletions in a transaction ---
+        await client.query('BEGIN');
+
+        // Optional but good practice: Delete related payment records first
+        await client.query('DELETE FROM payments WHERE studentrollnumber = $1', [rollNumber]);
+
+        // Delete the student record
+        await client.query('DELETE FROM students WHERE rollnumber = $1', [rollNumber]);
+
+        await client.query('COMMIT');
+        console.log(`Successfully deleted DB records for student ${rollNumber}.`);
+
+        // --- Step 3: Delete associated files from the filesystem AFTER successful commit ---
+        try {
+            // Delete the student's profile picture if it exists
+            if (studentFiles.profilepicture) {
+                const profilePicPath = path.join(__dirname, studentFiles.profilepicture);
+                // Use fs.promises.unlink and ignore "file not found" errors
+                await fs.promises.unlink(profilePicPath).catch(err => { if (err.code !== 'ENOENT') throw err; });
+                console.log(`Cleaned up profile picture for ${rollNumber}.`);
+            }
+
+            // Delete the entire document directory for the student.
+            const studentDocDir = path.join(__dirname, 'uploads', 'documents', rollNumber);
+            await fs.promises.rm(studentDocDir, { recursive: true, force: true });
+            console.log(`Cleaned up document directory for ${rollNumber}.`);
+        } catch (fileError) {
+            console.error(`Error during file cleanup for ${rollNumber}:`, fileError);
+        }
+
+        res.status(200).json({ message: `Student with roll number ${rollNumber} has been deleted successfully.` });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error deleting student:', error);
+        res.status(500).json({ message: 'Server error while deleting student.' });
+    } finally {
+        client.release();
+    }
+});
+
 /**
  * =============================================================================
  * FACULTY-FACING ENDPOINTS

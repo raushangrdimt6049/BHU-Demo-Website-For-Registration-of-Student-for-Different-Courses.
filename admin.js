@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchAllStudents = async () => {
         const tableBody = document.querySelector('#allStudentsTable tbody');
         if (!tableBody) return;
-        tableBody.innerHTML = '<tr><td colspan="6">Loading student data...</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="7">Loading student data...</td></tr>';
 
         try {
             const response = await fetch('/api/all-students');
@@ -398,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             tableBody.innerHTML = ''; // Clear loading message
             if (students.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="6">No students found.</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="7">No students found.</td></tr>';
                 return;
             }
 
@@ -412,11 +412,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${student.mobileNumber || 'N/A'}</td>
                     <td>${student.city || 'N/A'}</td>
                     <td>${registeredDate}</td>
+                    <td><button class="action-btn-delete delete-student-btn" data-rollnumber="${student.rollNumber}">Delete</button></td>
                 `;
             });
+
+            // Add event listeners to the new delete buttons
+            document.querySelectorAll('.delete-student-btn').forEach(button => {
+                button.addEventListener('click', handleDeleteStudent);
+            });
+
         } catch (error) {
             console.error('Error fetching all students:', error);
-            tableBody.innerHTML = `<tr><td colspan="6" style="color: red;">Error: ${error.message}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" style="color: red;">Error: ${error.message}</td></tr>`;
+        }
+    };
+
+    const handleDeleteStudent = async (event) => {
+        const rollNumber = event.target.dataset.rollnumber;
+        if (!confirm(`Are you sure you want to permanently delete the student with roll number "${rollNumber}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/student/${rollNumber}`, { method: 'DELETE' });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || 'Failed to delete student.');
+
+            alert(result.message);
+            fetchAllStudents(); // Refresh the list
+        } catch (error) {
+            console.error('Error deleting student:', error);
+            alert(`Error: ${error.message}`);
         }
     };
 
