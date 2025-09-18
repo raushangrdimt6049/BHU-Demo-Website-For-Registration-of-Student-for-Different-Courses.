@@ -27,30 +27,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    loginForm.addEventListener('submit', (e) => {
+    loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         loginError.style.display = 'none';
 
         const loginIdentifier = document.getElementById('loginIdentifier').value;
         const password = document.getElementById('password').value;
+        const submitBtn = loginForm.parentElement.querySelector('.sign-in-btn');
 
-        // Hardcoded credentials as requested by the user.
-        const correctUsername = 'Nisha_143';
-        const correctPassword = '4gh4m01r';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing In...';
 
-        if (loginIdentifier.toLowerCase() === correctUsername.toLowerCase() && password === correctPassword) {
+        try {
+            const response = await fetch('/api/faculty/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ loginIdentifier, password })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || `HTTP error! status: ${response.status}`);
+            }
+
             // --- Login Successful ---
-            const facultyData = { username: 'Nisha_143', name: 'Nisha Singh', avatar: 'default-avatar.png' };
+            const facultyData = data.facultyData;
             sessionStorage.setItem('currentFaculty', JSON.stringify(facultyData));
             sessionStorage.setItem('navigationAllowed', 'true'); // Set navigation flag for the next page
 
             alert('Login successful!');
             window.location.replace('faculty.html'); // Use replace to prevent back button issues
-        } else {
-            loginError.textContent = 'Incorrect username or password.';
+
+        } catch (error) {
+            console.error('Login failed:', error);
+            loginError.textContent = error.message;
             loginError.style.display = 'block';
             passwordInput.value = '';
             passwordInput.focus();
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Sign In';
         }
     });
 });
