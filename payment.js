@@ -93,8 +93,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 prefill: { name: studentData.name, email: studentData.email, contact: studentData.mobileNumber },
                 notes: { roll_number: studentData.rollNumber },
-                theme: { color: '#0056b3' },
-                modal: { ondismiss: function () { alert('Payment was not completed.'); payNowBtn.disabled = false; payNowBtn.textContent = 'Pay Now'; } }
+                theme: { color: '#0056b3' }
+                ,
+                modal: { ondismiss: function () {
+                    alert('Payment was not completed. You are being returned to your course list.');
+                    sessionStorage.setItem('openMyCoursesModal', 'true'); // Set a flag to open the modal on the home page
+                    sessionStorage.setItem('navigationAllowed', 'true'); // Allow navigation back to home
+                    window.location.href = 'home.html';
+                } }
             };
 
             const rzp = new Razorpay(options);

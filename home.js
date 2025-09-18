@@ -397,6 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         row.innerHTML = `
                             <td>${record.paymentId || 'N/A'}</td>
                             <td>${record.orderId || 'N/A'}</td>
+                            <td>${record.course || 'N/A'}</td>
                             <td>₹${formattedAmount}</td>
                             <td>${paymentDate}</td>
                             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
@@ -486,11 +487,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         const amountValue = parseFloat(record.amount);
                         const formattedAmount = !isNaN(amountValue) ? amountValue.toFixed(2) : '0.00';
 
+                        const paymentDate = new Date(record.paymentDate).toLocaleDateString('en-IN');
+
                         row.innerHTML = `
-                            <td>${record.studentName || 'N/A'}</td>
                             <td>${record.paymentId || 'N/A'}</td>
                             <td>${record.orderId || 'N/A'}</td>
+                            <td>${record.course || 'N/A'}</td>
                             <td>₹${formattedAmount}</td>
+                            <td>${paymentDate}</td>
                             <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                         `;
                         historyTableBody.appendChild(row);
@@ -718,11 +722,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Perform action based on type
             switch (notification.type) {
-                case 'new_course':
-                    // For course enrollment, it's more useful to go directly to the course list
-                    if (notificationPanel) notificationPanel.classList.remove('active'); // Close dropdown
-                    openMyCoursesModal();
-                    break;
+                // The user wants all notifications to open the detail view for consistency.
+                case 'new_course': // This will now fall through to the default case.
                 case 'admin_notice':
                 default:
                     // For general notices and other types, open the detail view

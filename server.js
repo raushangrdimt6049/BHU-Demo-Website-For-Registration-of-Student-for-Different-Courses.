@@ -998,7 +998,31 @@ app.post('/verify-payment', jsonParser, async (req, res) => {
         }
     } else {
         console.error("Payment verification failed. Signature mismatch.");
-        res.status(400).json({ status: 'failure' });
+        // --- NEW: Log failed payment attempt ---
+        try {
+            const studentResult = await pool.query('SELECT name FROM students WHERE rollnumber = $1', [rollNumber]);
+            const studentName = studentResult.rows.length > 0 ? studentResult.rows[0].name : 'N/A';
+
+            const paymentQuery = `
+                INSERT INTO payments (paymentid, orderid, studentrollnumber, studentname, coursedetails, amount, currency, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+            `;
+            const paymentValues = [
+                razorpay_payment_id,
+                razorpay_order_id,
+                rollNumber,
+                studentName,
+                `${course.level} - ${course.branch}`,
+                course.amount / 100,
+                'INR',
+                'failure'
+            ];
+            await pool.query(paymentQuery, paymentValues);
+            console.log(`Logged failed payment attempt for order ${razorpay_order_id}`);
+        } catch (dbError) {
+            console.error('Error saving failed payment record:', dbError);
+        }
+        res.status(400).json({ status: 'failure', message: 'Payment verification failed. Signature mismatch.' });
     }
 });
 
@@ -1075,7 +1099,31 @@ app.post('/verify-hobby-payment', jsonParser, async (req, res) => {
         }
     } else {
         console.error("Hobby course payment verification failed. Signature mismatch.");
-        res.status(400).json({ status: 'failure' });
+        // --- NEW: Log failed payment attempt ---
+        try {
+            const studentResult = await pool.query('SELECT name FROM students WHERE rollnumber = $1', [rollNumber]);
+            const studentName = studentResult.rows.length > 0 ? studentResult.rows[0].name : 'N/A';
+
+            const paymentQuery = `
+                INSERT INTO payments (paymentid, orderid, studentrollnumber, studentname, coursedetails, amount, currency, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+            `;
+            const paymentValues = [
+                razorpay_payment_id,
+                razorpay_order_id,
+                rollNumber,
+                studentName,
+                `${course.name} (Hobby)`,
+                course.fee / 100,
+                'INR',
+                'failure'
+            ];
+            await pool.query(paymentQuery, paymentValues);
+            console.log(`Logged failed hobby course payment attempt for order ${razorpay_order_id}`);
+        } catch (dbError) {
+            console.error('Error saving failed hobby course payment record:', dbError);
+        }
+        res.status(400).json({ status: 'failure', message: 'Payment verification failed. Signature mismatch.' });
     }
 });
 

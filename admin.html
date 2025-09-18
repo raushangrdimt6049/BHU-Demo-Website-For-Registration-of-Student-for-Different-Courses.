@@ -42,6 +42,7 @@
         .notification-content p { margin: 0 0 0.25rem 0; font-size: 0.9rem; line-height: 1.4; }
         .notification-content small { font-size: 0.8rem; color: var(--text-color-light); }
         /* Custom Admin Notification Icons */
+        .notification-item.read { opacity: 0.6; background-color: var(--bg-body); }
         .notification-icon.admission { background-color: #e6f7ff; color: #1890ff; }
         .notification-icon.fee-defaulter { background-color: #fffbe6; color: #faad14; }
         .notification-icon.leave-request { background-color: #f6ffed; color: #52c41a; }
@@ -172,6 +173,7 @@
             border-radius: 12px;
             text-align: center;
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            position: relative; /* For positioning the close button */
             width: 90%;
             max-width: 450px;
         }
@@ -207,6 +209,130 @@
         #noticeHistoryList li small { color: var(--text-color-light); }
         .password-modal textarea {
             width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; font-size: 1rem; background-color: var(--input-bg); color: var(--text-color); resize: vertical;
+        }
+
+        /* --- Collapsible Side Nav Item --- */
+        .nav-item-collapsible .nav-collapsible-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-item-collapsible .nav-arrow {
+            transition: transform 0.2s ease-in-out;
+            font-size: 0.8rem;
+        }
+        .nav-collapsible-content {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out;
+            background-color: var(--bg-body);
+        }
+        .nav-collapsible-content li a {
+            padding-left: 3.5rem;
+        }
+
+        /* --- Timetable Modal --- */
+        #timetableModalTable.editable td[contenteditable="true"] {
+            background-color: var(--input-bg);
+            cursor: text;
+            outline: 1px dashed var(--input-focus-border);
+        }
+        #timetableModalTable th, #timetableModalTable td { min-width: 100px; height: 40px; text-align: center; }
+        #timetableModalTable th small { font-weight: normal; font-size: 0.75rem; color: var(--text-color-light); }
+
+        /* --- Timetable Grid on Dashboard --- */
+        .timetable-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+        }
+        .timetable-grid .timetable-link {
+            background-color: var(--bg-body);
+            border: 1px solid var(--input-border);
+            padding: 1rem;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--text-color);
+            text-align: center;
+            transition: all 0.2s ease;
+            font-weight: 600;
+        }
+        .timetable-grid .timetable-link:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px var(--header-shadow);
+            border-color: var(--btn-bg);
+            color: var(--btn-bg);
+        }
+
+        /* --- New styles for modal close button --- */
+        .close-modal-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 2.5rem;
+            color: var(--text-color);
+            cursor: pointer;
+            line-height: 1;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .close-modal-btn:hover {
+            opacity: 1;
+        }
+        .timetable-action-btn {
+            min-width: 110px; /* Ensures Edit and Print buttons have same base width */
+            text-align: center;
+        }
+
+        /* --- New style for highlighting current day in timetable --- */
+        .current-day-row {
+            background-color: var(--btn-bg-light) !important; /* Use !important to override hover effects */
+        }
+        .current-day-row td:first-child {
+            font-weight: 700;
+            color: var(--btn-bg);
+        }
+
+        /* --- Print-specific Styles for Timetable --- */
+        @media print {
+            body.printing-timetable > *:not(#timetableModalOverlay) {
+                display: none !important;
+            }
+            body.printing-timetable #timetableModalOverlay,
+            body.printing-timetable #timetableModalOverlay .password-modal {
+                position: static !important;
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                background: none !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                border: none !important;
+            }
+            body.printing-timetable #timetableModalOverlay .form-actions,
+            body.printing-timetable #timetableModalOverlay .close-modal-btn {
+                display: none !important;
+            }
+            body.printing-timetable #timetableModalTable {
+                font-size: 10pt; /* Smaller font for printing */
+            }
+            body.printing-timetable #timetableModalTable th, 
+            body.printing-timetable #timetableModalTable td {
+                border: 1px solid #ccc;
+                color: #000 !important;
+                background-color: #fff !important;
+            }
+            body.printing-timetable #timetableContainer {
+                max-height: none !important; overflow: visible !important; border: none !important;
+            }
         }
 
         /* Stack buttons in the admin login modal */
@@ -313,6 +439,55 @@
         </div>
     </div>
 
+    <!-- Timetable Modal -->
+    <div id="timetableModalOverlay" class="password-overlay" style="display: none;">
+        <div class="password-modal" style="max-width: 90%; text-align: left;">
+            <button id="closeTimetableModalBtn" class="close-modal-btn">&times;</button>
+            <h3 id="timetableModalTitle" style="text-align: center;">Class Timetable</h3>
+            <div id="timetableContainer" class="user-table-container" style="max-height: 70vh;">
+                <table id="timetableModalTable" class="user-table-container">
+                    <thead>
+                        <tr>
+                            <th>Day</th>
+                            <th>Period 1<br><small>(9:00-9:40)</small></th>
+                            <th>Period 2<br><small>(9:40-10:20)</small></th>
+                            <th>Period 3<br><small>(10:20-11:00)</small></th>
+                            <th>Period 4<br><small>(11:00-11:40)</small></th>
+                            <th>Break<br><small>(11:40-12:10)</small></th>
+                            <th>Period 5<br><small>(12:10-12:50)</small></th>
+                            <th>Period 6<br><small>(12:50-1:30)</small></th>
+                        </tr>
+                    </thead>
+                    <tbody id="timetableModalBody"></tbody>
+                </table>
+            </div>
+            <div class="form-actions" style="margin-top: 1rem;">
+                <div id="timetableDefaultActions" style="display: flex; justify-content: space-between; width: 100%;">
+                    <button type="button" id="editTimetableBtn" class="back-btn timetable-action-btn" style="background-color: var(--btn-secondary-bg);">Edit</button>
+                    <button type="button" id="printTimetableBtn" class="back-btn timetable-action-btn" style="background-color: var(--btn-secondary-bg);">Print</button>
+                </div>
+                <div id="timetableEditActions" style="display: none; justify-content: center; width: 100%;">
+                    <button type="button" id="saveTimetableBtn" class="submit-btn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- All Notifications Modal -->
+    <div id="allNotificationsModalOverlay" class="password-overlay" style="display: none;">
+        <div class="password-modal" style="max-width: 700px; text-align: left;">
+            <button id="closeAllNotificationsModalBtn" class="close-modal-btn">&times;</button>
+            <h3 style="text-align: center; margin-bottom: 1.5rem;">All Notifications</h3>
+            <ul id="allNotificationsList" class="notification-list" style="list-style: none; padding: 0; max-height: 60vh; overflow-y: auto;">
+                <!-- All notifications will be populated here -->
+            </ul>
+            <div style="text-align: center; margin-top: 1.5rem; border-top: 1px solid var(--input-border); padding-top: 1rem;">
+                <button type="button" id="markAllAsReadBtn" class="submit-btn" style="width: auto;">Mark as Read</button>
+            </div>
+        </div>
+    </div>
+
+
     <div id="postNoticeModalOverlay" class="password-overlay" style="display: none;">
         <div class="password-modal">
             <h3>Post a Notice to All Students</h3>
@@ -341,14 +516,13 @@
             <button id="closeSideNavBtn" class="close-btn">&times;</button>
         </div>
         <ul>
-            <li><a href="#" id="sideNavDashboardLink" class="active-nav-link"><span class="nav-icon">📊</span> Dashboard</a></li>
-            <li><a href="#"><span class="nav-icon">👥</span> Users</a></li>
+            <li><a href="#" id="sideNavDashboardLink"><span class="nav-icon">📊</span> Dashboard</a></li>
+            <li><a href="#" id="sideNavUsersLink"><span class="nav-icon">👥</span> Users</a></li>
             <li><a href="#"><span class="nav-icon">📚</span> Courses</a></li>
             <li><a href="#"><span class="nav-icon">🏢</span> Departments</a></li>
-            <li><a href="#"><span class="nav-icon">📅</span> Timetable</a></li>
+            <li><a href="#" id="sideNavTimetableLink"><span class="nav-icon">📅</span> Timetable</a></li>
             <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Exams & Results</a></li>
-            <li><a href="#" id="sideNavNotificationsLink"><span class="nav-icon">🔔</span> Notifications <span class="nav-badge">3</span></a></li>
             <li><a href="#" id="sideNavPostNoticeBtn"><span class="nav-icon">📢</span> Post Notice</a></li>
             <li><a href="#"><span class="nav-icon">💳</span> Fees</a></li>
             <li><a href="#"><span class="nav-icon">🏛️</span> Library</a></li>
@@ -376,41 +550,7 @@
                     🔔
                     <span id="notificationBadge" class="notification-badge">3</span>
                 </button>
-                <div id="notificationPanel" class="notification-panel">
-                    <div class="notification-header">
-                        <h4>Notifications & Alerts</h4>
-                    </div>
-                    <ul>
-                        <li>
-                            <a href="#" class="notification-item">
-                                <div class="notification-icon admission">⏳</div>
-                                <div class="notification-content">
-                                    <p><strong>12 new student admissions</strong> are pending approval.</p>
-                                    <small>Just now</small>
-                                </div>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="#" class="notification-item">
-                                <div class="notification-icon fee-defaulter">💳</div>
-                                <div class="notification-content">
-                                    <p><strong>8 students</strong> have outstanding fee balances for this semester.</p>
-                                    <small>1 hour ago</small>
-                                </div>
-                            </a>
-                        </li>
-                        <li>
-                            <a href="#" class="notification-item">
-                                <div class="notification-icon leave-request">✈️</div>
-                                <div class="notification-content">
-                                    <p><strong>Dr. Sharma</strong> has requested leave from 24th to 26th.</p>
-                                    <small>3 hours ago</small>
-                                </div>
-                            </a>
-                        </li>
-                    </ul>
-                    <div class="notification-footer"><a href="#" id="viewAllNotificationsLink">View All</a></div>
-                </div>
+                <div id="notificationPanel" class="notification-panel"><div class="notification-header"><h4>Notifications & Alerts</h4></div><ul></ul><div class="notification-footer"><a href="#" id="viewAllNotificationsLink">View All</a></div></div>
             </div>
         </div>
     </header>
@@ -435,41 +575,6 @@
                             <a href="#" id="viewAllFacultyBtn" class="quick-action-btn"><span class="action-icon">🧑‍🏫</span> Faculty Details</a>
                             <a href="#" id="postNoticeBtn" class="quick-action-btn post"><span class="action-icon">📢</span> Post Notice</a>
                             <a href="#" class="quick-action-btn report"><span class="action-icon">📄</span> Generate Report</a>
-                        </div>
-                    </div>
-
-                    <!-- Notifications Panel -->
-                    <div class="dashboard-panel">
-                        <h3>Notifications & Alerts</h3>
-                        <ul class="notification-list">
-                            <li>
-                                <span class="notif-icon" title="Pending Admission">⏳</span>
-                                <span class="notif-text"><strong>12 new student admissions</strong> are pending approval.</span>
-                                <a href="#" class="notif-action">View</a>
-                            </li>
-                            <li>
-                                <span class="notif-icon" title="Fee Defaulter">💳</span>
-                                <span class="notif-text"><strong>8 students</strong> have outstanding fee balances for this semester.</span>
-                                <a href="#" class="notif-action">View List</a>
-                            </li>
-                            <li>
-                                <span class="notif-icon" title="Leave Request">✈️</span>
-                                <span class="notif-text"><strong>Dr. Sharma</strong> has requested leave from 24th to 26th.</span>
-                                <a href="#" class="notif-action">Approve/Deny</a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            <div id="all-notifications-view" style="display: none;">
-                <div class="admin-dashboard">
-                    <div class="notifications-container">
-                        <h3>All Notifications</h3>
-                        <ul class="notification-list">
-                            <!-- Content from admin-notifications.html will go here -->
-                        </ul>
-                        <div class="back-link-container">
-                            <button id="backToDashboardBtn" class="back-btn">Back to Dashboard</button>
                         </div>
                     </div>
                 </div>
@@ -515,6 +620,33 @@
                         </div>
                         <div class="back-link-container">
                             <button id="backToDashboardFromFacultyBtn" class="back-btn">Back to Dashboard</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="all-timetables-view" style="display: none;">
+                <div class="admin-dashboard">
+                    <div class="dashboard-panel">
+                        <h3>Class Timetables</h3>
+                        <div class="timetable-grid">
+                            <a href="#" class="timetable-link" data-class="Nursery">Nursery</a>
+                            <a href="#" class="timetable-link" data-class="LKG">LKG</a>
+                            <a href="#" class="timetable-link" data-class="UKG">UKG</a>
+                            <a href="#" class="timetable-link" data-class="Class 1">Class 1</a>
+                            <a href="#" class="timetable-link" data-class="Class 2">Class 2</a>
+                            <a href="#" class="timetable-link" data-class="Class 3">Class 3</a>
+                            <a href="#" class="timetable-link" data-class="Class 4">Class 4</a>
+                            <a href="#" class="timetable-link" data-class="Class 5">Class 5</a>
+                            <a href="#" class="timetable-link" data-class="Class 6">Class 6</a>
+                            <a href="#" class="timetable-link" data-class="Class 7">Class 7</a>
+                            <a href="#" class="timetable-link" data-class="Class 8">Class 8</a>
+                            <a href="#" class="timetable-link" data-class="Class 9">Class 9</a>
+                            <a href="#" class="timetable-link" data-class="Class 10">Class 10</a>
+                            <a href="#" class="timetable-link" data-class="Class 11">Class 11</a>
+                            <a href="#" class="timetable-link" data-class="Class 12">Class 12</a>
+                        </div>
+                        <div class="back-link-container">
+                            <button id="backToDashboardFromTimetablesBtn" class="back-btn">Back to Dashboard</button>
                         </div>
                     </div>
                 </div>
