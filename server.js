@@ -1279,6 +1279,25 @@ app.get('/api/faculty/:identifier', async (req, res) => {
     }
 });
 
+// New endpoint to get all faculty records for an admin view
+app.get('/api/all-faculty', async (req, res) => {
+    console.log('Fetching all faculty records for admin view.');
+    try {
+        // Select all relevant fields, but EXCLUDE the password hash and security answers for safety.
+        const query = `
+            SELECT 
+                username, name, email, createdat 
+            FROM faculty 
+            ORDER BY createdat DESC;
+        `;
+        const { rows } = await pool.query(query);
+        res.json(rows.map(faculty => mapDbToCamelCase(faculty)));
+    } catch (error) {
+        console.error('Error fetching all faculty data:', error);
+        res.status(500).json({ message: 'Server error while fetching all faculty data.' });
+    }
+});
+
 // New endpoint for admin to send a notification to all students
 app.post('/api/admin/send-notification', jsonParser, async (req, res) => {
     const { message } = req.body;

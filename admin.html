@@ -111,6 +111,14 @@
         .quick-action-btn.add .action-icon { color: #388e3c; }
         .quick-action-btn.add:hover { background-color: #dcedc8; border-color: #81c784; }
 
+        /* New styles for user list tables */
+        .user-table-container { max-height: 70vh; overflow-y: auto; border: 1px solid var(--input-border); border-radius: 8px; }
+        .user-table-container table { width: 100%; border-collapse: collapse; }
+        .user-table-container th, .user-table-container td { padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid var(--input-border); }
+        .user-table-container th { background-color: var(--bg-body); position: sticky; top: 0; font-size: 0.9rem; }
+        .user-table-container tr:last-child td { border-bottom: none; }
+        .user-table-container tr:hover { background-color: var(--bg-hover); }
+
         /* Styles for the full notifications view */
         .notifications-container {
             background: var(--bg-main);
@@ -399,9 +407,10 @@
                     <div class="dashboard-panel" style="margin-bottom: 2.5rem;">
                         <h3>Quick Actions</h3>
                         <div class="actions-container">
-                            <a href="#" class="quick-action-btn add"><span class="action-icon">➕</span> Add Student</a>
-                            <a href="#" class="quick-action-btn add"><span class="action-icon">➕</span> Add Faculty</a>
-                            <a href="#" id="postNoticeBtn" class="quick-action-btn post"><span class="action-icon">📢</span> Post Notice</a><a href="#" class="quick-action-btn report"><span class="action-icon">📄</span> Generate Report</a>
+                            <a href="#" id="viewAllStudentsBtn" class="quick-action-btn"><span class="action-icon">🧑‍🎓</span> Student Details</a>
+                            <a href="#" id="viewAllFacultyBtn" class="quick-action-btn"><span class="action-icon">🧑‍🏫</span> Faculty Details</a>
+                            <a href="#" id="postNoticeBtn" class="quick-action-btn post"><span class="action-icon">📢</span> Post Notice</a>
+                            <a href="#" class="quick-action-btn report"><span class="action-icon">📄</span> Generate Report</a>
                         </div>
                     </div>
 
@@ -437,6 +446,47 @@
                         </ul>
                         <div class="back-link-container">
                             <button id="backToDashboardBtn" class="back-btn">Back to Dashboard</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="all-students-view" style="display: none;">
+                <div class="admin-dashboard">
+                    <div class="dashboard-panel">
+                        <h3>All Registered Students</h3>
+                        <div class="user-table-container">
+                            <table id="allStudentsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Roll Number</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Mobile</th>
+                                        <th>City</th>
+                                        <th>Registered On</th>
+                                    </tr>
+                                </thead>
+                                <tbody><!-- Student rows will be populated here --></tbody>
+                            </table>
+                        </div>
+                        <div class="back-link-container">
+                            <button id="backToDashboardFromStudentsBtn" class="back-btn">Back to Dashboard</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="all-faculty-view" style="display: none;">
+                <div class="admin-dashboard">
+                    <div class="dashboard-panel">
+                        <h3>All Registered Faculty</h3>
+                        <div class="user-table-container">
+                            <table id="allFacultyTable">
+                                <thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Registered On</th></tr></thead>
+                                <tbody><!-- Faculty rows will be populated here --></tbody>
+                            </table>
+                        </div>
+                        <div class="back-link-container">
+                            <button id="backToDashboardFromFacultyBtn" class="back-btn">Back to Dashboard</button>
                         </div>
                     </div>
                 </div>

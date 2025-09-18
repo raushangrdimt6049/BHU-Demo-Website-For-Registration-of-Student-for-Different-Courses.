@@ -21,7 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminContentWrapper = document.getElementById('admin-content-wrapper');
     const mainDashboardView = document.getElementById('main-dashboard-view');
     const allNotificationsView = document.getElementById('all-notifications-view');
-    const backToDashboardBtn = document.getElementById('backToDashboardBtn');
+    const allStudentsView = document.getElementById('all-students-view');
+    const allFacultyView = document.getElementById('all-faculty-view');
+    const backToDashboardBtn = document.getElementById('backToDashboardBtn'); // For notifications view
+    const backToDashboardFromStudentsBtn = document.getElementById('backToDashboardFromStudentsBtn');
+    const backToDashboardFromFacultyBtn = document.getElementById('backToDashboardFromFacultyBtn');
     // --- Side Navigation Elements ---
     const sideNavBtn = document.getElementById('sideNavBtn');
     const sideNav = document.getElementById('adminSideNav');
@@ -37,6 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewAllNotificationsLink = document.getElementById('viewAllNotificationsLink');
 
     // --- Post Notice Modal Elements ---
+    const viewAllStudentsBtn = document.getElementById('viewAllStudentsBtn');
+    const viewAllFacultyBtn = document.getElementById('viewAllFacultyBtn');
     const postNoticeBtn = document.getElementById('postNoticeBtn');
     const postNoticeModalOverlay = document.getElementById('postNoticeModalOverlay');
     const postNoticeForm = document.getElementById('postNoticeForm');
@@ -124,11 +130,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const showView = (viewToShow) => {
         mainDashboardView.style.display = 'none';
         allNotificationsView.style.display = 'none';
+        allStudentsView.style.display = 'none';
+        allFacultyView.style.display = 'none';
 
         if (viewToShow === 'dashboard') {
             mainDashboardView.style.display = 'block';
         } else if (viewToShow === 'notifications') {
             allNotificationsView.style.display = 'block';
+        } else if (viewToShow === 'students') {
+            allStudentsView.style.display = 'block';
+            fetchAllStudents();
+        } else if (viewToShow === 'faculty') {
+            allFacultyView.style.display = 'block';
+            fetchAllFaculty();
         }
     };
 
@@ -159,6 +173,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             closeNav(); // Close the side nav
         });
+    }
+
+    // --- Event Listeners for new buttons ---
+    if (viewAllStudentsBtn) {
+        viewAllStudentsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showView('students');
+        });
+    }
+    if (viewAllFacultyBtn) {
+        viewAllFacultyBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showView('faculty');
+        });
+    }
+    if (backToDashboardFromStudentsBtn) {
+        backToDashboardFromStudentsBtn.addEventListener('click', () => showView('dashboard'));
+    }
+    if (backToDashboardFromFacultyBtn) {
+        backToDashboardFromFacultyBtn.addEventListener('click', () => showView('dashboard'));
     }
 
     // --- Notification Panel Logic ---
@@ -285,6 +319,68 @@ document.addEventListener('DOMContentLoaded', () => {
             if (noticeHistoryModalOverlay) noticeHistoryModalOverlay.style.display = 'none';
         });
     }
+
+    // --- New functions to fetch and display data ---
+    const fetchAllStudents = async () => {
+        const tableBody = document.querySelector('#allStudentsTable tbody');
+        if (!tableBody) return;
+        tableBody.innerHTML = '<tr><td colspan="6">Loading student data...</td></tr>';
+
+        try {
+            const response = await fetch('/api/all-students');
+            const students = await response.json();
+            if (!response.ok) throw new Error(students.message || 'Failed to fetch students.');
+
+            tableBody.innerHTML = ''; // Clear loading message
+            if (students.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6">No students found.</td></tr>';
+                return;
+            }
+
+            students.forEach(student => {
+                const row = tableBody.insertRow();
+                const registeredDate = new Date(student.createdAt).toLocaleDateString('en-IN');
+                row.innerHTML = `
+                    <td>${student.rollNumber || 'N/A'}</td>
+                    <td>${student.name || 'N/A'}</td>
+                    <td>${student.email || 'N/A'}</td>
+                    <td>${student.mobileNumber || 'N/A'}</td>
+                    <td>${student.city || 'N/A'}</td>
+                    <td>${registeredDate}</td>
+                `;
+            });
+        } catch (error) {
+            console.error('Error fetching all students:', error);
+            tableBody.innerHTML = `<tr><td colspan="6" style="color: red;">Error: ${error.message}</td></tr>`;
+        }
+    };
+
+    const fetchAllFaculty = async () => {
+        const tableBody = document.querySelector('#allFacultyTable tbody');
+        if (!tableBody) return;
+        tableBody.innerHTML = '<tr><td colspan="4">Loading faculty data...</td></tr>';
+
+        try {
+            const response = await fetch('/api/all-faculty');
+            const faculty = await response.json();
+            if (!response.ok) throw new Error(faculty.message || 'Failed to fetch faculty.');
+
+            tableBody.innerHTML = ''; // Clear loading message
+            if (faculty.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4">No faculty found.</td></tr>';
+                return;
+            }
+
+            faculty.forEach(member => {
+                const row = tableBody.insertRow();
+                const registeredDate = new Date(member.createdAt).toLocaleDateString('en-IN');
+                row.innerHTML = `<td>${member.username || 'N/A'}</td><td>${member.name || 'N/A'}</td><td>${member.email || 'N/A'}</td><td>${registeredDate}</td>`;
+            });
+        } catch (error) {
+            console.error('Error fetching all faculty:', error);
+            tableBody.innerHTML = `<tr><td colspan="4" style="color: red;">Error: ${error.message}</td></tr>`;
+        }
+    };
 
     // --- Debounce function for search ---
     const debounce = (func, delay) => {
