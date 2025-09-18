@@ -111,6 +111,9 @@
         .quick-action-btn.add .action-icon { color: #388e3c; }
         .quick-action-btn.add:hover { background-color: #dcedc8; border-color: #81c784; }
 
+        .action-btn-delete { background-color: var(--btn-danger-bg); color: white; border: none; padding: 0.3rem 0.7rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+        .action-btn-delete:hover { background-color: var(--btn-danger-hover-bg); }
+
         /* New styles for user list tables */
         .user-table-container { max-height: 70vh; overflow-y: auto; border: 1px solid var(--input-border); border-radius: 8px; }
         .user-table-container table { width: 100%; border-collapse: collapse; }
@@ -230,6 +233,27 @@
                     <a href="index.html" class="back-btn">Back to Main Portal</a>
                 </div>
                 <p id="password-error" class="error-message" style="margin-top: 1rem;"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Faculty Modal -->
+    <div id="addFacultyModalOverlay" class="password-overlay" style="display: none;">
+        <div class="password-modal">
+            <h3>Add New Faculty Member</h3>
+            <p>A username will be auto-generated. Set an initial name and password.</p>
+            <form id="addFacultyForm">
+                <div class="form-group">
+                    <input type="text" id="addFacultyName" placeholder="Enter Full Name" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" id="addFacultyPassword" placeholder="Set Initial Password" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn">Create Faculty</button>
+                    <button type="button" id="cancelAddFacultyBtn" class="back-btn">Cancel</button>
+                </div>
+                <p id="add-faculty-error" class="error-message" style="margin-top: 1rem;"></p>
             </form>
         </div>
     </div>
@@ -478,10 +502,13 @@
             <div id="all-faculty-view" style="display: none;">
                 <div class="admin-dashboard">
                     <div class="dashboard-panel">
-                        <h3>All Registered Faculty</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>All Registered Faculty</h3>
+                            <button id="addFacultyBtn" class="submit-btn" style="width: auto;">+ Add Faculty</button>
+                        </div>
                         <div class="user-table-container">
                             <table id="allFacultyTable">
-                                <thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Registered On</th></tr></thead>
+                                <thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Registered On</th><th>Actions</th></tr></thead>
                                 <tbody><!-- Faculty rows will be populated here --></tbody>
                             </table>
                         </div>

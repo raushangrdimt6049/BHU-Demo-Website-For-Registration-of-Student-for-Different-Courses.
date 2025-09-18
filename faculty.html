@@ -169,6 +169,28 @@
         .ql-purple { background-color: #8e44ad; }
         .ql-red { background-color: #c0392b; }
 
+        /* Styles from home.html for modals and settings */
+        .profile-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 2000; display: none; justify-content: center; align-items: flex-start; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; overflow-y: auto; padding: 5vh 1rem; }
+        .profile-modal-overlay.active { opacity: 1; visibility: visible; display: flex; }
+        .profile-modal-content { background: var(--bg-main); padding: 2rem; border-radius: 12px; width: 90%; max-width: 450px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); position: relative; transform: scale(0.95); transition: transform 0.3s; }
+        .profile-modal-overlay.active .profile-modal-content { transform: scale(1); }
+        .settings-view h4 { text-align: center; margin-bottom: 2rem; font-size: 1.75rem; color: var(--text-color); }
+        .profile-picture-container { position: relative; width: 150px; height: 150px; margin: 0 auto 2rem auto; border-radius: 50%; overflow: hidden; border: 3px solid var(--btn-bg); }
+        .profile-picture { width: 100%; height: 100%; object-fit: cover; }
+        .edit-picture-overlay { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0, 0, 0, 0.6); color: white; text-align: center; padding: 8px 0; opacity: 0; transition: opacity 0.3s; }
+        .profile-picture-container:hover .edit-picture-overlay { opacity: 1; }
+        .edit-picture-btn { cursor: pointer; font-weight: 600; }
+        .dob-group { display: flex; gap: 10px; width: 100%; }
+        .dob-group select:nth-child(1) { flex: 1; }
+        .dob-group select:nth-child(2) { flex: 2; }
+        .dob-group select:nth-child(3) { flex: 1.5; }
+        .detail-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; max-width: 450px; margin: 0 auto; }
+        .detail-group { display: flex; flex-direction: column; }
+        .detail-group label { font-weight: 600; font-size: 0.9rem; color: var(--text-color); opacity: 0.8; margin-bottom: 0.25rem; }
+        .detail-group input, .detail-group select { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; font-size: 1rem; background-color: var(--input-bg); color: var(--text-color); }
+        .detail-group input:read-only { background-color: var(--readonly-bg); cursor: not-allowed; }
+        .button-group { display: flex; gap: 1rem; margin-top: 2.5rem; justify-content: center; }
+
         /* Course List & Schedule List */
         .course-list, .schedule-list {
             list-style: none;
@@ -311,6 +333,75 @@
     </nav>
 
     <main class="login-main" id="faculty-content">
+        <!-- Profile Completion Modal -->
+        <div id="profileCompletionModalOverlay" class="profile-modal-overlay" style="z-index: 4000;">
+            <div class="profile-modal-content" style="max-width: 700px;">
+                <!-- No close button to force completion -->
+                <div class="settings-view">
+                    <h4>Complete Your Profile</h4>
+                    <p style="text-align: center; margin-top: -1rem; margin-bottom: 2rem;">Welcome! Please complete your profile and set a new password to continue.</p>
+                    <p id="completion-form-error" class="error-message" style="text-align: center; margin-bottom: 1rem;"></p>
+
+                    <form id="profileCompletionForm">
+                        <div class="profile-picture-container" style="margin-bottom: 2rem;">
+                            <img src="default-avatar.png" alt="Profile Picture" id="completionProfilePicture" class="profile-picture">
+                            <div class="edit-picture-overlay">
+                                <label for="completionEditProfilePicture" class="edit-picture-btn">Upload Photo</label>
+                                <input type="file" id="completionEditProfilePicture" name="photo" accept="image/*" style="display: none;">
+                            </div>
+                        </div>
+
+                        <div class="detail-grid">
+                            <div class="detail-group">
+                                <label>Full Name</label>
+                                <input type="text" id="completionName" readonly title="Name is set by admin.">
+                            </div>
+                            <div class="detail-group">
+                                <label for="completionEmail">Email Address</label>
+                                <input type="email" id="completionEmail" name="email" required>
+                            </div>
+                            <div class="detail-group">
+                                <label for="completionMobile">Mobile Number</label>
+                                <input type="tel" id="completionMobile" name="mobileNumber" required pattern="[0-9]{10}" maxlength="10">
+                            </div>
+                            <div class="detail-group">
+                                <label>Date of Birth</label>
+                                <div class="dob-group">
+                                    <select id="completionDobDay" name="dob-day" required></select>
+                                    <select id="completionDobMonth" name="dob-month" required></select>
+                                    <select id="completionDobYear" name="dob-year" required></select>
+                                </div>
+                            </div>
+                            <div class="detail-group">
+                                <label for="completionTeacherChoice">Teacher Type</label>
+                                <select id="completionTeacherChoice" name="teacherChoice" required>
+                                    <option value="" disabled selected>-- Select Type --</option>
+                                    <option value="TGT">TGT (Trained Graduate Teacher)</option>
+                                    <option value="PGT">PGT (Post-Graduate Teacher)</option>
+                                </select>
+                            </div>
+                            <div class="detail-group">
+                                <label for="completionSubject">Primary Subject</label>
+                                <input type="text" id="completionSubject" name="subject" required>
+                            </div>
+                        </div>
+
+                        <h4 style="margin-top: 2rem;">Set New Password</h4>
+                        <div class="detail-grid">
+                            <div class="detail-group"><label for="completionCurrentPassword">Current Password (from Admin)</label><input type="password" id="completionCurrentPassword" name="currentPassword" required></div>
+                            <div class="detail-group"><label for="completionNewPassword">New Password</label><input type="password" id="completionNewPassword" name="newPassword" required></div>
+                            <div class="detail-group"><label for="completionConfirmPassword">Confirm New Password</label><input type="password" id="completionConfirmPassword" required></div>
+                        </div>
+                        <small id="completion-password-error" class="error-message"></small>
+
+                        <div class="button-group" style="margin-top: 2rem;">
+                            <button type="submit" class="submit-btn">Submit and Continue</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <div class="faculty-dashboard">
             <h2 style="text-align: center; margin-bottom: 2rem; border-bottom: 1px solid var(--input-border); padding-bottom: 1rem;">Faculty Dashboard</h2>
 

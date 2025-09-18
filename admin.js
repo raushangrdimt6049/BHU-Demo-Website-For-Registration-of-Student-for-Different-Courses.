@@ -56,6 +56,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const noticeHistoryList = document.getElementById('noticeHistoryList');
     const closeNoticeHistoryBtn = document.getElementById('closeNoticeHistoryBtn');
 
+    // --- Add Faculty Modal Elements ---
+    const addFacultyBtn = document.getElementById('addFacultyBtn');
+    const addFacultyModalOverlay = document.getElementById('addFacultyModalOverlay');
+    const addFacultyForm = document.getElementById('addFacultyForm');
+    const cancelAddFacultyBtn = document.getElementById('cancelAddFacultyBtn');
+    const addFacultyError = document.getElementById('add-faculty-error');
+
     // --- Search Modal Elements ---
     const searchUsersBtn = document.getElementById('searchUsersBtn');
     const searchModalOverlay = document.getElementById('searchModalOverlay');
@@ -320,6 +327,64 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Add Faculty Modal Logic ---
+    if (addFacultyBtn) {
+        addFacultyBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (addFacultyModalOverlay) {
+                addFacultyModalOverlay.style.display = 'flex';
+                addFacultyForm.reset();
+                addFacultyError.style.display = 'none';
+            }
+        });
+    }
+
+    if (cancelAddFacultyBtn) {
+        cancelAddFacultyBtn.addEventListener('click', () => {
+            if (addFacultyModalOverlay) {
+                addFacultyModalOverlay.style.display = 'none';
+            }
+        });
+    }
+
+    if (addFacultyForm) {
+        addFacultyForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('addFacultyName').value.trim();
+            const password = document.getElementById('addFacultyPassword').value.trim();
+            const submitBtn = addFacultyForm.querySelector('.submit-btn');
+
+            if (!name || !password) {
+                addFacultyError.textContent = 'Name and password are required.';
+                addFacultyError.style.display = 'block';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+            addFacultyError.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/admin/add-faculty', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, password })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Failed to create faculty.');
+                alert(result.message); // Shows success message with new username
+                addFacultyModalOverlay.style.display = 'none';
+                fetchAllFaculty(); // Refresh the faculty list
+            } catch (error) {
+                addFacultyError.textContent = error.message;
+                addFacultyError.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Faculty';
+            }
+        });
+    }
+
     // --- New functions to fetch and display data ---
     const fetchAllStudents = async () => {
         const tableBody = document.querySelector('#allStudentsTable tbody');
@@ -358,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchAllFaculty = async () => {
         const tableBody = document.querySelector('#allFacultyTable tbody');
         if (!tableBody) return;
-        tableBody.innerHTML = '<tr><td colspan="4">Loading faculty data...</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="5">Loading faculty data...</td></tr>';
 
         try {
             const response = await fetch('/api/all-faculty');
@@ -367,18 +432,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
             tableBody.innerHTML = ''; // Clear loading message
             if (faculty.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="4">No faculty found.</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="5">No faculty found.</td></tr>';
                 return;
             }
 
             faculty.forEach(member => {
                 const row = tableBody.insertRow();
                 const registeredDate = new Date(member.createdAt).toLocaleDateString('en-IN');
-                row.innerHTML = `<td>${member.username || 'N/A'}</td><td>${member.name || 'N/A'}</td><td>${member.email || 'N/A'}</td><td>${registeredDate}</td>`;
+                row.innerHTML = `
+                    <td>${member.username || 'N/A'}</td>
+                    <td>${member.name || 'N/A'}</td>
+                    <td>${member.email || 'N/A'}</td>
+                    <td>${registeredDate}</td>
+                    <td><button class="action-btn-delete delete-faculty-btn" data-username="${member.username}">Delete</button></td>
+                `;
             });
+
+            // Add event listeners to the new delete buttons
+            document.querySelectorAll('.delete-faculty-btn').forEach(button => {
+                button.addEventListener('click', handleDeleteFaculty);
+            });
+
         } catch (error) {
             console.error('Error fetching all faculty:', error);
-            tableBody.innerHTML = `<tr><td colspan="4" style="color: red;">Error: ${error.message}</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="5" style="color: red;">Error: ${error.message}</td></tr>`;
+        }
+    };
+
+    const handleDeleteFaculty = async (event) => {
+        const username = event.target.dataset.username;
+        if (!confirm(`Are you sure you want to permanently delete the faculty member "${username}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/faculty/${username}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to delete faculty member.');
+            }
+
+            alert(result.message);
+            fetchAllFaculty(); // Refresh the list
+        } catch (error) {
+            console.error('Error deleting faculty:', error);
+            alert(`Error: ${error.message}`);
         }
     };
 

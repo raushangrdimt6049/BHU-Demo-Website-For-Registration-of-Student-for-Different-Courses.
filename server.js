@@ -1479,6 +1479,149 @@ app.put('/api/student/:rollNumber', jsonParser, async (req, res) => {
 });
 
 /**
+ * =============================================================================
+ * FACULTY-FACING ENDPOINTS
+ * =============================================================================
+ */
+
+// New endpoint for faculty to complete their profile
+app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
+    const { 
+        username, currentPassword, newPassword, 
+        email, mobileNumber, dob, teacherChoice, subject 
+    } = req.body;
+    console.log(`Profile completion attempt for faculty: ${username}`);
+
+    if (!username || !currentPassword || !newPassword || !email || !mobileNumber || !dob || !teacherChoice || !subject) {
+        return res.status(400).json({ message: 'All fields are required to complete your profile.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const facultyRes = await client.query('SELECT * FROM faculty WHERE username = $1', [username]);
+        if (facultyRes.rows.length === 0) {
+            throw new Error('Faculty member not found.');
+        }
+        const faculty = facultyRes.rows[0];
+
+        const isPasswordMatch = await bcrypt.compare(currentPassword, faculty.passwordhash);
+        if (!isPasswordMatch) {
+            return res.status(401).json({ message: 'Incorrect current password.' });
+        }
+
+        const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+        const updateQuery = `
+            UPDATE faculty 
+            SET email = $1, mobilenumber = $2, dob = $3, teacherchoice = $4, subject = $5, 
+                passwordhash = $6, isprofilecomplete = TRUE, updatedat = CURRENT_TIMESTAMP
+            WHERE username = $7
+            RETURNING *;
+        `;
+        const values = [email.toLowerCase(), mobileNumber, dob, teacherChoice, subject, newPasswordHash, username];
+        const updatedResult = await client.query(updateQuery, values);
+
+        await client.query('COMMIT');
+
+        const updatedFaculty = updatedResult.rows[0];
+        delete updatedFaculty.passwordhash;
+        res.status(200).json({ message: 'Profile updated successfully!', facultyData: mapDbToCamelCase(updatedFaculty) });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error completing faculty profile:', error);
+        res.status(500).json({ message: 'Server error during profile update.' });
+    } finally {
+        client.release();
+    }
+});
+
+// Endpoint for faculty registration
+app.post('/api/faculty/register', jsonParser, async (req, res) => {
+    const { name, username, email, password, securityQuestion, securityAnswer } = req.body;
+    console.log(`Faculty registration attempt for username: ${username}`);
+
+    try {
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        const query = `
+            INSERT INTO faculty (name, username, email, passwordhash, securityquestion, securityanswer)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, name, username, email;
+        `;
+        const values = [name, username, email.toLowerCase(), passwordHash, securityQuestion, securityAnswer];
+        const { rows } = await pool.query(query, values);
+        
+        console.log(`Faculty member ${username} registered successfully.`);
+        res.status(201).json({ message: 'Faculty registration successful!', facultyData: rows[0] });
+    } catch (error) {
+        if (error.code === '23505') { // unique_violation
+            return res.status(409).json({ message: 'A faculty member with this username or email already exists.' });
+        }
+        console.error('Error during faculty registration:', error);
+        res.status(500).json({ message: 'Server error during registration.' });
+    }
+});
+
+// Endpoint for faculty login
+app.post('/api/faculty/login', jsonParser, async (req, res) => {
+    const { loginIdentifier, password } = req.body;
+    console.log(`Faculty login attempt for identifier: ${loginIdentifier}`);
+
+    try {
+        const query = 'SELECT * FROM faculty WHERE username = $1 OR email = $1';
+        const { rows } = await pool.query(query, [loginIdentifier]);
+
+        if (rows.length === 0) {
+            return res.status(401).json({ message: 'Username or email not found.' });
+        }
+
+        const faculty = rows[0];
+        const isPasswordMatch = await bcrypt.compare(password, faculty.passwordhash);
+
+        if (!isPasswordMatch) {
+            return res.status(401).json({ message: 'Incorrect password.' });
+        }
+
+        delete faculty.passwordhash;
+        delete faculty.securityanswer;
+
+        res.status(200).json({ message: 'Login successful', facultyData: mapDbToCamelCase(faculty) });
+    } catch (error) {
+        console.error('Error during faculty login:', error);
+        res.status(500).json({ message: 'Server error during login.' });
+    }
+});
+
+// Endpoint for faculty password reset
+app.post('/api/faculty/reset-password', jsonParser, async (req, res) => {
+    const { identifier, securityQuestion, securityAnswer, newPassword } = req.body;
+    console.log(`Faculty password reset attempt for identifier: ${identifier}`);
+
+    try {
+        const query = 'SELECT * FROM faculty WHERE (username = $1 OR email = $1) AND securityquestion = $2';
+        const { rows } = await pool.query(query, [identifier, securityQuestion]);
+
+        if (rows.length === 0) {
+            return res.status(401).json({ message: 'Invalid identifier or security question.' });
+        }
+
+        const faculty = rows[0];
+        if (faculty.securityanswer.toLowerCase() !== securityAnswer.toLowerCase()) {
+            return res.status(401).json({ message: 'Incorrect security answer.' });
+        }
+
+        const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+        await pool.query('UPDATE faculty SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE id = $2', [newPasswordHash, faculty.id]);
+
+        console.log(`Password successfully reset for faculty: ${faculty.username}`);
+        res.status(200).json({ message: 'Password reset successful' });
+    } catch (error) {
+        console.error('Error during faculty password reset:', error);
+        res.status(500).json({ message: 'Server error during password reset.' });
+    }
+});
+
+/**
  * Helper function to map database object (lowercase keys) to a frontend-friendly
  * camelCase object.
  * @param {object} dbObject The object with lowercase keys from the database.
@@ -1516,6 +1659,7 @@ function mapDbToCamelCase(dbObject) {
             year12: 'year12',
             selectedcourse: 'selectedCourse',
             hobbycourses: 'hobbyCourses',
+            isprofilecomplete: 'isProfileComplete',
             isread: 'isRead',
             createdat: 'createdAt',
             updatedat: 'updatedAt'

@@ -45,12 +45,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ loginIdentifier, password })
             });
 
-            const data = await response.json();
-
             if (!response.ok) {
-                throw new Error(data.message || `HTTP error! status: ${response.status}`);
+                let errorMessage;
+                const contentType = response.headers.get("content-type");
+
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    // If the server sent a JSON error, parse it
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || `Login failed with status: ${response.status}`;
+                } else {
+                    // If the server sent HTML or something else, which is the likely cause of the error.
+                    if (response.status === 404) {
+                        errorMessage = "Login service not found. The server may need to be restarted.";
+                    } else {
+                        errorMessage = `An unexpected server error occurred (Status: ${response.status}). Please try again.`;
+                    }
+                    console.error("Server sent a non-JSON response. This is the response text:", await response.text());
+                }
+                throw new Error(errorMessage);
             }
 
+            const data = await response.json();
             // --- Login Successful ---
             const facultyData = data.facultyData;
             sessionStorage.setItem('currentFaculty', JSON.stringify(facultyData));
