@@ -80,7 +80,12 @@
         }
         
         /* --- New Side Navigation Styles --- */
-        .main-header { justify-content: space-between; }
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
         .header-actions-left { display: flex; align-items: center; }
         .side-nav-btn {
             background: none; border: none; color: var(--text-color); font-size: 1.8rem; cursor: pointer; padding: 0 1rem;
@@ -306,7 +311,7 @@
         /* New container for the main content area */
         .main-content-container {
             background: var(--bg-main);
-            padding: 1rem 2.5rem 2.5rem;
+            padding: 0 2.5rem 2.5rem;
             border-radius: 12px;
             box-shadow: 0 5px 15px var(--header-shadow);
             width: 100%;

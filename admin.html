@@ -19,7 +19,12 @@
     </script>
     <style>
         /* --- New Admin Dashboard Styles --- */
-        .main-header { justify-content: space-between; }
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
         .header-actions-left, .header-actions-right { display: flex; align-items: center; gap: 1rem; }
         .icon-btn { background: none; border: none; font-size: 1.6rem; cursor: pointer; color: var(--text-color); }
 
