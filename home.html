@@ -23,13 +23,27 @@
         .quick-links-panel { background: var(--bg-body); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--input-border); }
         .quick-links-header {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             margin-top: 0;
             margin-bottom: 1rem;
             border-bottom: 1px solid var(--input-border);
             padding-bottom: 0.5rem;
         }
+
+        /* --- New Profile Intro Section --- */
+        .student-profile-intro {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            background-color: var(--bg-body);
+            border-radius: 8px;
+            border: 1px solid var(--input-border);
+        }
+        .profile-intro-pic { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--btn-bg); margin-bottom: 0.5rem; }
+        .student-profile-intro h3 { margin: 0.5rem 0 0.25rem 0; font-size: 1.4rem; }
+        .student-profile-intro p { margin: 0; color: var(--text-color-light); }
+
         .quick-links-header h4 { margin: 0; border-bottom: none; padding-bottom: 0; text-align: left; font-size: 1.2rem; }
         .quick-links-panel ul { list-style: none; padding: 0; margin: 0; } /* Keep old style for compatibility if needed */
         .search-icon-btn {
@@ -60,9 +74,11 @@
             50% { transform: scale(1.08); } /* A more subtle zoom */
         }
 
-        /* Center the logo in the header */
-        .header-branding { justify-content: center; }
-
+        @media (max-width: 480px) { /* New mobile styles for the header */
+            .header-actions-left, .header-actions-right { gap: 0.5rem; }
+            .main-header { padding: 0 0.5rem; }
+        }
+        
         /* --- New Side Navigation Styles --- */
         .main-header { justify-content: space-between; }
         .header-actions-left { display: flex; align-items: center; }
@@ -448,6 +464,7 @@
             </div>
         </div>
         <div class="header-actions-right">
+            <button id="openSearchModalBtn" class="search-icon-btn" title="Search">🔍</button>
             <div class="notification-container">
                 <button id="notificationBtn" class="notification-btn" title="Notifications">
                     🔔

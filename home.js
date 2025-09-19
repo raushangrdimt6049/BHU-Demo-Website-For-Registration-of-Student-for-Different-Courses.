@@ -89,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         let studentData = JSON.parse(studentDataString);
+        let studentNotifications = []; // To store fetched notifications
         let searchableItems = []; // Define the array to hold all searchable items
 
         // --- View Containers ---
@@ -174,7 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchInput = document.getElementById('searchInput');
         const searchResultsList = document.getElementById('searchResultsList');
         const noSearchResultsMessage = document.getElementById('no-search-results');
-        let openSearchModalBtn; // Will be defined after dashboard renders
 
         // --- All Notifications Modal ---
         const allNotificationsModalOverlay = document.getElementById('allNotificationsModalOverlay');
@@ -621,7 +621,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch(`/api/notifications/${studentData.rollNumber}`);
                 if (!response.ok) throw new Error('Failed to fetch notifications');
                 
-                const notifications = await response.json();
+                let notifications = await response.json();
+                studentNotifications = notifications; // Store for other functions
 
                 // Clear existing lists
                 if (notificationList) notificationList.innerHTML = '';
@@ -809,10 +810,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="welcome-banner">
                         <h2>Welcome, ${studentData.name || 'Student'}</h2>
                     </div>
+                    <div class="student-profile-intro">
+                        <img src="${studentData.profilePicture || 'default-avatar.png'}" alt="Profile Picture" class="profile-intro-pic" onerror="this.onerror=null;this.src='default-avatar.png';">
+                        <h3>${studentData.name || 'Student'}</h3>
+                        <p>Roll No: ${studentData.rollNumber || 'N/A'}</p>
+                    </div>
                     <div class="quick-links-panel">
                          <div class="quick-links-header">
                             <h4>Quick Links</h4>
-                            <button id="openSearchModalBtn" class="search-icon-btn" title="Search">🔍</button>
                          </div>
                          <div class="quick-links-grid">
                             <a href="#" id="quickLinkMyCourses" class="quick-link-item">My Courses</a>
@@ -857,18 +862,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 quickLinkPaymentHistory.addEventListener('click', (e) => {
                     e.preventDefault();
                     openHistoryModal();
-                });
-            }
-
-            // Attach listener for the search button
-            openSearchModalBtn = document.getElementById('openSearchModalBtn');
-            if (openSearchModalBtn) {
-                openSearchModalBtn.addEventListener('click', () => {
-                    openModal(searchModalOverlay);
-                    searchInput.value = ''; // Clear search input on open
-                    searchResultsList.innerHTML = ''; // Clear results on open
-                    noSearchResultsMessage.style.display = 'none';
-                    searchInput.focus(); // Focus the input
                 });
             }
         } else {
@@ -935,6 +928,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
                 proceedSection.appendChild(previewSection);
             }
+        }
+
+        // --- Search Modal Logic (now global) ---
+        const openSearchModalBtn = document.getElementById('openSearchModalBtn');
+        if (openSearchModalBtn) {
+            openSearchModalBtn.addEventListener('click', () => {
+                openModal(searchModalOverlay);
+                searchInput.value = ''; // Clear search input on open
+                searchResultsList.innerHTML = ''; // Clear results on open
+                noSearchResultsMessage.style.display = 'none';
+                searchInput.focus(); // Focus the input
+            });
         }
 
         // --- Search Modal Logic ---

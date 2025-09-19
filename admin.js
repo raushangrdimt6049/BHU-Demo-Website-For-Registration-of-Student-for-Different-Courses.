@@ -99,17 +99,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const facultyDetailSection = document.getElementById('facultyDetailSection');
     const closeUserDetailBtn = document.getElementById('closeUserDetailBtn');
 
-    const searchableNavItems = [
-        { title: 'Dashboard', keywords: 'home main kpi', action: { type: 'view', view: 'dashboard' } },
-        { title: 'Users', keywords: 'admins administrators', action: { type: 'view', view: 'users' } },
-        { title: 'Student Details', keywords: 'students list all', action: { type: 'view', view: 'students' } },
-        { title: 'Faculty Details', keywords: 'faculty list all', action: { type: 'view', view: 'faculty' } },
-        { title: 'Timetable', keywords: 'schedule class routine', action: { type: 'view', view: 'timetables' } },
-        { title: 'Post Notice', keywords: 'announcement message send', action: { type: 'function', func: openPostNoticeModal } },
-        { title: 'Settings', keywords: 'profile edit change password', action: { type: 'function', func: openAdminSettingsModal } },
-        { title: 'Logout', keywords: 'sign out exit', action: { type: 'function', func: () => { if(adminLogoutBtn) adminLogoutBtn.click(); } } }
-    ];
-
     // --- Admin Settings Modal Elements ---
     const adminSettingsModalOverlay = document.getElementById('adminSettingsModalOverlay');
     const closeAdminSettingsModalBtn = document.getElementById('closeAdminSettingsModalBtn');
@@ -1165,17 +1154,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }, delay);
         };
     };
-
-    const searchableNavItems = [
-        { title: 'Dashboard', keywords: 'home main kpi', action: { type: 'view', view: 'dashboard' } },
-        { title: 'Users', keywords: 'admins administrators', action: { type: 'view', view: 'users' } },
-        { title: 'Student Details', keywords: 'students list all', action: { type: 'view', view: 'students' } },
-        { title: 'Faculty Details', keywords: 'faculty list all', action: { type: 'view', view: 'faculty' } },
-        { title: 'Timetable', keywords: 'schedule class routine', action: { type: 'view', view: 'timetables' } },
-        { title: 'Post Notice', keywords: 'announcement message send', action: { type: 'function', func: openPostNoticeModal } },
-        { title: 'Settings', keywords: 'profile edit change password', action: { type: 'function', func: openAdminSettingsModal } },
-        { title: 'Logout', keywords: 'sign out exit', action: { type: 'function', func: () => { if(adminLogoutBtn) adminLogoutBtn.click(); } } }
-    ];
 
     // --- Search Modal Logic ---
     if (searchUsersBtn) {

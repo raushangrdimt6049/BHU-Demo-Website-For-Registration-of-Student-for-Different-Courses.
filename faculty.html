@@ -84,6 +84,7 @@
         }
         .side-nav-overlay.active { opacity: 1; visibility: visible; }
         .header-actions-right { display: flex; align-items: center; }
+        .icon-btn { background: none; border: none; font-size: 1.6rem; cursor: pointer; color: var(--text-color); }
 
         /* --- Faculty Dashboard Styles --- */
         .faculty-dashboard {
@@ -109,14 +110,6 @@
             background-color: var(--input-bg);
             color: var(--text-color);
             font-size: 0.9rem;
-        }
-        .icon-btn {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--text-color);
-            position: relative;
         }
         .logout-btn {
             background-color: var(--btn-secondary-bg);
@@ -187,6 +180,28 @@
         .detail-group input, .detail-group select { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; font-size: 1rem; background-color: var(--input-bg); color: var(--text-color); }
         .detail-group input:read-only { background-color: var(--readonly-bg); cursor: not-allowed; }
         .button-group { display: flex; gap: 1rem; margin-top: 2.5rem; justify-content: center; }
+
+        /* --- Search Modal Styles (from home.html) --- */
+        .search-modal-content .search-input-wrapper { position: relative; margin-bottom: 1.5rem; }
+        .search-modal-content .search-input-wrapper .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-color-light); font-size: 1.2rem; }
+        .search-modal-content #facultySearchInput {
+            width: 100%;
+            padding: 0.8rem 1rem 0.8rem 2.8rem; /* Add padding for icon */
+            font-size: 1.1rem;
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+        #facultySearchResultsList { list-style: none; padding: 0; margin: 0; max-height: 50vh; overflow-y: auto; }
+        #facultySearchResultsList li a {
+            display: block; padding: 1rem; text-decoration: none; color: var(--text-color);
+            border-radius: 6px; transition: background-color 0.2s; font-weight: 500;
+        }
+        #facultySearchResultsList li a:hover { background-color: var(--bg-hover); }
+        #faculty-no-search-results {
+            text-align: center; padding: 2rem; color: var(--text-color-light);
+        }
 
         /* Course List & Schedule List */
         .course-list, .schedule-list {
@@ -304,8 +319,15 @@
             </div>
         </div>
         <div class="header-actions-right">
-            <div class="header-controls">
-                <button class="icon-btn" title="Notifications">🔔</button>
+            <button id="facultySearchBtn" class="icon-btn" title="Search">🔍</button>
+            <div class="notification-container">
+                <button id="notificationBtn" class="notification-btn" title="Notifications">
+                    🔔
+                    <span id="notificationBadge" class="notification-badge" style="display: none;"></span>
+                </button>
+                <div id="notificationPanel" class="notification-panel">
+                    <div class="notification-header"><h4>Notifications</h4></div><ul></ul><div class="notification-footer"><a href="#" id="viewAllNotificationsLink">View All</a></div>
+                </div>
             </div>
         </div>
     </header>
@@ -328,6 +350,22 @@
     </nav>
 
     <main class="login-main" id="faculty-content">
+        <!-- Search Modal -->
+        <div id="facultySearchModalOverlay" class="profile-modal-overlay">
+            <div class="profile-modal-content search-modal-content" style="max-width: 600px;">
+                <button id="closeFacultySearchModalBtn" class="close-modal-btn">&times;</button>
+                <div class="settings-view"> <!-- Re-using class for h4 style -->
+                    <h4>Search Portal</h4>
+                    <div class="search-input-wrapper">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="facultySearchInput" placeholder="Search for students, courses..." autocomplete="off">
+                    </div>
+                    <ul id="facultySearchResultsList"></ul>
+                    <p id="faculty-no-search-results" style="display: none;">No results found.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Profile Completion Modal -->
         <div id="profileCompletionModalOverlay" class="profile-modal-overlay" style="z-index: 4000;">
             <div class="profile-modal-content" style="max-width: 700px;">

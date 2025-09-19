@@ -23,6 +23,9 @@
             justify-content: space-between;
             padding: 0.5rem 2rem;
         }
+        .icon-btn {
+            background: none; border: none; font-size: 1.6rem; cursor: pointer; color: var(--text-color);
+        }
         .header-branding {
             justify-content: flex-start;
             flex-grow: 0;
@@ -175,6 +178,28 @@
             color: var(--btn-bg);
         }
 
+        /* --- Search Modal Styles (from admin.html) --- */
+        .password-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: none; justify-content: center; align-items: center; z-index: 2000; transition: opacity 0.3s ease-in-out; }
+        .password-overlay.active { display: flex; }
+        .password-modal { background: var(--bg-main); padding: 2.5rem; border-radius: 12px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.3); position: relative; width: 90%; max-width: 600px; }
+        .password-modal h3 { margin-bottom: 1.5rem; font-size: 1.75rem; }
+        .close-modal-btn { position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 2.5rem; color: var(--text-color); cursor: pointer; line-height: 1; opacity: 0.7; transition: opacity 0.2s; }
+        .close-modal-btn:hover { opacity: 1; }
+        #globalSearchInput { width: 100%; padding: 0.8rem 1rem; font-size: 1.1rem; border: 1px solid var(--input-border); border-radius: 8px; background-color: var(--input-bg); color: var(--text-color); }
+        #globalSearchResultsList { list-style: none; padding: 0; margin: 1.5rem 0 0 0; max-height: 50vh; overflow-y: auto; text-align: left; }
+        #globalSearchResultsList li a { display: flex; justify-content: space-between; align-items: center; padding: 1rem; text-decoration: none; color: var(--text-color); border-radius: 6px; transition: background-color 0.2s; font-weight: 500; border-bottom: 1px solid var(--input-border); }
+        #globalSearchResultsList li a:hover { background-color: var(--bg-hover); }
+        #globalSearchResultsList li:last-child a { border-bottom: none; }
+        #globalSearchResultsList .result-type {
+            font-size: 0.8rem;
+            background-color: var(--readonly-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 10px;
+            text-transform: capitalize;
+            color: var(--text-color-light);
+        }
+
         /* Responsive adjustments */
         @media (max-width: 992px) {
             .main-nav { display: none; } /* Hide nav on smaller screens for simplicity */
@@ -204,14 +229,7 @@
             </ul>
         </nav>
         <div class="header-actions">
-            <div class="login-dropdown-container">
-                <button id="loginBtn" class="login-btn">Login</button>
-                <div id="loginDropdown" class="login-dropdown">
-                    <a href="admin.html">Admin Login</a>
-                    <a href="faculty-login.html">Faculty Login</a>
-                    <a href="login.html">Student Login</a>
-                </div>
-            </div>
+            <button id="globalSearchBtn" class="icon-btn" title="Search Portal">🔍</button>
         </div>
     </header>
 
@@ -242,21 +260,81 @@
         </div>
     </main>
 
+    <!-- Global Search Modal -->
+    <div id="globalSearchModalOverlay" class="password-overlay">
+        <div class="password-modal">
+            <button id="closeGlobalSearchBtn" class="close-modal-btn">&times;</button>
+            <h3>Search Portal</h3>
+            <div class="form-group">
+                <input type="text" id="globalSearchInput" placeholder="e.g., 'admin', 'student login', 'faculty portal'..." autocomplete="off">
+            </div>
+            <ul id="globalSearchResultsList">
+                <!-- Search results will be populated here -->
+            </ul>
+            <p id="global-no-search-results" style="display: none; text-align: center; margin-top: 1.5rem;">No results found.</p>
+        </div>
+    </div>
+
     <script src="theme.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const loginBtn = document.getElementById('loginBtn');
-            const loginDropdown = document.getElementById('loginDropdown');
+            const globalSearchBtn = document.getElementById('globalSearchBtn');
+            const globalSearchModalOverlay = document.getElementById('globalSearchModalOverlay');
+            const closeGlobalSearchBtn = document.getElementById('closeGlobalSearchBtn');
+            const globalSearchInput = document.getElementById('globalSearchInput');
+            const globalSearchResultsList = document.getElementById('globalSearchResultsList');
+            const globalNoResults = document.getElementById('global-no-search-results');
 
-            if (loginBtn && loginDropdown) {
-                loginBtn.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    loginDropdown.classList.toggle('active');
+            const searchableItems = [
+                { title: 'Admin Login', keywords: 'admin administrator dashboard panel', href: 'admin.html', type: 'Admin' },
+                { title: 'Faculty Login', keywords: 'faculty teacher staff portal', href: 'faculty-login.html', type: 'Faculty' },
+                { title: 'Student Login', keywords: 'student portal sign in', href: 'login.html', type: 'Student' },
+                { title: 'Student Registration', keywords: 'student register new admission apply', href: 'index.html', type: 'Student' },
+                { title: 'Forgot Password (Student)', keywords: 'student reset password forgot', href: 'forgot.html', type: 'Student' },
+                { title: 'Forgot Password (Faculty)', keywords: 'faculty reset password forgot', href: 'faculty-forgot.html', type: 'Faculty' },
+            ];
+
+            if (globalSearchBtn) {
+                globalSearchBtn.addEventListener('click', () => {
+                    globalSearchModalOverlay.classList.add('active');
+                    globalSearchInput.focus();
                 });
+            }
 
-                document.addEventListener('click', (event) => {
-                    if (!loginBtn.contains(event.target) && !loginDropdown.contains(event.target)) {
-                        loginDropdown.classList.remove('active');
+            const closeModal = () => {
+                globalSearchModalOverlay.classList.remove('active');
+                globalSearchInput.value = '';
+                globalSearchResultsList.innerHTML = '';
+                globalNoResults.style.display = 'none';
+            };
+
+            if (closeGlobalSearchBtn) closeGlobalSearchBtn.addEventListener('click', closeModal);
+            if (globalSearchModalOverlay) globalSearchModalOverlay.addEventListener('click', (e) => { if (e.target === globalSearchModalOverlay) closeModal(); });
+
+            if (globalSearchInput) {
+                globalSearchInput.addEventListener('input', () => {
+                    const query = globalSearchInput.value.toLowerCase().trim();
+                    globalSearchResultsList.innerHTML = '';
+                    globalNoResults.style.display = 'none';
+
+                    if (query.length < 2) return;
+
+                    const results = searchableItems.filter(item => {
+                        const searchString = `${item.title.toLowerCase()} ${item.keywords.toLowerCase()}`;
+                        return searchString.includes(query);
+                    });
+
+                    if (results.length > 0) {
+                        results.forEach(item => {
+                            const li = document.createElement('li');
+                            const a = document.createElement('a');
+                            a.href = item.href;
+                            a.innerHTML = `<span>${item.title}</span> <span class="result-type">${item.type} Portal</span>`;
+                            li.appendChild(a);
+                            globalSearchResultsList.appendChild(li);
+                        });
+                    } else {
+                        globalNoResults.style.display = 'block';
                     }
                 });
             }
