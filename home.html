@@ -61,7 +61,7 @@
         .welcome-banner {
             position: relative; /* Needed for pseudo-elements */
             color: var(--btn-bg);
-            padding: 1rem;
+            padding: 0.5rem;
             border-radius: 8px;
             margin-bottom: 1.5rem;
             text-align: center;
@@ -99,7 +99,7 @@
 
         .welcome-banner h2 {
             margin: 0;
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             font-weight: 600;
             animation: zoomInOut 5s ease-in-out infinite;
         }
@@ -491,7 +491,6 @@
             <li><a href="#"><span class="nav-icon">📢</span> Notices</a></li>
             <li style="height: 1px; background-color: var(--input-border); margin: 8px 20px;"></li>
             <li><a href="#"><span class="nav-icon">❓</span> Support / Helpdesk</a></li>
-            
             <li><a href="#" id="sideNavSettingsBtn"><span class="nav-icon">⚙️</span> Settings</a></li>
             <li><a href="#" id="sideNavLogoutBtn"><span class="nav-icon">🚪</span> Logout</a></li>
         </ul>
@@ -510,6 +509,7 @@
                 <button id="notificationBtn" class="notification-btn" title="Notifications">
                     🔔
                     <span id="notificationBadge" class="notification-badge">2</span>
+                    
                 </button>
                 <div id="notificationPanel" class="notification-panel">
                     <div class="notification-header">

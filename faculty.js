@@ -16,12 +16,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const sideNavName = document.getElementById('sideNavName');
     const sideNavAvatar = document.getElementById('sideNavAvatar');
     const facultyLogoutBtn = document.getElementById('facultyLogoutBtn');
+    const sideNavSettingsLink = document.getElementById('sideNavSettingsLink');
+    const facultyDashboard = document.querySelector('.faculty-dashboard');
 
     // Profile Completion Modal
     const profileCompletionModalOverlay = document.getElementById('profileCompletionModalOverlay');
     const profileCompletionForm = document.getElementById('profileCompletionForm');
     const completionPasswordError = document.getElementById('completion-password-error');
     const completionFormError = document.getElementById('completion-form-error');
+
+    // --- NEW: Profile Modal Elements ---
+    const facultyProfileModalOverlay = document.getElementById('facultyProfileModalOverlay');
+    const closeFacultyProfileModalBtn = document.getElementById('closeFacultyProfileModalBtn');
+
+    // --- NEW: Settings Modal Elements ---
+    const facultySettingsModalOverlay = document.getElementById('facultySettingsModalOverlay');
+    const closeFacultySettingsModalBtn = document.getElementById('closeFacultySettingsModalBtn');
+    const editFacultySettingsBtn = document.getElementById('editFacultySettingsBtn');
+    const saveFacultySettingsForm = document.getElementById('saveFacultySettingsForm');
+    const facultySettingsError = document.getElementById('faculty-settings-error');
 
     // --- NEW: Search Modal Elements ---
     const facultySearchBtn = document.getElementById('facultySearchBtn');
@@ -62,7 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Populate Side Navigation Header ---
     if (sideNavName) sideNavName.textContent = facultyData.name || 'Faculty';
-    if (sideNavAvatar) sideNavAvatar.src = facultyData.profilePicture || 'default-avatar.png';
+    if (sideNavAvatar) {
+        sideNavAvatar.src = facultyData.profilePicture || 'default-avatar.png';
+        sideNavAvatar.style.cursor = 'pointer';
+    }
 
     // --- Logout ---
     if (facultyLogoutBtn) {
@@ -88,6 +104,21 @@ document.addEventListener('DOMContentLoaded', () => {
             months.forEach((month, index) => monthSelect.innerHTML += `<option value="${index + 1}">${month}</option>`);
             const currentYear = new Date().getFullYear();
             for (let i = currentYear - 22; i >= currentYear - 70; i--) yearSelect.innerHTML += `<option value="${i}">${i}</option>`;
+        }
+    } else {
+        // Profile is complete, so build the dashboard header
+        if (facultyDashboard) {
+            const headerHTML = `
+                <div class="welcome-banner">
+                    <h2>Welcome, ${facultyData.name || 'Faculty'}</h2>
+                </div>
+                <div class="faculty-profile-intro">
+                    <img src="${facultyData.profilePicture || 'default-avatar.png'}" alt="Profile Picture" class="profile-intro-pic" onerror="this.onerror=null;this.src='default-avatar.png';">
+                    <h3>${facultyData.name || 'Faculty'}</h3>
+                    <p>Username: ${facultyData.username || 'N/A'}</p>
+                </div>
+            `;
+            facultyDashboard.insertAdjacentHTML('afterbegin', headerHTML);
         }
     }
 
@@ -234,6 +265,148 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (notificationDropdownList) notificationDropdownList.addEventListener('click', handleFacultyNotificationClick);
     if (allNotificationsList) allNotificationsList.addEventListener('click', handleFacultyNotificationClick);
+
+    // --- NEW: Profile Modal Logic ---
+    const openFacultyProfileModal = () => {
+        if (!facultyProfileModalOverlay) return;
+
+        // Populate modal with data from the facultyData object
+        document.getElementById('modalFacultyAvatar').src = facultyData.profilePicture || 'default-avatar.png';
+        document.getElementById('modalFacultyName').textContent = facultyData.name || 'N/A';
+        document.getElementById('modalFacultyUsername').textContent = facultyData.username || 'N/A';
+        document.getElementById('modalFacultyEmail').textContent = facultyData.email || 'N/A';
+        document.getElementById('modalFacultyMobile').textContent = facultyData.mobileNumber || 'N/A';
+
+        facultyProfileModalOverlay.classList.add('active');
+        closeNav(); // Close the side nav if it's open
+    };
+
+    if (sideNavAvatar) {
+        sideNavAvatar.addEventListener('click', openFacultyProfileModal);
+    }
+
+    if (closeFacultyProfileModalBtn) {
+        closeFacultyProfileModalBtn.addEventListener('click', () => {
+            if (facultyProfileModalOverlay) facultyProfileModalOverlay.classList.remove('active');
+        });
+    }
+    if (facultyProfileModalOverlay) {
+        facultyProfileModalOverlay.addEventListener('click', (e) => {
+            if (e.target === facultyProfileModalOverlay) facultyProfileModalOverlay.classList.remove('active');
+        });
+    }
+
+    // --- NEW: Settings Modal Logic ---
+    const openFacultySettingsModal = async () => {
+        if (!facultySettingsModalOverlay) return;
+
+        try {
+            const response = await fetch(`/api/faculty/me?username=${facultyData.username}`);
+            if (!response.ok) throw new Error('Could not fetch your details.');
+            
+            const currentFacultyData = await response.json();
+            facultyData = currentFacultyData; // Update local data
+            
+            // Populate view mode
+            document.getElementById('settingFacultyName').textContent = currentFacultyData.name || 'N/A';
+            document.getElementById('settingFacultyUsername').textContent = currentFacultyData.username || 'N/A';
+            document.getElementById('settingFacultyEmail').textContent = currentFacultyData.email || 'N/A';
+            document.getElementById('settingFacultyMobile').textContent = currentFacultyData.mobileNumber || 'N/A';
+            document.getElementById('settingFacultyType').textContent = currentFacultyData.teacherChoice || 'N/A';
+
+            // Show view mode, hide edit mode
+            document.getElementById('faculty-settings-view').style.display = 'block';
+            document.getElementById('faculty-settings-edit').style.display = 'none';
+            facultySettingsModalOverlay.classList.add('active');
+
+        } catch (error) {
+            console.error("Error opening settings:", error);
+            alert(error.message);
+        }
+    };
+
+    if (sideNavSettingsLink) {
+        sideNavSettingsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            openFacultySettingsModal();
+            closeNav();
+        });
+    }
+
+    if (closeFacultySettingsModalBtn) {
+        closeFacultySettingsModalBtn.addEventListener('click', () => {
+            if (facultySettingsModalOverlay) facultySettingsModalOverlay.classList.remove('active');
+        });
+    }
+
+    if (editFacultySettingsBtn) {
+        editFacultySettingsBtn.addEventListener('click', () => {
+            // Populate edit form
+            document.getElementById('editFacultyName').value = facultyData.name || '';
+            document.getElementById('editFacultyUsername').value = facultyData.username || '';
+            document.getElementById('editFacultyEmail').value = facultyData.email || '';
+            document.getElementById('editFacultyMobile').value = facultyData.mobileNumber || '';
+            document.getElementById('editFacultyTeacherChoice').value = facultyData.teacherChoice || '';
+            
+            // Clear password fields
+            document.getElementById('editFacultyCurrentPassword').value = '';
+            document.getElementById('editFacultyNewPassword').value = '';
+            document.getElementById('editFacultyConfirmPassword').value = '';
+            if (facultySettingsError) facultySettingsError.style.display = 'none';
+
+            // Switch views
+            document.getElementById('faculty-settings-view').style.display = 'none';
+            document.getElementById('faculty-settings-edit').style.display = 'block';
+        });
+    }
+
+    if (saveFacultySettingsForm) {
+        saveFacultySettingsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (facultySettingsError) facultySettingsError.style.display = 'none';
+
+            const newPassword = document.getElementById('editFacultyNewPassword').value;
+            const confirmPassword = document.getElementById('editFacultyConfirmPassword').value;
+
+            if (newPassword && newPassword !== confirmPassword) {
+                facultySettingsError.textContent = 'New passwords do not match.';
+                facultySettingsError.style.display = 'block';
+                return;
+            }
+
+            const formData = new FormData(saveFacultySettingsForm);
+            const dataToSubmit = Object.fromEntries(formData.entries());
+            dataToSubmit.username = facultyData.username; // Ensure username is sent
+            
+            const submitBtn = saveFacultySettingsForm.querySelector('.submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
+
+            try {
+                const response = await fetch('/api/faculty/update-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataToSubmit)
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+
+                alert('Settings updated successfully!');
+                facultyData = result.facultyData; // Update local data
+                sessionStorage.setItem('currentFaculty', JSON.stringify(facultyData)); // Update session storage
+
+                // Re-populate view mode with new data and switch back
+                openFacultySettingsModal();
+
+            } catch (error) {
+                facultySettingsError.textContent = error.message;
+                facultySettingsError.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save Changes';
+            }
+        });
+    }
 
     // --- NEW: Search Modal Logic ---
     if (facultySearchBtn) {

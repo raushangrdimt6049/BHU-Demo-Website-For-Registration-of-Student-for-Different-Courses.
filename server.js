@@ -1822,6 +1822,99 @@ app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
     }
 });
 
+// New endpoint to get details for the logged-in faculty member
+app.get('/api/faculty/me', async (req, res) => {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ message: 'Username is required.' });
+
+    try {
+        const query = 'SELECT id, name, username, email, mobilenumber, teacherchoice, profilepicture FROM faculty WHERE LOWER(username) = LOWER($1)';
+        const { rows } = await pool.query(query, [username]);
+        if (rows.length === 0) return res.status(404).json({ message: 'Faculty not found.' });
+        res.status(200).json(mapDbToCamelCase(rows[0]));
+    } catch (error) {
+        console.error('Error fetching faculty details:', error);
+        res.status(500).json({ message: 'Server error while fetching faculty details.' });
+    }
+});
+
+// New endpoint to update faculty settings
+app.post('/api/faculty/update-settings', jsonParser, async (req, res) => {
+    const { username, name, email, mobileNumber, teacherChoice, currentPassword, newPassword } = req.body;
+    console.log(`Updating settings for faculty: ${username}`);
+
+    if (!username || !currentPassword) {
+        return res.status(400).json({ message: 'Username and Current Password are required to save changes.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const facultyRes = await client.query('SELECT * FROM faculty WHERE LOWER(username) = LOWER($1)', [username]);
+        if (facultyRes.rows.length === 0) throw new Error('Faculty user not found.');
+
+        const faculty = facultyRes.rows[0];
+        const isPasswordMatch = await bcrypt.compare(currentPassword, faculty.passwordhash);
+        if (!isPasswordMatch) throw new Error('Incorrect current password.');
+
+        const updateFields = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (name) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
+        if (email) { updateFields.push(`email = $${paramIndex++}`); values.push(email); }
+        if (mobileNumber) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
+        if (teacherChoice) { updateFields.push(`teacherchoice = $${paramIndex++}`); values.push(teacherChoice); }
+        if (newPassword) {
+            const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+            updateFields.push(`passwordhash = $${paramIndex++}`);
+            values.push(newPasswordHash);
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(200).json({ message: 'No changes were made.', facultyData: mapDbToCamelCase(faculty) });
+        }
+
+        values.push(username);
+        const query = `UPDATE faculty SET ${updateFields.join(', ')}, updatedat = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER($${paramIndex}) RETURNING *;`;
+        const { rows } = await client.query(query, values);
+
+        await client.query('COMMIT');
+        const updatedFaculty = rows[0];
+        delete updatedFaculty.passwordhash;
+        res.status(200).json({ message: 'Settings updated successfully!', facultyData: mapDbToCamelCase(updatedFaculty) });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error updating faculty settings:', error);
+        res.status(500).json({ message: error.message || 'Server error during update.' });
+    } finally {
+        client.release();
+    }
+});
+
+// New endpoint for admin dashboard stats
+app.get('/api/admin/stats', async (req, res) => {
+    console.log('Fetching admin dashboard stats.');
+    try {
+        const studentCountQuery = pool.query('SELECT COUNT(*) AS count FROM students;');
+        const facultyCountQuery = pool.query('SELECT COUNT(*) AS count FROM faculty;');
+
+        const [studentResult, facultyResult] = await Promise.all([
+            studentCountQuery,
+            facultyCountQuery
+        ]);
+
+        const stats = {
+            totalStudents: parseInt(studentResult.rows[0].count, 10),
+            totalFaculty: parseInt(facultyResult.rows[0].count, 10)
+        };
+        res.status(200).json(stats);
+    } catch (error) {
+        console.error('Error fetching admin stats:', error);
+        res.status(500).json({ message: 'Server error while fetching dashboard stats.' });
+    }
+});
+
 // Endpoint for faculty registration
 app.post('/api/faculty/register', jsonParser, async (req, res) => {
     const { name, username, email, password, securityQuestion, securityAnswer } = req.body;
@@ -1970,6 +2063,7 @@ function mapDbToCamelCase(dbObject) {
             selectedcourse: 'selectedCourse',
             hobbycourses: 'hobbyCourses',
             isprofilecomplete: 'isProfileComplete',
+            teacherchoice: 'teacherChoice',
             isread: 'isRead',
             createdat: 'createdAt',
             updatedat: 'updatedAt'

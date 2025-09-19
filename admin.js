@@ -220,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewToShow === 'dashboard') {
             mainDashboardView.style.display = 'block';
             setActiveNavLink('sideNavDashboardLink');
+            fetchDashboardStats(); // Fetch stats when dashboard is shown
         } else if (viewToShow === 'timetables') {
             allTimetablesView.style.display = 'block';
             setActiveNavLink('sideNavTimetableLink');
