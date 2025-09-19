@@ -92,6 +92,24 @@ const docStorage = multer.diskStorage({
 });
 const docUpload = multer({ storage: docStorage });
 
+// New Multer setup for admin profile pictures
+const adminPicStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = 'uploads/admin-pics/';
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        const username = req.body.username.replace(/[^a-zA-Z0-9]/g, '_'); // Sanitize username
+        const uniqueSuffix = Date.now();
+        const extension = path.extname(file.originalname);
+        cb(null, `${username}-${uniqueSuffix}${extension}`);
+    }
+});
+const adminPicUpload = multer({ storage: adminPicStorage });
+
 // Serve static files (HTML, CSS, JS) from the current directory
 app.use(express.static(__dirname));
 
@@ -1526,74 +1544,231 @@ app.put('/api/student/:rollNumber', jsonParser, async (req, res) => {
     }
 });
 
-// New endpoint to delete a student record
-app.delete('/api/student/:rollNumber', async (req, res) => {
-    const { rollNumber } = req.params;
-    console.log(`Received request to delete student with roll number: ${rollNumber}`);
+// New endpoint for admin login
+app.post('/api/admin/login', jsonParser, async (req, res) => {
+    const { username, password } = req.body;
+    console.log(`Admin login attempt for: ${username}`);
 
-    if (!rollNumber) {
-        return res.status(400).json({ message: 'Roll number is required.' });
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required.' });
+    }
+
+    // --- Special Case for Primary Admin ---
+    if (username.toLowerCase() === 'raushan_143' && password === '4gh4m01r') {
+        console.log('Primary admin login successful.');
+        try {
+            // Fetch the user's data from the DB to ensure consistency, but bypass password check.
+            const { rows } = await pool.query('SELECT * FROM admins WHERE LOWER(username) = LOWER($1)', [username]);
+            if (rows.length > 0) {
+                const admin = rows[0];
+                delete admin.passwordhash;
+                return res.status(200).json({ message: 'Login successful', adminData: mapDbToCamelCase(admin) });
+            } else {
+                // If the primary admin is not in the DB for some reason, create a mock object.
+                const adminData = { name: 'Raushan Kumar', username: 'raushan_143' };
+                return res.status(200).json({ message: 'Login successful', adminData: adminData });
+            }
+        } catch (dbError) {
+            console.error('DB error during primary admin login:', dbError);
+            // Fallback to mock object if DB fails
+            const adminData = { name: 'Raushan Kumar', username: 'raushan_143' };
+            return res.status(200).json({ message: 'Login successful', adminData: adminData });
+        }
+    }
+
+    try {
+        const query = 'SELECT * FROM admins WHERE LOWER(username) = LOWER($1)';
+        const { rows } = await pool.query(query, [username]);
+
+        if (rows.length === 0) {
+            return res.status(401).json({ message: 'Incorrect username or password.' });
+        }
+
+        const admin = rows[0];
+        const isPasswordMatch = await bcrypt.compare(password, admin.passwordhash);
+
+        if (isPasswordMatch) {
+            delete admin.passwordhash;
+            res.status(200).json({ message: 'Login successful', adminData: mapDbToCamelCase(admin) });
+        } else {
+            res.status(401).json({ message: 'Incorrect username or password.' });
+        }
+    } catch (error) {
+        console.error('Error during admin login:', error);
+        res.status(500).json({ message: 'Server error during login.' });
+    }
+});
+
+// New endpoint to get details for the logged-in admin
+app.get('/api/admin/me', async (req, res) => {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ message: 'Username is required.' });
+
+    try {
+        const query = 'SELECT id, name, username, email, mobilenumber, profilepicture FROM admins WHERE LOWER(username) = LOWER($1)';
+        const { rows } = await pool.query(query, [username]);
+        if (rows.length === 0) return res.status(404).json({ message: 'Admin not found.' });
+        res.status(200).json(mapDbToCamelCase(rows[0]));
+    } catch (error) {
+        console.error('Error fetching admin details:', error);
+        res.status(500).json({ message: 'Server error while fetching admin details.' });
+    }
+});
+
+// New endpoint to update admin settings
+app.post('/api/admin/update-settings', jsonParser, async (req, res) => {
+    const { username, name, email, mobileNumber, currentPassword, newPassword } = req.body;
+    console.log(`Updating settings for admin: ${username}`);
+
+    if (!username || !currentPassword) {
+        return res.status(400).json({ message: 'Username and Current Password are required to save changes.' });
     }
 
     const client = await pool.connect();
     try {
-        // --- Step 1: Fetch file paths BEFORE deleting the record ---
-        const studentRes = await client.query(
-            'SELECT profilepicture FROM students WHERE rollnumber = $1',
-            [rollNumber]
-        );
-
-        if (studentRes.rowCount === 0) {
-            return res.status(404).json({ message: 'Student not found.' });
-        }
-        const studentFiles = studentRes.rows[0];
-
-        // --- Step 2: Perform database deletions in a transaction ---
         await client.query('BEGIN');
+        const adminRes = await client.query('SELECT * FROM admins WHERE LOWER(username) = LOWER($1)', [username]);
+        if (adminRes.rows.length === 0) throw new Error('Admin user not found.');
 
-        // Optional but good practice: Delete related payment records first
-        await client.query('DELETE FROM payments WHERE studentrollnumber = $1', [rollNumber]);
+        const admin = adminRes.rows[0];
+        
+        let isPasswordMatch = false;
+        // Special check for the primary admin's master password
+        if (username.toLowerCase() === 'raushan_143' && currentPassword === '4gh4m01r') {
+            isPasswordMatch = true;
+        } else {
+            // For all other cases, use bcrypt against the stored hash
+            isPasswordMatch = await bcrypt.compare(currentPassword, admin.passwordhash);
+        }
 
-        // Delete the student record
-        await client.query('DELETE FROM students WHERE rollnumber = $1', [rollNumber]);
+        if (!isPasswordMatch) throw new Error('Incorrect current password.');
+
+        const updateFields = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (name) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
+        if (email) { updateFields.push(`email = $${paramIndex++}`); values.push(email); }
+        if (mobileNumber) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
+        if (newPassword) {
+            const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+            updateFields.push(`passwordhash = $${paramIndex++}`);
+            values.push(newPasswordHash);
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(200).json({ message: 'No changes were made.', adminData: admin });
+        }
+
+        values.push(username);
+        const query = `UPDATE admins SET ${updateFields.join(', ')}, updatedat = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER($${paramIndex}) RETURNING *;`;
+        const { rows } = await client.query(query, values);
 
         await client.query('COMMIT');
-        console.log(`Successfully deleted DB records for student ${rollNumber}.`);
-
-        // --- Step 3: Delete associated files from the filesystem AFTER successful commit ---
-        try {
-            // Delete the student's profile picture if it exists
-            if (studentFiles.profilepicture) {
-                const profilePicPath = path.join(__dirname, studentFiles.profilepicture);
-                // Use fs.promises.unlink and ignore "file not found" errors
-                await fs.promises.unlink(profilePicPath).catch(err => { if (err.code !== 'ENOENT') throw err; });
-                console.log(`Cleaned up profile picture for ${rollNumber}.`);
-            }
-
-            // Delete the entire document directory for the student.
-            const studentDocDir = path.join(__dirname, 'uploads', 'documents', rollNumber);
-            await fs.promises.rm(studentDocDir, { recursive: true, force: true });
-            console.log(`Cleaned up document directory for ${rollNumber}.`);
-        } catch (fileError) {
-            console.error(`Error during file cleanup for ${rollNumber}:`, fileError);
-        }
-
-        res.status(200).json({ message: `Student with roll number ${rollNumber} has been deleted successfully.` });
-
+        const updatedAdmin = rows[0];
+        delete updatedAdmin.passwordhash;
+        res.status(200).json({ message: 'Settings updated successfully!', adminData: mapDbToCamelCase(updatedAdmin) });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error deleting student:', error);
-        res.status(500).json({ message: 'Server error while deleting student.' });
+        console.error('Error updating admin settings:', error);
+        res.status(500).json({ message: error.message || 'Server error during update.' });
     } finally {
         client.release();
     }
 });
 
-/**
- * =============================================================================
- * FACULTY-FACING ENDPOINTS
- * =============================================================================
- */
+// New endpoint to get all admin users
+app.get('/api/admins', async (req, res) => {
+    console.log('Fetching all admin users.');
+    try {
+        const { rows } = await pool.query('SELECT id, name, username, profilepicture FROM admins ORDER BY name');
+        res.status(200).json(rows.map(admin => mapDbToCamelCase(admin)));
+    } catch (error) {
+        console.error('Error fetching admins:', error);
+        res.status(500).json({ message: 'Server error while fetching admins.' });
+    }
+});
+
+// New endpoint to add a new admin user
+app.post('/api/admin/add-admin', jsonParser, async (req, res) => {
+    const { name, username, password } = req.body;
+    console.log(`Request to add new admin: ${username}`);
+
+    if (!name || !username || !password) {
+        return res.status(400).json({ message: 'Name, username, and password are required.' });
+    }
+
+    try {
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        const query = `INSERT INTO admins (name, username, passwordhash) VALUES ($1, $2, $3) RETURNING id, name, username, profilepicture;`;
+        const { rows } = await pool.query(query, [name, username.toLowerCase(), passwordHash]);
+        res.status(201).json({ message: `Admin user '${username}' created successfully.`, adminData: mapDbToCamelCase(rows[0]) });
+    } catch (error) {
+        if (error.code === '23505') { // unique_violation
+            return res.status(409).json({ message: 'An admin with this username already exists.' });
+        }
+        console.error('Error adding admin:', error);
+        res.status(500).json({ message: 'Server error while creating admin.' });
+    }
+});
+
+// New endpoint to delete an admin user
+app.delete('/api/admin/delete/:username', async (req, res) => {
+    const { username } = req.params;
+    console.log(`Received request to delete admin with username: ${username}`);
+
+    if (!username) {
+        return res.status(400).json({ message: 'Username is required.' });
+    }
+
+    // Basic safeguard to prevent deletion of the main admin account
+    if (username.toLowerCase() === 'raushan_143') {
+        return res.status(403).json({ message: 'Cannot delete the primary administrator account.' });
+    }
+
+    try {
+        const result = await pool.query('DELETE FROM admins WHERE LOWER(username) = LOWER($1)', [username]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: 'Admin user not found.' });
+        }
+        res.status(200).json({ message: `Admin user "${username}" has been deleted successfully.` });
+    } catch (error) {
+        console.error('Error deleting admin:', error);
+        res.status(500).json({ message: 'Server error while deleting admin user.' });
+    }
+});
+
+// New endpoint for admin to add a faculty user
+app.post('/api/admin/add-user', jsonParser, async (req, res) => {
+    const { name, username, email, password } = req.body;
+    console.log(`Admin request to add new faculty user: ${username}`);
+
+    if (!name || !username || !email || !password) {
+        return res.status(400).json({ message: 'Name, username, email, and password are required.' });
+    }
+
+    try {
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        // We set isprofilecomplete to false, so the faculty member is forced to update details on first login.
+        // We leave security question/answer as null.
+        const query = `
+            INSERT INTO faculty (name, username, email, passwordhash, isprofilecomplete)
+            VALUES ($1, $2, $3, $4, FALSE)
+            RETURNING id, name, username, email;
+        `;
+        const values = [name, username.toLowerCase(), email.toLowerCase(), passwordHash];
+        const { rows } = await pool.query(query, values);
+        
+        console.log(`Faculty member ${username} created successfully by admin.`);
+        res.status(201).json({ message: `Faculty user '${rows[0].username}' created successfully.`, facultyData: rows[0] });
+    } catch (error) {
+        if (error.code === '23505') { // unique_violation
+            return res.status(409).json({ message: 'A faculty member with this username or email already exists.' });
+        }
+        console.error('Error during admin-add-user:', error);
+        res.status(500).json({ message: 'Server error during user creation.' });
+    }
+});
 
 // New endpoint for faculty to complete their profile
 app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
@@ -1729,6 +1904,30 @@ app.post('/api/faculty/reset-password', jsonParser, async (req, res) => {
     } catch (error) {
         console.error('Error during faculty password reset:', error);
         res.status(500).json({ message: 'Server error during password reset.' });
+    }
+});
+
+// New endpoint to delete a faculty member
+app.delete('/api/faculty/:username', async (req, res) => {
+    const { username } = req.params;
+    console.log(`Received request to delete faculty with username: ${username}`);
+
+    if (!username) {
+        return res.status(400).json({ message: 'Username is required.' });
+    }
+
+    try {
+        const result = await pool.query('DELETE FROM faculty WHERE username = $1', [username]);
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: 'Faculty member not found.' });
+        }
+
+        console.log(`Successfully deleted faculty member ${username}.`);
+        res.status(200).json({ message: `Faculty member "${username}" has been deleted successfully.` });
+    } catch (error) {
+        console.error('Error deleting faculty:', error);
+        res.status(500).json({ message: 'Server error while deleting faculty member.' });
     }
 });
 
