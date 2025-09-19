@@ -19,6 +19,7 @@
     --btn-danger-bg: #dc3545;
     --btn-danger-hover-bg: #c82333;
     --btn-secondary-bg: #6c757d;
+    --btn-bg-light: #e3f2fd; /* Light blue for highlights */
     --btn-secondary-hover-bg: #5a6268;
     --error-color: #d93025;
     --link-color: #0056b3;
@@ -44,6 +45,7 @@ html.dark-mode {
     --btn-danger-bg: #c82333;
     --btn-danger-hover-bg: #a51c29;
     --btn-secondary-bg: #5a6268;
+    --btn-bg-light: #2c3e50; /* Dark desaturated blue for highlights */
     --btn-secondary-hover-bg: #494f54;
     --error-color: #ff8a80;
     --link-color: #4a90e2;

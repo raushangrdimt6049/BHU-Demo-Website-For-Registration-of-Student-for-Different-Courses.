@@ -50,17 +50,52 @@
             background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0 0.5rem;
         }
 
+        /* --- Animated Border Keyframes --- */
+        @keyframes rotate {
+            100% {
+                transform: rotate(-1turn);
+            }
+        }
+
         /* --- Welcome Banner Styles --- */
         .welcome-banner {
-            background-color: var(--btn-bg-light);
+            position: relative; /* Needed for pseudo-elements */
             color: var(--btn-bg);
             padding: 1rem;
             border-radius: 8px;
             margin-bottom: 1.5rem;
             text-align: center;
-            overflow: hidden; /* Good practice for scale transforms */
-            border: 1px solid var(--btn-bg);
+            overflow: hidden; /* This is crucial for the effect */
+            z-index: 1; /* Ensure it's on a stacking context */
+
         }
+
+        /* The animated gradient layer */
+        .welcome-banner::before {
+            content: '';
+            position: absolute;
+            z-index: -2;
+            left: -50%;
+            top: -50%;
+            width: 200%;
+            height: 200%;
+            background-image: conic-gradient(#4f46e5, #7c3aed, #db2777, #ec4899, #f472b6, #4f46e5);
+            animation: rotate 4s linear infinite;
+        }
+
+        /* The inner background to create the border effect */
+        .welcome-banner::after {
+            content: '';
+            position: absolute;
+            z-index: -1;
+            left: 2px; /* Border thickness */
+            top: 2px; /* Border thickness */
+            width: calc(100% - 4px);
+            height: calc(100% - 4px);
+            background: var(--btn-bg-light); /* Match the banner's background */
+            border-radius: 6px; /* Slightly less than the parent's border-radius */
+        }
+
 
         .welcome-banner h2 {
             margin: 0;
@@ -454,8 +489,9 @@
             <li><a href="#"><span class="nav-icon">🎓</span> Results</a></li>
             <li><a href="#"><span class="nav-icon">🏛️</span> Library</a></li>
             <li><a href="#"><span class="nav-icon">📢</span> Notices</a></li>
-            <li><a href="#"><span class="nav-icon">❓</span> Support / Helpdesk</a></li>
             <li style="height: 1px; background-color: var(--input-border); margin: 8px 20px;"></li>
+            <li><a href="#"><span class="nav-icon">❓</span> Support / Helpdesk</a></li>
+            
             <li><a href="#" id="sideNavSettingsBtn"><span class="nav-icon">⚙️</span> Settings</a></li>
             <li><a href="#" id="sideNavLogoutBtn"><span class="nav-icon">🚪</span> Logout</a></li>
         </ul>
