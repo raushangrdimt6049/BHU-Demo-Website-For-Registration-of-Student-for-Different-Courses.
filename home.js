@@ -169,13 +169,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const feeModalHistoryTableBody = document.getElementById('fee-modal-history-table-body');
         const feeModalNoHistoryMessage = document.getElementById('fee-modal-no-history-message');
 
-        // --- Search Modal References ---
-        const searchModalOverlay = document.getElementById('searchModalOverlay');
-        const closeSearchModalBtn = document.getElementById('closeSearchModalBtn');
-        const searchInput = document.getElementById('searchInput');
-        const searchResultsList = document.getElementById('searchResultsList');
-        const noSearchResultsMessage = document.getElementById('no-search-results');
-
         // --- All Notifications Modal ---
         const allNotificationsModalOverlay = document.getElementById('allNotificationsModalOverlay');
         const closeAllNotificationsModalBtn = document.getElementById('closeAllNotificationsModalBtn');
@@ -928,69 +921,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
                 proceedSection.appendChild(previewSection);
             }
-        }
-
-        // --- Search Modal Logic (now global) ---
-        const openSearchModalBtn = document.getElementById('openSearchModalBtn');
-        if (openSearchModalBtn) {
-            openSearchModalBtn.addEventListener('click', () => {
-                openModal(searchModalOverlay);
-                searchInput.value = ''; // Clear search input on open
-                searchResultsList.innerHTML = ''; // Clear results on open
-                noSearchResultsMessage.style.display = 'none';
-                searchInput.focus(); // Focus the input
-            });
-        }
-
-        // --- Search Modal Logic ---
-        if (closeSearchModalBtn) closeSearchModalBtn.addEventListener('click', () => closeModal(searchModalOverlay));
-        if (searchModalOverlay) searchModalOverlay.addEventListener('click', (event) => { if (event.target === searchModalOverlay) closeModal(searchModalOverlay); });
-
-        if (searchInput) {
-            searchInput.addEventListener('input', () => {
-                const searchTerm = searchInput.value.toLowerCase().trim();
-                
-                searchResultsList.innerHTML = '';
-                noSearchResultsMessage.style.display = 'none';
-
-                if (searchTerm === '') {
-                    return;
-                }
-
-                const matchingItems = searchableItems.filter(item => {
-                    // For pre-payment view, only show enabled items. For post-payment, 'enabled' is undefined, so it passes.
-                    if (item.enabled === false) return false;
-                    
-                    const searchString = `${item.title.toLowerCase()} ${item.keywords.toLowerCase()}`;
-                    return searchString.includes(searchTerm);
-                });
-
-                if (matchingItems.length > 0) {
-                    matchingItems.forEach(item => {
-                        const listItem = document.createElement('li');
-                        const newLink = document.createElement('a');
-                        newLink.href = '#'; // Use a generic href
-                        newLink.textContent = item.title;
-                        
-                        newLink.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            const action = item.action;
-                            if (action.type === 'link') {
-                                sessionStorage.setItem('navigationAllowed', 'true');
-                                window.location.href = action.href;
-                            } else if (action.type === 'function') {
-                                action.func();
-                            }
-                            closeModal(searchModalOverlay);
-                        });
-
-                        listItem.appendChild(newLink);
-                        searchResultsList.appendChild(listItem);
-                    });
-                } else {
-                    noSearchResultsMessage.style.display = 'block';
-                }
-            });
         }
 
         // --- Settings View Logic ---

@@ -35,11 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
         formError.style.display = 'none';
         formError.textContent = '';
 
-        const identifier = document.getElementById('identifier').value;
+        const username = document.getElementById('username').value;
+        const mobileNumber = document.getElementById('mobileNumber').value;
         const newPassword = newPasswordInput.value;
         const confirmPassword = confirmPasswordInput.value;
-        const securityQuestion = document.getElementById('securityQuestion').value;
-        const securityAnswer = document.getElementById('securityAnswer').value;
         const submitBtn = forgotForm.querySelector('.submit-btn');
 
         // --- Validation ---
@@ -67,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/faculty/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identifier, securityQuestion, securityAnswer, newPassword }),
+                body: JSON.stringify({ username, mobileNumber, newPassword }),
             });
 
             const data = await response.json();

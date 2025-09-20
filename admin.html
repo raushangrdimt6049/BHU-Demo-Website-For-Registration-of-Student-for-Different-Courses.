@@ -172,9 +172,11 @@
             -webkit-backdrop-filter: blur(8px); /* For Safari */
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* Align to top to allow scrolling */
             z-index: 2000;
             transition: opacity 0.3s ease-in-out;
+            overflow-y: auto; /* Enable vertical scrolling for the overlay */
+            padding: 5vh 1rem; /* Add some padding for better spacing */
         }
         .password-modal {
             background: var(--bg-main);
@@ -248,12 +250,35 @@
             padding-left: 3.5rem;
         }
 
+        /* --- New Notice Modal Styles --- */
+        .notice-audience-options { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .audience-option-btn { background-color: var(--bg-body); border: 1px solid var(--input-border); padding: 1.5rem; border-radius: 8px; text-decoration: none; color: var(--text-color); text-align: center; transition: all 0.2s ease; cursor: pointer; }
+        .audience-option-btn:hover { transform: translateY(-3px); box-shadow: 0 4px 12px var(--header-shadow); border-color: var(--btn-bg); }
+        .audience-option-btn .action-icon { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; color: var(--btn-bg); }
+        .audience-option-btn span { font-weight: 600; font-size: 1.1rem; }
+
+        #recipientList { list-style: none; padding: 0; max-height: 50vh; overflow-y: auto; border: 1px solid var(--input-border); border-radius: 6px; }
+        #recipientList li { padding: 0.75rem 1rem; border-bottom: 1px solid var(--input-border); display: flex; align-items: center; gap: 1rem; }
+        #recipientList li:last-child { border-bottom: none; }
+        #recipientList label { flex-grow: 1; cursor: pointer; }
+        #recipientList .recipient-id { font-size: 0.8rem; color: var(--text-color-light); }
+
+        @media (max-width: 600px) {
+            .notice-audience-options { grid-template-columns: 1fr; }
+        }
+
+
+
+
+
         /* --- New styles for admin user cards --- */
         .admin-users-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             gap: 2rem;
             margin-top: 1.5rem;
+            padding: 1rem;
         }
         .admin-user-card {
             background-color: var(--bg-body);
@@ -262,6 +287,7 @@
             padding: 1.5rem 1rem;
             text-align: center;
             transition: all 0.2s ease;
+            flex: 0 0 180px; /* Fixed width for slider items */
         }
         .admin-user-card:hover {
             transform: translateY(-5px);
@@ -271,6 +297,39 @@
         .admin-user-card .admin-name { font-weight: 600; color: var(--text-color); margin: 0; }
 
         /* --- Timetable Modal --- */
+        .user-management-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 2rem;
+            padding: 2rem 0;
+        }
+        .user-management-circle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background-color: var(--bg-body);
+            border: 2px solid var(--input-border);
+            text-decoration: none;
+            color: var(--text-color);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .user-management-circle:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px var(--header-shadow);
+            border-color: var(--btn-bg);
+        }
+        .user-management-circle .action-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--btn-bg);
+        }
+        .user-management-circle span:last-child { font-weight: 600; font-size: 1.1rem; }
         #timetableModalTable.editable td[contenteditable="true"] {
             background-color: var(--input-bg);
             cursor: text;
@@ -376,6 +435,33 @@
             flex-direction: column;
         }
 
+        /* --- Welcome Banner & Profile Intro Styles (from faculty.html) --- */
+        @keyframes rotate { 100% { transform: rotate(-1turn); } }
+        .welcome-banner { position: relative; color: var(--btn-bg); padding: 0.5rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center; overflow: hidden; z-index: 1; }
+        .welcome-banner::before { content: ''; position: absolute; z-index: -2; left: -50%; top: -50%; width: 200%; height: 200%; background-image: conic-gradient(#4f46e5, #7c3aed, #db2777, #ec4899, #f472b6, #4f46e5); animation: rotate 4s linear infinite; }
+        .welcome-banner::after { content: ''; position: absolute; z-index: -1; left: 2px; top: 2px; width: calc(100% - 4px); height: calc(100% - 4px); background: var(--btn-bg-light); border-radius: 6px; }
+        .welcome-banner h2 { margin: 0; font-size: 1.8rem; font-weight: 600; animation: zoomInOut 5s ease-in-out infinite; }
+        @keyframes zoomInOut { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+        .faculty-profile-intro {
+            text-align: center;
+            margin-bottom: 2.5rem; /* Increased margin to separate from KPIs */
+            padding: 1.5rem;
+            background-color: var(--bg-body);
+            border-radius: 8px;
+        }
+        .profile-intro-pic { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--btn-bg); margin-bottom: 0.5rem; }
+        .faculty-profile-intro h3 { margin: 0.5rem 0 0.25rem 0; font-size: 1.4rem; }
+        .faculty-profile-intro p { margin: 0; color: var(--text-color-light); }
+
+        /* Styles for profile picture editing (from faculty.html) */
+        .profile-picture-container { position: relative; width: 150px; height: 150px; margin: 0 auto 2rem auto; border-radius: 50%; overflow: hidden; border: 3px solid var(--btn-bg); }
+        .profile-picture { width: 100%; height: 100%; object-fit: cover; }
+        .edit-picture-overlay { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0, 0, 0, 0.6); color: white; text-align: center; padding: 8px 0; opacity: 0; transition: opacity 0.3s; }
+        .profile-picture-container:hover .edit-picture-overlay { opacity: 1; }
+        .edit-picture-btn { cursor: pointer; font-weight: 600; }
+
+
     </style>
 </head>
 <body>
@@ -421,11 +507,18 @@
     <!-- Add Faculty Modal -->
     <div id="addFacultyModalOverlay" class="password-overlay" style="display: none;">
         <div class="password-modal">
+            <button id="closeAddFacultyModalBtn" class="close-modal-btn">&times;</button>
             <h3>Add New Faculty Member</h3>
-            <p>A username will be auto-generated. Set an initial name and password.</p>
+            <p>Set the faculty's name, a unique username (Teacher ID), email, and an initial password.</p>
             <form id="addFacultyForm">
                 <div class="form-group">
                     <input type="text" id="addFacultyName" placeholder="Enter Full Name" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" id="addFacultyUsername" placeholder="Enter Username (Teacher ID)" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" id="addFacultyEmail" placeholder="Enter Email Address" required>
                 </div>
                 <div class="form-group">
                     <input type="text" id="addFacultyPassword" placeholder="Set Initial Password" required>
@@ -436,23 +529,6 @@
                 </div>
                 <p id="add-faculty-error" class="error-message" style="margin-top: 1rem;"></p>
             </form>
-        </div>
-    </div>
-
-    <!-- Search Modal -->
-    <div id="searchModalOverlay" class="password-overlay" style="display: none;">
-        <div class="password-modal" style="max-width: 600px; text-align: left;">
-            <h3 style="text-align: center;">Search for a User</h3>
-            <div class="form-group">
-                <input type="text" id="adminSearchInput" placeholder="Start typing a student or faculty name..." autocomplete="off">
-            </div>
-            <ul id="adminSearchResultsList" class="search-results-list">
-                <!-- Search results will be populated here -->
-            </ul>
-            <p id="admin-no-search-results" style="display: none; text-align: center;">No results found.</p>
-            <div class="form-actions" style="justify-content: center; margin-top: 1rem;">
-                <button type="button" id="closeSearchModalBtn" class="back-btn">Close</button>
-            </div>
         </div>
     </div>
 
@@ -585,9 +661,16 @@
             <div id="admin-settings-edit" style="display: none;">
                 <h3 style="text-align: center;">Edit Admin Settings</h3>
                 <form id="saveAdminSettingsForm">
-                    <div class="detail-grid"><div class="detail-group"><label for="editAdminName">Full Name</label><input type="text" id="editAdminName" name="name"></div><div class="detail-group"><label>Username</label><input type="text" id="editAdminUsername" name="username" readonly title="Username cannot be changed."></div><div class="detail-group"><label for="editAdminEmail">Email</label><input type="email" id="editAdminEmail" name="email"></div><div class="detail-group"><label for="editAdminMobile">Mobile Number</label><input type="tel" id="editAdminMobile" name="mobileNumber"></div></div>
+                    <div class="profile-picture-container" style="margin-bottom: 2rem;">
+                        <img src="default-avatar.png" alt="Profile Picture" id="editAdminProfilePicture" class="profile-picture">
+                        <div class="edit-picture-overlay">
+                            <label for="adminProfilePictureInput" class="edit-picture-btn">Change Picture</label>
+                            <input type="file" id="adminProfilePictureInput" name="profilePicture" accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+                    <div class="detail-grid" style="grid-template-columns: 1fr;"><div class="detail-group"><label for="editAdminName">Full Name</label><input type="text" id="editAdminName" name="name"></div><div class="detail-group"><label>Username</label><input type="text" id="editAdminUsername" name="username" readonly title="Username cannot be changed."></div><div class="detail-group"><label for="editAdminEmail">Email</label><input type="email" id="editAdminEmail" name="email"></div><div class="detail-group"><label for="editAdminMobile">Mobile Number</label><input type="tel" id="editAdminMobile" name="mobileNumber"></div></div>
                     <h4 style="margin-top: 2rem; margin-bottom: 1rem;">Change Password</h4>
-                    <div class="detail-grid"><div class="detail-group"><label for="editAdminCurrentPassword">Current Password</label><input type="password" id="editAdminCurrentPassword" name="currentPassword" placeholder="Enter current password to save changes"></div><div class="detail-group"><label for="editAdminNewPassword">New Password</label><input type="password" id="editAdminNewPassword" name="newPassword" placeholder="Leave blank to keep current password"></div><div class="detail-group"><label for="editAdminConfirmPassword">Confirm New Password</label><input type="password" id="editAdminConfirmPassword" name="confirmPassword"></div></div>
+                    <div class="detail-grid" style="grid-template-columns: 1fr;"><div class="detail-group"><label for="editAdminCurrentPassword">Current Password</label><input type="password" id="editAdminCurrentPassword" name="currentPassword" placeholder="Enter current password to save changes"></div><div class="detail-group"><label for="editAdminNewPassword">New Password</label><input type="password" id="editAdminNewPassword" name="newPassword" placeholder="Leave blank to keep current password"></div><div class="detail-group"><label for="editAdminConfirmPassword">Confirm New Password</label><input type="password" id="editAdminConfirmPassword" name="confirmPassword"></div></div>
                     <p id="admin-settings-error" class="error-message" style="text-align: center;"></p>
                     <div class="form-actions" style="justify-content: center; margin-top: 1.5rem;">
                         <button type="submit" class="submit-btn">Save Changes</button>
@@ -597,23 +680,55 @@
         </div>
     </div>
 
-
-    <div id="postNoticeModalOverlay" class="password-overlay" style="display: none;">
+    <!-- Step 1: Select Notice Audience Modal -->
+    <div id="selectNoticeAudienceModalOverlay" class="password-overlay" style="display: none;">
         <div class="password-modal">
-            <h3>Post a Notice to All Students</h3>
-            <p>This message will be sent as a notification to every registered student.</p>
-            <form id="postNoticeForm">
+            <button id="closeSelectAudienceBtn" class="close-modal-btn">&times;</button>
+            <h3>Post a Notice</h3>
+            <p>Who should receive this notice?</p>
+            <div class="notice-audience-options">
+                <a href="#" class="audience-option-btn" data-audience="ALL_STUDENTS"><span class="action-icon">🧑‍🎓</span><span>All Students</span></a>
+                <a href="#" class="audience-option-btn" data-audience="ALL_FACULTY"><span class="action-icon">🧑‍🏫</span><span>All Faculty</span></a>
+                <a href="#" class="audience-option-btn" data-audience="SELECTED_STUDENTS"><span class="action-icon">🎯</span><span>Selected Students</span></a>
+                <a href="#" class="audience-option-btn" data-audience="SELECTED_FACULTY"><span class="action-icon">🎯</span><span>Selected Faculty</span></a>
+            </div>
+            <div class="form-actions" style="justify-content: center; margin-top: 1.5rem; border-top: 1px solid var(--input-border); padding-top: 1rem;">
+                <button type="button" id="viewNoticeHistoryBtn" class="back-btn" style="background-color: var(--btn-secondary-bg); width: auto;">View Notice History</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: Select Recipients Modal -->
+    <div id="selectRecipientsModalOverlay" class="password-overlay" style="display: none;">
+        <div class="password-modal" style="max-width: 600px; text-align: left;">
+            <button id="closeSelectRecipientsBtn" class="close-modal-btn">&times;</button>
+            <h3 id="selectRecipientsTitle" style="text-align: center;">Select Recipients</h3>
+            <div class="form-group" style="margin-bottom: 1rem;">
+                <input type="text" id="recipientSearchInput" placeholder="Search..." style="width: 100%;">
+            </div>
+            <ul id="recipientList">
+                <!-- Recipient list will be populated here -->
+            </ul>
+            <div class="form-actions" style="justify-content: center; margin-top: 1.5rem;">
+                <button type="button" id="continueToComposeBtn" class="submit-btn">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Compose Notice Modal -->
+    <div id="composeNoticeModalOverlay" class="password-overlay" style="display: none;">
+        <div class="password-modal">
+            <button id="closeComposeNoticeBtn" class="close-modal-btn">&times;</button>
+            <h3 id="composeNoticeTitle">Compose Notice</h3>
+            <p id="composeNoticeAudienceInfo"></p>
+            <form id="composeNoticeForm">
                 <div class="form-group">
-                    <textarea id="noticeMessageInput" placeholder="Enter your notice message here..." required rows="5"></textarea>
+                    <textarea id="noticeMessageInput" placeholder="Enter your notice message here..." required rows="6"></textarea>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="submit-btn">Send Notice</button>
-                    <button type="button" id="cancelNoticeBtn" class="back-btn">Cancel</button>
                 </div>
-                <div style="text-align: center; margin-top: 1.5rem; border-top: 1px solid var(--input-border); padding-top: 1rem;">
-                    <button type="button" id="viewNoticeHistoryBtn" class="back-btn" style="background-color: var(--btn-secondary-bg); width: auto;">View History of Posted Notices</button>
-                </div>
-                <p id="notice-error" class="error-message" style="margin-top: 1rem;"></p>
+                <p id="compose-notice-error" class="error-message" style="margin-top: 1rem;"></p>
             </form>
         </div>
     </div>
@@ -651,7 +766,6 @@
             </div>
         </div>
         <div class="header-actions-right">
-            <button id="searchUsersBtn" class="icon-btn" title="Search Users">🔍</button>
             <div class="notification-container">
                 <button id="notificationBtn" class="notification-btn" title="Notifications">
                     🔔
@@ -665,6 +779,11 @@
         <div id="admin-content-wrapper" style="display: none; width: 100%;">
             <div id="main-dashboard-view">
                 <div class="admin-dashboard">
+                    <!-- Welcome Banner & Profile Intro -->
+                    <div id="dashboardHeader">
+                        <!-- Content will be populated by admin.js -->
+                    </div>
+
                     <!-- KPIs Row -->
                     <div class="kpi-row">
                         <div class="kpi-card"><span class="kpi-title">Total Students</span><span id="kpiTotalStudents" class="kpi-value">...</span><span class="kpi-icon">🧑‍🎓</span></div>
@@ -678,8 +797,6 @@
                     <div class="dashboard-panel" style="margin-bottom: 2.5rem;">
                         <h3>Quick Actions</h3>
                         <div class="actions-container">
-                            <a href="#" id="viewAllStudentsBtn" class="quick-action-btn"><span class="action-icon">🧑‍🎓</span> Student Details</a>
-                            <a href="#" id="viewAllFacultyBtn" class="quick-action-btn"><span class="action-icon">🧑‍🏫</span> Faculty Details</a>
                             <a href="#" id="postNoticeBtn" class="quick-action-btn post"><span class="action-icon">📢</span> Post Notice</a>
                             <a href="#" class="quick-action-btn report"><span class="action-icon">📄</span> Generate Report</a>
                         </div>
@@ -691,6 +808,9 @@
                 <div class="admin-dashboard">
                     <div class="dashboard-panel">
                         <h3>All Registered Students</h3>
+                        <div class="form-group" style="margin-bottom: 1.5rem; max-width: 500px;">
+                            <input type="text" id="studentSearchInput" placeholder="Search by Name, Roll Number, Email, or City..." style="width: 100%;">
+                        </div>
                         <div class="user-table-container">
                             <table id="allStudentsTable">
                                 <thead>
@@ -708,7 +828,7 @@
                             </table>
                         </div>
                         <div class="back-link-container">
-                            <button id="backToDashboardFromStudentsBtn" class="back-btn">Back to Dashboard</button>
+                            <button id="backToUsersFromStudentsBtn" class="back-btn">Back to User Management</button>
                         </div>
                     </div>
                 </div>
@@ -720,6 +840,9 @@
                             <h3>All Registered Faculty</h3>
                             <button id="addFacultyBtn" class="submit-btn" style="width: auto;">+ Add Faculty</button>
                         </div>
+                        <div class="form-group" style="margin-bottom: 1.5rem; max-width: 500px;">
+                            <input type="text" id="facultySearchInput" placeholder="Search by Name, Username, or Email..." style="width: 100%;">
+                        </div>
                         <div class="user-table-container">
                             <table id="allFacultyTable">
                                 <thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Registered On</th><th>Actions</th></tr></thead>
@@ -727,19 +850,39 @@
                             </table>
                         </div>
                         <div class="back-link-container">
-                            <button id="backToDashboardFromFacultyBtn" class="back-btn">Back to Dashboard</button>
+                            <button id="backToUsersFromFacultyBtn" class="back-btn">Back to User Management</button>
                         </div>
                     </div>
                 </div>
             </div>
-            <div id="all-users-view" style="display: none;">
+            <div id="users-management-view" style="display: none;">
                 <div class="admin-dashboard">
                     <div class="dashboard-panel">
-                        <h3 style="text-align: center;">Portal Administrators</h3>
+                        <h3>User Management</h3>
+                        <div class="user-management-container">
+                            <a href="#" id="manageAdminsBtn" class="user-management-circle"><span class="action-icon">👑</span><span>Admin Details</span></a>
+                            <a href="#" id="manageFacultyBtn" class="user-management-circle"><span class="action-icon">🧑‍🏫</span><span>Faculty Details</span></a>
+                            <a href="#" id="manageStudentsBtn" class="user-management-circle"><span class="action-icon">🧑‍🎓</span><span>Student Details</span></a>
+                        </div>
+                        <div class="back-link-container">
+                            <button id="backToDashboardFromUsersBtn" class="back-btn">Back to Dashboard</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="all-admins-view" style="display: none;">
+                <div class="admin-dashboard">
+                    <div class="dashboard-panel">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>Portal Administrators</h3>
+                            <button id="openAddAdminModalBtn" class="submit-btn" style="width: auto;">+ Add Admin</button>
+                        </div>
                         <div id="adminUsersGrid" class="admin-users-grid">
                             <!-- Admin user cards will be populated here -->
                         </div>
-                        <div style="display: flex; justify-content: center; margin-top: 2rem;"><button id="openAddAdminModalBtn" class="submit-btn" style="width: auto;">Add New Admin</button></div>
+                        <div class="back-link-container">
+                            <button id="backToUsersFromAdminsBtn" class="back-btn">Back to User Management</button>
+                        </div>
                     </div>
                 </div>
             </div>

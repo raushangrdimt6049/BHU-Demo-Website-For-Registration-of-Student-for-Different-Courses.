@@ -1,12 +1,17 @@
+window.addEventListener('pageshow', (event) => {
+    // This listener handles scenarios where a page is restored from the browser's
+    // back-forward cache (bfcache). It forces a full reload to ensure the
+    // security script in the <head> always runs.
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     const facultyDataString = sessionStorage.getItem('currentFaculty');
-    if (!facultyDataString) {
-        // This check is a fallback. The head script should have already redirected.
-        window.location.replace('faculty-login.html');
-        return;
-    }
 
     let facultyData = JSON.parse(facultyDataString);
+    let facultyNotifications = []; // To store fetched notifications
 
     // --- DOM Elements ---
     const sideNavBtn = document.getElementById('sideNavBtn');
@@ -25,24 +30,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const completionPasswordError = document.getElementById('completion-password-error');
     const completionFormError = document.getElementById('completion-form-error');
 
-    // --- NEW: Profile Modal Elements ---
+    // --- Settings Modal Elements ---
+    const facultySettingsModalOverlay = document.getElementById('facultySettingsModalOverlay');
+    const closeFacultySettingsModalBtn = document.getElementById('closeFacultySettingsModalBtn');
+    const saveFacultySettingsForm = document.getElementById('saveFacultySettingsForm');
+    const facultySettingsError = document.getElementById('faculty-settings-error');
+    const cancelEditFacultySettingsBtn = document.getElementById('cancelEditFacultySettingsBtn');
+    const editFacultyProfilePicture = document.getElementById('editFacultyProfilePicture');
+    const facultyProfilePictureInput = document.getElementById('facultyProfilePictureInput');
+
+    // --- New Profile View Modal Elements ---
     const facultyProfileModalOverlay = document.getElementById('facultyProfileModalOverlay');
     const closeFacultyProfileModalBtn = document.getElementById('closeFacultyProfileModalBtn');
 
-    // --- NEW: Settings Modal Elements ---
-    const facultySettingsModalOverlay = document.getElementById('facultySettingsModalOverlay');
-    const closeFacultySettingsModalBtn = document.getElementById('closeFacultySettingsModalBtn');
-    const editFacultySettingsBtn = document.getElementById('editFacultySettingsBtn');
-    const saveFacultySettingsForm = document.getElementById('saveFacultySettingsForm');
-    const facultySettingsError = document.getElementById('faculty-settings-error');
-
-    // --- NEW: Search Modal Elements ---
-    const facultySearchBtn = document.getElementById('facultySearchBtn');
-    const facultySearchModalOverlay = document.getElementById('facultySearchModalOverlay');
-    const closeFacultySearchModalBtn = document.getElementById('closeFacultySearchModalBtn');
-    const facultySearchInput = document.getElementById('facultySearchInput');
-
-    // --- NEW: Notification Elements ---
+    // --- Notification Elements ---
     const notificationBtn = document.getElementById('notificationBtn');
     const notificationPanel = document.getElementById('notificationPanel');
     const notificationBadge = document.getElementById('notificationBadge');
@@ -52,6 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const allNotificationsList = document.getElementById('allNotificationsList');
     const closeAllNotificationsModalBtn = document.getElementById('closeAllNotificationsModalBtn');
     const markAllAsReadBtn = document.getElementById('markAllAsReadBtn');
+    // --- NEW Notification Detail Modal Elements ---
+    const notificationDetailModalOverlay = document.getElementById('notificationDetailModalOverlay');
+    const closeNotificationDetailModalBtn = document.getElementById('closeNotificationDetailModalBtn');
+    const notificationDetailTitle = document.getElementById('notificationDetailTitle');
+    const notificationDetailMessage = document.getElementById('notificationDetailMessage');
+    const notificationDetailDate = document.getElementById('notificationDetailDate');
 
     // --- Side Navigation Logic ---
     const openNav = () => {
@@ -120,6 +127,30 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             facultyDashboard.insertAdjacentHTML('afterbegin', headerHTML);
         }
+
+        // Only attach settings listener if profile is complete
+        if (sideNavSettingsLink) {
+            sideNavSettingsLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                openFacultySettingsModal();
+                closeNav();
+            });
+        }
+
+        // --- Apply colors to Quick Links (like student portal) ---
+        const quickLinks = document.querySelectorAll('.quick-links-grid .quick-link-item');
+        if (quickLinks.length > 0) {
+            quickLinks.forEach((link, index) => {
+                // Determine row index (0-based, since there are 2 items per row)
+                const rowIndex = Math.floor(index / 2);
+                // Apply color based on whether the row is even or odd
+                if (rowIndex % 2 === 0) {
+                    link.classList.add('ql-dark-blue');
+                } else {
+                    link.classList.add('ql-light-blue');
+                }
+            });
+        }
     }
 
     // --- Profile Completion Form Submission ---
@@ -173,48 +204,94 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Notification Logic ---
-    const mockFacultyNotifications = [
-        { id: 1, type: 'assignment', text: '3 students submitted assignments for PHY101.', time: '15 mins ago', read: false },
-        { id: 2, type: 'leave', text: 'Your leave request for tomorrow has been approved.', time: '1 hour ago', read: false },
-        { id: 3, type: 'meeting', text: 'Department meeting scheduled for 4 PM today.', time: '2 hours ago', read: true },
-    ];
+    // --- Notification Helper Functions ---
+    const formatTimeAgo = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
 
-    const createFacultyNotificationHTML = (notification) => {
-        const icons = { assignment: '📝', leave: '✅', meeting: '👥' };
-        const icon = icons[notification.type] || '🔔';
-        const isReadClass = notification.read ? 'read' : '';
-        return `<li><a href="#" class="notification-item ${isReadClass}" data-id="${notification.id}"><div class="notification-icon ${notification.type}">${icon}</div><div class="notification-content"><p>${notification.text}</p><small>${notification.time}</small></div></a></li>`;
+        let interval = Math.floor(seconds / 31536000); if (interval >= 1) return interval + ` year${interval > 1 ? 's' : ''} ago`;
+        interval = Math.floor(seconds / 2592000); if (interval >= 1) return interval + ` month${interval > 1 ? 's' : ''} ago`;
+        interval = Math.floor(seconds / 86400); if (interval >= 1) return interval + ` day${interval > 1 ? 's' : ''} ago`;
+        interval = Math.floor(seconds / 3600); if (interval >= 1) return interval + ` hour${interval > 1 ? 's' : ''} ago`;
+        interval = Math.floor(seconds / 60); if (interval >= 1) return interval + ` minute${interval > 1 ? 's' : ''} ago`;
+        return Math.floor(seconds) + " seconds ago";
     };
 
-    const fetchAndDisplayFacultyNotifications = () => {
-        if (!notificationDropdownList || !allNotificationsList || !notificationBadge) return;
+    const createFacultyNotificationHTML = (notification) => {
+        const icons = { admin_notice: '📢', assignment: '📝', leave: '✅', meeting: '👥' };
+        const icon = icons[notification.type] || '🔔';
+        const isReadClass = notification.isRead ? 'read' : '';
+        const timeAgo = formatTimeAgo(notification.createdAt);
+        return `<li><a href="#" class="notification-item ${isReadClass}" data-id="${notification.id}"><div class="notification-icon ${notification.type}">${icon}</div><div class="notification-content"><p>${notification.message}</p><small>${timeAgo}</small></div></a></li>`;
+    };
 
-        const notifications = mockFacultyNotifications;
+    // --- Real Notification Logic ---
+    const fetchAndDisplayFacultyNotifications = async () => {
+        if (!notificationDropdownList || !allNotificationsList || !notificationBadge || !facultyData.username) return;
 
-        notificationDropdownList.innerHTML = '';
-        allNotificationsList.innerHTML = '';
+        try {
+            const response = await fetch(`/api/faculty/notifications/${facultyData.username}`);
+            if (!response.ok) throw new Error('Failed to fetch notifications');
+            
+            const notifications = await response.json();
+            facultyNotifications = notifications; // Store for later use
 
-        const unreadCount = notifications.filter(n => !n.read).length;
-        if (unreadCount > 0) {
-            notificationBadge.textContent = unreadCount;
-            notificationBadge.style.display = 'flex';
-        } else {
-            notificationBadge.style.display = 'none';
+            notificationDropdownList.innerHTML = '';
+            allNotificationsList.innerHTML = '';
+
+            const unreadCount = notifications.filter(n => !n.isRead).length;
+            if (unreadCount > 0) {
+                notificationBadge.textContent = unreadCount;
+                notificationBadge.style.display = 'flex';
+            } else {
+                notificationBadge.style.display = 'none';
+            }
+
+            if (notifications.length === 0) {
+                const noNotifHTML = '<li class="notification-item" style="justify-content: center; color: var(--text-color-light);">No notifications yet.</li>';
+                notificationDropdownList.innerHTML = noNotifHTML;
+                allNotificationsList.innerHTML = noNotifHTML;
+                return;
+            }
+
+            notifications.slice(0, 5).forEach(n => { // Show 5 in dropdown
+                notificationDropdownList.insertAdjacentHTML('beforeend', createFacultyNotificationHTML(n));
+            });
+
+            notifications.forEach(n => {
+                allNotificationsList.insertAdjacentHTML('beforeend', createFacultyNotificationHTML(n));
+            });
+
+        } catch (error) {
+            console.error('Error fetching faculty notifications:', error);
+            const errorHTML = '<li class="notification-item" style="justify-content: center; color: var(--btn-danger-bg);">Could not load.</li>';
+            notificationDropdownList.innerHTML = errorHTML;
+            allNotificationsList.innerHTML = errorHTML;
         }
+    };
 
-        notifications.slice(0, 3).forEach(n => {
-            notificationDropdownList.insertAdjacentHTML('beforeend', createFacultyNotificationHTML(n));
-        });
+    const openNotificationDetailModal = (notification) => {
+        if (!notificationDetailModalOverlay) return;
 
-        notifications.forEach(n => {
-            allNotificationsList.insertAdjacentHTML('beforeend', createFacultyNotificationHTML(n));
-        });
+        let title = 'Notification';
+        if (notification.type === 'admin_notice') {
+            title = 'Notice from Admin';
+        }
+        // Add other types if needed
+
+        notificationDetailTitle.textContent = title;
+        notificationDetailMessage.textContent = notification.message;
+        notificationDetailDate.textContent = `Received: ${formatTimeAgo(notification.createdAt)}`;
+
+        if (notificationPanel) notificationPanel.classList.remove('active'); // Close dropdown
+        notificationDetailModalOverlay.classList.add('active');
     };
 
     const openAllNotificationsModal = () => {
         if (allNotificationsModalOverlay) {
-            fetchAndDisplayFacultyNotifications();
+            fetchAndDisplayFacultyNotifications(); // Refresh list when opening
             allNotificationsModalOverlay.classList.add('active');
         }
     };
@@ -223,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         notificationBtn.addEventListener('click', (event) => {
             event.stopPropagation();
             notificationPanel.classList.toggle('active');
-            if (notificationBadge) notificationBadge.style.display = 'none';
+            // Don't hide the badge on open, only when notifications are read.
         });
         document.addEventListener('click', (event) => {
             if (!notificationBtn.contains(event.target) && !notificationPanel.contains(event.target)) {
@@ -243,80 +320,129 @@ document.addEventListener('DOMContentLoaded', () => {
     if (allNotificationsModalOverlay) allNotificationsModalOverlay.addEventListener('click', (e) => { if (e.target === allNotificationsModalOverlay) allNotificationsModalOverlay.classList.remove('active'); });
 
     if (markAllAsReadBtn) {
-        markAllAsReadBtn.addEventListener('click', () => {
-            mockFacultyNotifications.forEach(n => n.read = true);
-            fetchAndDisplayFacultyNotifications();
+        markAllAsReadBtn.addEventListener('click', async () => {
+            const unreadIds = facultyNotifications.filter(n => !n.isRead).map(n => n.id);
+            if (unreadIds.length === 0) return;
+
+            try {
+                const response = await fetch('/api/notifications/mark-as-read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notificationIds: unreadIds })
+                });
+                if (!response.ok) throw new Error('Failed to mark all as read.');
+                
+                // Update UI immediately
+                facultyNotifications.forEach(n => n.isRead = true);
+                fetchAndDisplayFacultyNotifications(); // This will re-render everything correctly
+            } catch (error) {
+                console.error('Error marking all notifications as read:', error);
+                alert(error.message);
+            }
         });
     }
 
-    const handleFacultyNotificationClick = (e) => {
+    const handleFacultyNotificationClick = async (e) => {
         e.preventDefault();
         const notificationItem = e.target.closest('.notification-item');
         if (!notificationItem) return;
 
         const notificationId = parseInt(notificationItem.dataset.id, 10);
-        const notification = mockFacultyNotifications.find(n => n.id === notificationId);
+        const notification = facultyNotifications.find(n => n.id === notificationId);
 
-        if (notification && !notification.read) {
-            notification.read = true;
-            fetchAndDisplayFacultyNotifications();
+        if (!notification) return;
+
+        if (!notification.isRead) {
+            try {
+                const response = await fetch('/api/notifications/mark-as-read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notificationIds: [notification.id] })
+                });
+                if (!response.ok) throw new Error('Failed to mark as read.');
+                
+                notification.isRead = true; // Update local state
+                fetchAndDisplayFacultyNotifications(); // Re-render to update badge and styles
+            } catch (error) {
+                console.error('Error marking notification as read:', error);
+            }
         }
+
+        // Open the detail modal regardless of read status
+        openNotificationDetailModal(notification);
     };
 
     if (notificationDropdownList) notificationDropdownList.addEventListener('click', handleFacultyNotificationClick);
     if (allNotificationsList) allNotificationsList.addEventListener('click', handleFacultyNotificationClick);
 
-    // --- NEW: Profile Modal Logic ---
-    const openFacultyProfileModal = () => {
+    // --- Settings Modal Logic ---
+    const openFacultyProfileModal = async () => {
         if (!facultyProfileModalOverlay) return;
 
-        // Populate modal with data from the facultyData object
-        document.getElementById('modalFacultyAvatar').src = facultyData.profilePicture || 'default-avatar.png';
-        document.getElementById('modalFacultyName').textContent = facultyData.name || 'N/A';
-        document.getElementById('modalFacultyUsername').textContent = facultyData.username || 'N/A';
-        document.getElementById('modalFacultyEmail').textContent = facultyData.email || 'N/A';
-        document.getElementById('modalFacultyMobile').textContent = facultyData.mobileNumber || 'N/A';
+        try {
+            // Fetch fresh data to ensure it's up-to-date
+            const username = facultyData.username;
+            const response = await fetch(`/api/faculty/me?username=${username}`);
+            if (!response.ok) throw new Error('Could not fetch your profile details.');
+            
+            const currentFacultyData = await response.json();
+            facultyData = currentFacultyData; // Update local data
 
-        facultyProfileModalOverlay.classList.add('active');
-        closeNav(); // Close the side nav if it's open
+            // Populate the view-only modal
+            document.getElementById('viewFacultyProfilePic').src = currentFacultyData.profilePicture || 'default-avatar.png';
+            document.getElementById('viewFacultyName').textContent = currentFacultyData.name || 'N/A';
+            document.getElementById('viewFacultyUsername').textContent = currentFacultyData.username || 'N/A';
+            document.getElementById('viewFacultyEmail').textContent = currentFacultyData.email || 'N/A';
+            document.getElementById('viewFacultyMobile').textContent = currentFacultyData.mobileNumber || 'N/A';
+            document.getElementById('viewFacultyType').textContent = currentFacultyData.teacherChoice || 'N/A';
+            document.getElementById('viewFacultySubject').textContent = currentFacultyData.subject || 'N/A';
+
+            facultyProfileModalOverlay.classList.add('active');
+
+        } catch (error) {
+            console.error("Error opening profile view:", error);
+            alert(error.message);
+        }
     };
-
-    if (sideNavAvatar) {
-        sideNavAvatar.addEventListener('click', openFacultyProfileModal);
-    }
 
     if (closeFacultyProfileModalBtn) {
         closeFacultyProfileModalBtn.addEventListener('click', () => {
-            if (facultyProfileModalOverlay) facultyProfileModalOverlay.classList.remove('active');
+            closeModal(facultyProfileModalOverlay);
         });
     }
     if (facultyProfileModalOverlay) {
         facultyProfileModalOverlay.addEventListener('click', (e) => {
-            if (e.target === facultyProfileModalOverlay) facultyProfileModalOverlay.classList.remove('active');
+            if (e.target === facultyProfileModalOverlay) {
+                closeModal(facultyProfileModalOverlay);
+            }
         });
     }
-
-    // --- NEW: Settings Modal Logic ---
     const openFacultySettingsModal = async () => {
         if (!facultySettingsModalOverlay) return;
 
         try {
-            const response = await fetch(`/api/faculty/me?username=${facultyData.username}`);
+            const username = facultyData.username;
+            const response = await fetch(`/api/faculty/me?username=${username}`);
             if (!response.ok) throw new Error('Could not fetch your details.');
             
             const currentFacultyData = await response.json();
             facultyData = currentFacultyData; // Update local data
             
-            // Populate view mode
-            document.getElementById('settingFacultyName').textContent = currentFacultyData.name || 'N/A';
-            document.getElementById('settingFacultyUsername').textContent = currentFacultyData.username || 'N/A';
-            document.getElementById('settingFacultyEmail').textContent = currentFacultyData.email || 'N/A';
-            document.getElementById('settingFacultyMobile').textContent = currentFacultyData.mobileNumber || 'N/A';
-            document.getElementById('settingFacultyType').textContent = currentFacultyData.teacherChoice || 'N/A';
+            // Populate edit form
+            document.getElementById('editFacultyName').value = currentFacultyData.name || '';
+            document.getElementById('editFacultyUsername').value = currentFacultyData.username || '';
+            if (editFacultyProfilePicture) editFacultyProfilePicture.src = currentFacultyData.profilePicture || 'default-avatar.png';
+            document.getElementById('editFacultyEmail').value = currentFacultyData.email || '';
+            document.getElementById('editFacultyMobile').value = currentFacultyData.mobileNumber || '';
+            document.getElementById('editFacultyTeacherChoice').value = currentFacultyData.teacherChoice || '';
+            document.getElementById('editFacultySubject').value = currentFacultyData.subject || '';
 
-            // Show view mode, hide edit mode
-            document.getElementById('faculty-settings-view').style.display = 'block';
-            document.getElementById('faculty-settings-edit').style.display = 'none';
+            // Clear password fields and error message
+            document.getElementById('editFacultyCurrentPassword').value = '';
+            document.getElementById('editFacultyNewPassword').value = '';
+            document.getElementById('editFacultyConfirmPassword').value = '';
+            if (facultySettingsError) facultySettingsError.style.display = 'none';
+            if (facultyProfilePictureInput) facultyProfilePictureInput.value = ''; // Clear file input on open
             facultySettingsModalOverlay.classList.add('active');
 
         } catch (error) {
@@ -325,40 +451,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    if (sideNavSettingsLink) {
-        sideNavSettingsLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            openFacultySettingsModal();
-            closeNav();
+    const closeModal = (modal) => {
+        if (modal) modal.classList.remove('active');
+    };
+
+    if (closeNotificationDetailModalBtn) {
+        closeNotificationDetailModalBtn.addEventListener('click', () => {
+            closeModal(notificationDetailModalOverlay);
+        });
+    }
+    if (notificationDetailModalOverlay) {
+        notificationDetailModalOverlay.addEventListener('click', (e) => {
+            if (e.target === notificationDetailModalOverlay) closeModal(notificationDetailModalOverlay);
         });
     }
 
     if (closeFacultySettingsModalBtn) {
         closeFacultySettingsModalBtn.addEventListener('click', () => {
-            if (facultySettingsModalOverlay) facultySettingsModalOverlay.classList.remove('active');
+            closeModal(facultySettingsModalOverlay);
         });
     }
 
-    if (editFacultySettingsBtn) {
-        editFacultySettingsBtn.addEventListener('click', () => {
-            // Populate edit form
-            document.getElementById('editFacultyName').value = facultyData.name || '';
-            document.getElementById('editFacultyUsername').value = facultyData.username || '';
-            document.getElementById('editFacultyEmail').value = facultyData.email || '';
-            document.getElementById('editFacultyMobile').value = facultyData.mobileNumber || '';
-            document.getElementById('editFacultyTeacherChoice').value = facultyData.teacherChoice || '';
-            
-            // Clear password fields
-            document.getElementById('editFacultyCurrentPassword').value = '';
-            document.getElementById('editFacultyNewPassword').value = '';
-            document.getElementById('editFacultyConfirmPassword').value = '';
-            if (facultySettingsError) facultySettingsError.style.display = 'none';
-
-            // Switch views
-            document.getElementById('faculty-settings-view').style.display = 'none';
-            document.getElementById('faculty-settings-edit').style.display = 'block';
+    if (cancelEditFacultySettingsBtn) {
+        cancelEditFacultySettingsBtn.addEventListener('click', () => {
+            closeModal(facultySettingsModalOverlay);
         });
     }
+
 
     if (saveFacultySettingsForm) {
         saveFacultySettingsForm.addEventListener('submit', async (e) => {
@@ -367,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const newPassword = document.getElementById('editFacultyNewPassword').value;
             const confirmPassword = document.getElementById('editFacultyConfirmPassword').value;
+            const currentPassword = document.getElementById('editFacultyCurrentPassword').value;
 
             if (newPassword && newPassword !== confirmPassword) {
                 facultySettingsError.textContent = 'New passwords do not match.';
@@ -374,10 +494,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // The server requires the current password to save any changes. This check enforces that on the client-side.
+            if (!currentPassword) {
+                facultySettingsError.textContent = 'Current password is required to save changes.';
+                facultySettingsError.style.display = 'block';
+                document.getElementById('editFacultyCurrentPassword').focus();
+                return;
+            }
+
+            // Use FormData to handle all fields, including the file input
             const formData = new FormData(saveFacultySettingsForm);
-            const dataToSubmit = Object.fromEntries(formData.entries());
-            dataToSubmit.username = facultyData.username; // Ensure username is sent
-            
+            // We already validated newPassword === confirmPassword, so we can remove one.
+            // The server doesn't need it.
+            formData.delete('confirmPassword'); 
+            // The server will handle password logic based on whether newPassword is provided.
+
             const submitBtn = saveFacultySettingsForm.querySelector('.submit-btn');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Saving...';
@@ -385,18 +516,18 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch('/api/faculty/update-settings', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(dataToSubmit)
+                    // Do not set Content-Type header; the browser will set it correctly for multipart/form-data
+                    body: formData
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message);
 
                 alert('Settings updated successfully!');
+                sessionStorage.setItem('currentFaculty', JSON.stringify(result.facultyData)); // Update session storage
                 facultyData = result.facultyData; // Update local data
-                sessionStorage.setItem('currentFaculty', JSON.stringify(facultyData)); // Update session storage
-
-                // Re-populate view mode with new data and switch back
-                openFacultySettingsModal();
+                // Update side nav avatar
+                if (sideNavAvatar) sideNavAvatar.src = facultyData.profilePicture || 'default-avatar.png';
+                closeModal(facultySettingsModalOverlay); // Close modal on success
 
             } catch (error) {
                 facultySettingsError.textContent = error.message;
@@ -408,23 +539,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NEW: Search Modal Logic ---
-    if (facultySearchBtn) {
-        facultySearchBtn.addEventListener('click', () => {
-            if (facultySearchModalOverlay) {
-                facultySearchModalOverlay.classList.add('active');
-                if (facultySearchInput) facultySearchInput.focus();
+    // --- Settings Modal: Profile Picture Preview ---
+    if (facultyProfilePictureInput && editFacultyProfilePicture) {
+        facultyProfilePictureInput.addEventListener('change', () => {
+            const file = facultyProfilePictureInput.files[0];
+            if (file) {
+                // Create a temporary URL for the selected file and show it in the <img> tag
+                editFacultyProfilePicture.src = URL.createObjectURL(file);
             }
         });
     }
-    if (closeFacultySearchModalBtn) {
-        closeFacultySearchModalBtn.addEventListener('click', () => {
-            if (facultySearchModalOverlay) facultySearchModalOverlay.classList.remove('active');
-        });
-    }
-    if (facultySearchModalOverlay) {
-        facultySearchModalOverlay.addEventListener('click', (e) => {
-            if (e.target === facultySearchModalOverlay) facultySearchModalOverlay.classList.remove('active');
+
+    // Open profile modal by clicking the avatar
+    if (sideNavAvatar) {
+        sideNavAvatar.addEventListener('click', () => {
+            openFacultyProfileModal();
+            closeNav();
         });
     }
 

@@ -92,6 +92,25 @@ const docStorage = multer.diskStorage({
 });
 const docUpload = multer({ storage: docStorage });
 
+// New Multer setup for faculty profile pictures
+const facultyPicStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = 'uploads/faculty-pics/';
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        // Generate a temporary name. We will rename it in the route handler
+        // where req.body is guaranteed to be populated.
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const extension = path.extname(file.originalname);
+        cb(null, `temp-faculty-${uniqueSuffix}${extension}`);
+    }
+});
+const facultyPicUpload = multer({ storage: facultyPicStorage });
+
 // New Multer setup for admin profile pictures
 const adminPicStorage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -102,10 +121,10 @@ const adminPicStorage = multer.diskStorage({
         cb(null, dir);
     },
     filename: function (req, file, cb) {
-        const username = req.body.username.replace(/[^a-zA-Z0-9]/g, '_'); // Sanitize username
-        const uniqueSuffix = Date.now();
+        // Generate a temporary name. We will rename it in the route handler.
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         const extension = path.extname(file.originalname);
-        cb(null, `${username}-${uniqueSuffix}${extension}`);
+        cb(null, `temp-admin-${uniqueSuffix}${extension}`);
     }
 });
 const adminPicUpload = multer({ storage: adminPicStorage });
@@ -1158,6 +1177,21 @@ app.get('/api/notifications/:rollNumber', async (req, res) => {
     }
 });
 
+// New GET endpoint to fetch all notifications for a faculty member
+app.get('/api/faculty/notifications/:username', async (req, res) => {
+    const { username } = req.params;
+    console.log(`Fetching notifications for faculty: ${username}`);
+    try {
+        // The current implementation correctly inserts a row for each faculty member, so we just need to query by username.
+        const query = "SELECT * FROM notifications WHERE LOWER(faculty_username) = LOWER($1) ORDER BY createdat DESC";
+        const { rows } = await pool.query(query, [username]);
+        res.json(rows.map(n => mapDbToCamelCase(n)));
+    } catch (error) {
+        console.error(`Error fetching notifications for faculty ${username}:`, error);
+        res.status(500).json({ message: 'Server error while fetching notifications.' });
+    }
+});
+
 // POST endpoint to mark notifications as read
 app.post('/api/notifications/mark-as-read', jsonParser, async (req, res) => {
     const { notificationIds } = req.body; // Expect an array of IDs
@@ -1273,20 +1307,13 @@ app.get('/student-data/:rollNumber', async (req, res) => {
  */
 
 // New endpoint to get history of admin notices
+// This now reads from the dedicated notice_history table for a more accurate log.
 app.get('/api/admin/notices', async (req, res) => {
     console.log('Fetching history of admin notices.');
     try {
-        // Group by message and get the most recent creation date for each unique message.
-        const query = `
-            SELECT message, MAX(createdat) as createdat
-            FROM notifications
-            WHERE type = 'admin_notice'
-            GROUP BY message
-            ORDER BY MAX(createdat) DESC;
-        `;
+        const query = `SELECT * FROM notice_history ORDER BY createdat DESC;`;
         const { rows } = await pool.query(query);
-        // The mapDbToCamelCase function will correctly handle 'createdat'
-        res.json(rows.map(notice => mapDbToCamelCase(notice)));
+        res.json(rows.map(historyItem => mapDbToCamelCase(historyItem)));
     } catch (error) {
         console.error('Error fetching admin notice history:', error);
         res.status(500).json({ message: 'Server error while fetching notice history.' });
@@ -1322,6 +1349,22 @@ app.get('/api/admin/search-users', async (req, res) => {
     } catch (error) {
         console.error('Error during user search:', error);
         res.status(500).json({ message: 'Server error during search.' });
+    }
+});
+
+// New endpoint to get details for the logged-in faculty member
+app.get('/api/faculty/me', async (req, res) => {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ message: 'Username is required.' });
+
+    try {
+        const query = 'SELECT id, name, username, email, mobilenumber, teacherchoice, subject, profilepicture, isprofilecomplete FROM faculty WHERE LOWER(username) = LOWER($1)';
+        const { rows } = await pool.query(query, [username]);
+        if (rows.length === 0) return res.status(404).json({ message: 'Faculty not found.' });
+        res.status(200).json(mapDbToCamelCase(rows[0]));
+    } catch (error) {
+        console.error('Error fetching faculty details:', error);
+        res.status(500).json({ message: 'Server error while fetching faculty details.' });
     }
 });
 
@@ -1364,40 +1407,65 @@ app.get('/api/all-faculty', async (req, res) => {
     }
 });
 
-// New endpoint for admin to send a notification to all students
-app.post('/api/admin/send-notification', jsonParser, async (req, res) => {
-    const { message } = req.body;
-    console.log(`Received request to send notice to all students: "${message}"`);
+// New, unified endpoint for sending notices
+app.post('/api/admin/send-notice', jsonParser, async (req, res) => {
+    const { message, audience, recipients, adminUsername } = req.body;
+    console.log(`Received notice request for audience: ${audience}`);
 
-    if (!message || message.trim() === '') {
-        return res.status(400).json({ message: 'Notification message cannot be empty.' });
+    if (!message || !audience || !adminUsername) {
+        return res.status(400).json({ message: 'Message, audience, and admin username are required.' });
+    }
+    if (audience.startsWith('SELECTED') && (!recipients || recipients.length === 0)) {
+        return res.status(400).json({ message: 'Recipients are required for selected audience.' });
     }
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        // 1. Get all student roll numbers to ensure there are students to notify
-        const { rows: students } = await client.query('SELECT rollnumber FROM students');
-        if (students.length === 0) {
-            return res.status(404).json({ message: 'No students found to send notifications to.' });
+        let notificationResult;
+        let recipientCount = 0;
+
+        if (audience === 'ALL_STUDENTS') {
+            const query = `INSERT INTO notifications (studentrollnumber, type, message, link) SELECT rollnumber, 'admin_notice', $1, '#' FROM students;`;
+            notificationResult = await client.query(query, [message]);
+            recipientCount = notificationResult.rowCount;
+        } else if (audience === 'ALL_FACULTY') {
+            const query = `INSERT INTO notifications (faculty_username, type, message, link) SELECT username, 'admin_notice', $1, '#' FROM faculty;`;
+            notificationResult = await client.query(query, [message]);
+            recipientCount = notificationResult.rowCount;
+        } else if (audience === 'SELECTED_STUDENTS') {
+            const query = `INSERT INTO notifications (studentrollnumber, type, message, link) SELECT unnest($1::text[]), 'admin_notice', $2, '#';`;
+            notificationResult = await client.query(query, [recipients, message]);
+            recipientCount = notificationResult.rowCount;
+        } else if (audience === 'SELECTED_FACULTY') {
+            const query = `INSERT INTO notifications (faculty_username, type, message, link) SELECT unnest($1::text[]), 'admin_notice', $2, '#';`;
+            notificationResult = await client.query(query, [recipients, message]);
+            recipientCount = notificationResult.rowCount;
+        } else {
+            throw new Error('Invalid audience specified.');
         }
 
-        // 2. Prepare a single, efficient query to insert notifications for all students
-        const notificationQuery = `
-            INSERT INTO notifications (studentrollnumber, type, message, link)
-            SELECT rollnumber, 'admin_notice', $1, '#'
-            FROM students;
+        if (recipientCount === 0) {
+            // Don't throw an error, just inform the admin. No need to rollback or log history.
+            await client.query('COMMIT'); // Commit the empty transaction
+            return res.status(200).json({ message: 'Notice sent, but no matching recipients were found.' });
+        }
+
+        // Log the action in the new history table
+        const historyQuery = `
+            INSERT INTO notice_history (sent_by_admin, message, target_audience, recipient_count)
+            VALUES ($1, $2, $3, $4);
         `;
-        const result = await client.query(notificationQuery, [message.trim()]);
+        await client.query(historyQuery, [adminUsername, message, audience, recipientCount]);
 
         await client.query('COMMIT');
 
-        console.log(`Successfully created ${result.rowCount} notifications for all students.`);
-        res.status(200).json({ message: `Notice successfully sent to ${result.rowCount} students.` });
+        console.log(`Successfully sent notice to ${recipientCount} recipients for audience ${audience}.`);
+        res.status(200).json({ message: `Notice successfully sent to ${recipientCount} recipients.` });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error sending notification to all students:', error);
+        console.error(`Error sending notice for audience ${audience}:`, error);
         res.status(500).json({ message: 'Server error while sending notifications.' });
     } finally {
         client.release();
@@ -1616,8 +1684,8 @@ app.get('/api/admin/me', async (req, res) => {
 });
 
 // New endpoint to update admin settings
-app.post('/api/admin/update-settings', jsonParser, async (req, res) => {
-    const { username, name, email, mobileNumber, currentPassword, newPassword } = req.body;
+app.post('/api/admin/update-settings', adminPicUpload.single('profilePicture'), async (req, res) => {
+    const { username, name, email, mobileNumber, currentPassword, newPassword } = req.body; // Multer makes body available
     console.log(`Updating settings for admin: ${username}`);
 
     if (!username || !currentPassword) {
@@ -1650,6 +1718,24 @@ app.post('/api/admin/update-settings', jsonParser, async (req, res) => {
         if (name) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
         if (email) { updateFields.push(`email = $${paramIndex++}`); values.push(email); }
         if (mobileNumber) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
+        if (req.file) {
+            // Rename the temporary file to a permanent one
+            const sanitizedUsername = username.replace(/[^a-zA-Z0-9_.-]/g, '_');
+            const newFileName = `${sanitizedUsername}-${Date.now()}${path.extname(req.file.originalname)}`;
+            const newPath = path.join(path.dirname(req.file.path), newFileName);
+
+            try {
+                fs.renameSync(req.file.path, newPath);
+                const profilePictureUrl = newPath.replace(/\\/g, "/");
+                updateFields.push(`profilepicture = $${paramIndex++}`);
+                values.push(profilePictureUrl);
+                console.log(`Admin profile picture for ${username} saved to: ${profilePictureUrl}`);
+            } catch (renameError) {
+                console.error('Error renaming admin profile picture:', renameError);
+                // Clean up the temp file if renaming fails
+                fs.unlinkSync(req.file.path);
+            }
+        }
         if (newPassword) {
             const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
             updateFields.push(`passwordhash = $${paramIndex++}`);
@@ -1657,7 +1743,9 @@ app.post('/api/admin/update-settings', jsonParser, async (req, res) => {
         }
 
         if (updateFields.length === 0) {
-            return res.status(200).json({ message: 'No changes were made.', adminData: admin });
+            delete admin.passwordhash;
+            // Even if no fields changed, if a file was uploaded, it was an error.
+            return res.status(200).json({ message: 'No changes were made.', adminData: mapDbToCamelCase(admin) });
         }
 
         values.push(username);
@@ -1822,27 +1910,15 @@ app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
     }
 });
 
-// New endpoint to get details for the logged-in faculty member
-app.get('/api/faculty/me', async (req, res) => {
-    const { username } = req.query;
-    if (!username) return res.status(400).json({ message: 'Username is required.' });
-
-    try {
-        const query = 'SELECT id, name, username, email, mobilenumber, teacherchoice, profilepicture FROM faculty WHERE LOWER(username) = LOWER($1)';
-        const { rows } = await pool.query(query, [username]);
-        if (rows.length === 0) return res.status(404).json({ message: 'Faculty not found.' });
-        res.status(200).json(mapDbToCamelCase(rows[0]));
-    } catch (error) {
-        console.error('Error fetching faculty details:', error);
-        res.status(500).json({ message: 'Server error while fetching faculty details.' });
-    }
-});
-
 // New endpoint to update faculty settings
-app.post('/api/faculty/update-settings', jsonParser, async (req, res) => {
-    const { username, name, email, mobileNumber, teacherChoice, currentPassword, newPassword } = req.body;
+app.post('/api/faculty/update-settings', facultyPicUpload.single('profilePicture'), async (req, res) => {
+    const { 
+        username, name, email, mobileNumber, teacherChoice, subject, 
+        currentPassword, newPassword 
+    } = req.body;
     console.log(`Updating settings for faculty: ${username}`);
 
+    // Any change requires the current password for verification.
     if (!username || !currentPassword) {
         return res.status(400).json({ message: 'Username and Current Password are required to save changes.' });
     }
@@ -1861,10 +1937,31 @@ app.post('/api/faculty/update-settings', jsonParser, async (req, res) => {
         const values = [];
         let paramIndex = 1;
 
-        if (name) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
-        if (email) { updateFields.push(`email = $${paramIndex++}`); values.push(email); }
-        if (mobileNumber) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
-        if (teacherChoice) { updateFields.push(`teacherchoice = $${paramIndex++}`); values.push(teacherChoice); }
+        if (name !== undefined) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
+        if (email !== undefined) { updateFields.push(`email = $${paramIndex++}`); values.push(email.toLowerCase()); }
+        if (mobileNumber !== undefined) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
+        if (teacherChoice !== undefined) { updateFields.push(`teacherchoice = $${paramIndex++}`); values.push(teacherChoice); }
+        if (subject !== undefined) { updateFields.push(`subject = $${paramIndex++}`); values.push(subject); }
+        if (req.file) {
+            // Rename the temporary file to a permanent one
+            const sanitizedUsername = username.replace(/[^a-zA-Z0-9_.-]/g, '_');
+            const newFileName = `${sanitizedUsername}-${Date.now()}${path.extname(req.file.originalname)}`;
+            const newPath = path.join(path.dirname(req.file.path), newFileName);
+
+            try {
+                fs.renameSync(req.file.path, newPath);
+                const profilePictureUrl = newPath.replace(/\\/g, "/");
+                updateFields.push(`profilepicture = $${paramIndex++}`);
+                values.push(profilePictureUrl);
+                console.log(`Faculty profile picture for ${username} saved to: ${profilePictureUrl}`);
+            } catch (renameError) {
+                // If renaming fails, log it but don't fail the whole transaction.
+                // The other profile details might still be important to save.
+                // Clean up the temp file.
+                console.error('Error renaming faculty profile picture:', renameError);
+                fs.unlinkSync(req.file.path);
+            }
+        }
         if (newPassword) {
             const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
             updateFields.push(`passwordhash = $${paramIndex++}`);
@@ -1872,6 +1969,7 @@ app.post('/api/faculty/update-settings', jsonParser, async (req, res) => {
         }
 
         if (updateFields.length === 0) {
+            delete faculty.passwordhash;
             return res.status(200).json({ message: 'No changes were made.', facultyData: mapDbToCamelCase(faculty) });
         }
 
@@ -1947,8 +2045,8 @@ app.post('/api/faculty/login', jsonParser, async (req, res) => {
     console.log(`Faculty login attempt for identifier: ${loginIdentifier}`);
 
     try {
-        const query = 'SELECT * FROM faculty WHERE username = $1 OR email = $1';
-        const { rows } = await pool.query(query, [loginIdentifier]);
+        const query = 'SELECT * FROM faculty WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)';
+        const { rows } = await pool.query(query, [loginIdentifier.toLowerCase()]);
 
         if (rows.length === 0) {
             return res.status(401).json({ message: 'Username or email not found.' });
@@ -1973,27 +2071,34 @@ app.post('/api/faculty/login', jsonParser, async (req, res) => {
 
 // Endpoint for faculty password reset
 app.post('/api/faculty/reset-password', jsonParser, async (req, res) => {
-    const { identifier, securityQuestion, securityAnswer, newPassword } = req.body;
-    console.log(`Faculty password reset attempt for identifier: ${identifier}`);
+    const { username, mobileNumber, newPassword } = req.body;
+    console.log(`Faculty password reset attempt for username: ${username}`);
+
+    if (!username || !mobileNumber || !newPassword) {
+        return res.status(400).json({ message: 'Username, mobile number, and new password are required.' });
+    }
 
     try {
-        const query = 'SELECT * FROM faculty WHERE (username = $1 OR email = $1) AND securityquestion = $2';
-        const { rows } = await pool.query(query, [identifier, securityQuestion]);
+        // Find user by username. Username should be unique.
+        const query = 'SELECT * FROM faculty WHERE LOWER(username) = LOWER($1)';
+        const { rows } = await pool.query(query, [username]);
 
         if (rows.length === 0) {
-            return res.status(401).json({ message: 'Invalid identifier or security question.' });
+            // Generic error to prevent leaking info on which field was wrong
+            return res.status(401).json({ message: 'Invalid username or mobile number.' });
         }
 
         const faculty = rows[0];
-        if (faculty.securityanswer.toLowerCase() !== securityAnswer.toLowerCase()) {
-            return res.status(401).json({ message: 'Incorrect security answer.' });
+        // Check if the provided mobile number matches the one in the database.
+        if (faculty.mobilenumber !== mobileNumber) {
+            return res.status(401).json({ message: 'Invalid username or mobile number.' });
         }
 
         const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
         await pool.query('UPDATE faculty SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE id = $2', [newPasswordHash, faculty.id]);
 
         console.log(`Password successfully reset for faculty: ${faculty.username}`);
-        res.status(200).json({ message: 'Password reset successful' });
+        res.status(200).json({ message: 'Password reset successful! Please log in with your new password.' });
     } catch (error) {
         console.error('Error during faculty password reset:', error);
         res.status(500).json({ message: 'Server error during password reset.' });
@@ -2063,7 +2168,9 @@ function mapDbToCamelCase(dbObject) {
             selectedcourse: 'selectedCourse',
             hobbycourses: 'hobbyCourses',
             isprofilecomplete: 'isProfileComplete',
-            teacherchoice: 'teacherChoice',
+            teacherchoice: 'teacherChoice', // This was correct, but adding a check below for safety
+            gender: 'gender',
+            subject: 'subject',
             isread: 'isRead',
             createdat: 'createdAt',
             updatedat: 'updatedAt'

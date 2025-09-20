@@ -14,10 +14,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainDashboardView = document.getElementById('main-dashboard-view');
     const allStudentsView = document.getElementById('all-students-view');
     const allFacultyView = document.getElementById('all-faculty-view');
-    const allUsersView = document.getElementById('all-users-view');
+    const allAdminsView = document.getElementById('all-admins-view');
+    const usersManagementView = document.getElementById('users-management-view');
     const allTimetablesView = document.getElementById('all-timetables-view');
-    const backToDashboardFromStudentsBtn = document.getElementById('backToDashboardFromStudentsBtn');
-    const backToDashboardFromFacultyBtn = document.getElementById('backToDashboardFromFacultyBtn');
+    const backToUsersFromStudentsBtn = document.getElementById('backToUsersFromStudentsBtn');
+    const backToUsersFromFacultyBtn = document.getElementById('backToUsersFromFacultyBtn');
+    const backToUsersFromAdminsBtn = document.getElementById('backToUsersFromAdminsBtn');
+    const backToDashboardFromUsersBtn = document.getElementById('backToDashboardFromUsersBtn');
     const backToDashboardFromTimetablesBtn = document.getElementById('backToDashboardFromTimetablesBtn');
     // --- Side Navigation Elements ---
     const sideNavBtn = document.getElementById('sideNavBtn');
@@ -25,9 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const sideNavDashboardLink = document.getElementById('sideNavDashboardLink');
     const sideNavOverlay = document.getElementById('sideNavOverlay');
     const closeSideNavBtn = document.getElementById('closeSideNavBtn');
-    const sideNavUsersLink = document.getElementById('sideNavUsersLink');
     const adminLogoutBtn = document.getElementById('adminLogoutBtn');
     const sideNavTimetableLink = document.getElementById('sideNavTimetableLink');
+    const sideNavUsersLink = document.getElementById('sideNavUsersLink');
     const sideNavAvatar = document.getElementById('sideNavAvatar');
     const sideNavSettingsLink = document.getElementById('sideNavSettingsLink');
     const sideNavPostNoticeBtn = document.getElementById('sideNavPostNoticeBtn');
@@ -43,14 +46,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const markAllAsReadBtn = document.getElementById('markAllAsReadBtn');
 
     // --- Post Notice Modal Elements ---
-    const viewAllStudentsBtn = document.getElementById('viewAllStudentsBtn');
-    const viewAllFacultyBtn = document.getElementById('viewAllFacultyBtn');
-    const postNoticeBtn = document.getElementById('postNoticeBtn');
-    const postNoticeModalOverlay = document.getElementById('postNoticeModalOverlay');
-    const postNoticeForm = document.getElementById('postNoticeForm');
-    const noticeMessageInput = document.getElementById('noticeMessageInput');
-    const cancelNoticeBtn = document.getElementById('cancelNoticeBtn');
-    const noticeError = document.getElementById('notice-error');
+    const postNoticeBtn = document.getElementById('postNoticeBtn'); // Button on dashboard
+    // New Notice Modals
+    const selectNoticeAudienceModalOverlay = document.getElementById('selectNoticeAudienceModalOverlay');
+    const selectRecipientsModalOverlay = document.getElementById('selectRecipientsModalOverlay');
+    const composeNoticeModalOverlay = document.getElementById('composeNoticeModalOverlay');
+    // Buttons and Forms
+    const closeSelectAudienceBtn = document.getElementById('closeSelectAudienceBtn');
+    const closeSelectRecipientsBtn = document.getElementById('closeSelectRecipientsBtn');
+    const closeComposeNoticeBtn = document.getElementById('closeComposeNoticeBtn');
+    const composeNoticeForm = document.getElementById('composeNoticeForm');
+    const continueToComposeBtn = document.getElementById('continueToComposeBtn');
     const viewNoticeHistoryBtn = document.getElementById('viewNoticeHistoryBtn');
 
     // --- Notice History Modal Elements ---
@@ -63,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addFacultyModalOverlay = document.getElementById('addFacultyModalOverlay');
     const addFacultyForm = document.getElementById('addFacultyForm');
     const cancelAddFacultyBtn = document.getElementById('cancelAddFacultyBtn');
+    const closeAddFacultyModalBtn = document.getElementById('closeAddFacultyModalBtn');
     const addFacultyError = document.getElementById('add-faculty-error');
 
     // --- Add Admin User Modal Elements ---
@@ -71,6 +78,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeAddAdminModalBtn = document.getElementById('closeAddAdminModalBtn');
     const addAdminForm = document.getElementById('addAdminForm');
     const addAdminError = document.getElementById('add-admin-error');
+
+    // --- User Management View Buttons ---
+    const manageAdminsBtn = document.getElementById('manageAdminsBtn');
+    const manageFacultyBtn = document.getElementById('manageFacultyBtn');
+    const manageStudentsBtn = document.getElementById('manageStudentsBtn');
 
     // --- Timetable Modal Elements ---
     const timetableModalOverlay = document.getElementById('timetableModalOverlay');
@@ -84,14 +96,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const timetableDefaultActions = document.getElementById('timetableDefaultActions');
     const timetableEditActions = document.getElementById('timetableEditActions');
 
-    // --- Search Modal Elements ---
-    const searchUsersBtn = document.getElementById('searchUsersBtn');
-    const searchModalOverlay = document.getElementById('searchModalOverlay');
-    const adminSearchInput = document.getElementById('adminSearchInput');
-    const adminSearchResultsList = document.getElementById('adminSearchResultsList');
-    const adminNoSearchResults = document.getElementById('admin-no-search-results');
-    const closeSearchModalBtn = document.getElementById('closeSearchModalBtn');
-
     // --- User Detail Modal Elements ---
     const userDetailModalOverlay = document.getElementById('userDetailModalOverlay');
     const userDetailName = document.getElementById('userDetailName');
@@ -104,11 +108,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeAdminSettingsModalBtn = document.getElementById('closeAdminSettingsModalBtn');
     const editAdminSettingsBtn = document.getElementById('editAdminSettingsBtn');
     const saveAdminSettingsForm = document.getElementById('saveAdminSettingsForm');
+    const editAdminProfilePicture = document.getElementById('editAdminProfilePicture');
+    const adminProfilePictureInput = document.getElementById('adminProfilePictureInput');
     // --- Admin Profile Modal Elements ---
     const adminProfileModalOverlay = document.getElementById('adminProfileModalOverlay');
     const closeAdminProfileModalBtn = document.getElementById('closeAdminProfileModalBtn');
 
     let currentAdminData = null; // To store admin data locally
+
+    const populateSideNavHeader = (adminData) => {
+        const sideNavName = document.getElementById('sideNavName');
+        const sideNavAvatar = document.getElementById('sideNavAvatar');
+        if (sideNavName) sideNavName.textContent = adminData.name || 'Admin';
+        if (sideNavAvatar) sideNavAvatar.src = adminData.profilePicture || 'default-avatar.png';
+    };
 
     // --- Password Protection Logic ---
     if (passwordOverlay && adminPasswordForm) {
@@ -149,14 +162,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const result = await response.json();
+                currentAdminData = result.adminData; // Cache the data immediately
                 sessionStorage.setItem('currentAdminUsername', result.adminData.username); // Store username for later
+                populateSideNavHeader(currentAdminData); // Populate side nav with admin info
 
                 passwordOverlay.style.opacity = '0';
                 setTimeout(() => {
                     passwordOverlay.style.display = 'none';
                 }, 300); // Match the transition duration
                 adminContentWrapper.style.display = 'block';
-                showView('dashboard'); // Show the dashboard view within the main content
+                showView('dashboard', currentAdminData); // Pass data directly to show the dashboard view
 
                 // --- New logic for Quick Action Button colors ---
                 const quickActionBtns = document.querySelectorAll('.quick-action-btn');
@@ -180,6 +195,152 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    const populateDashboardHeader = (adminData) => {
+        const headerContainer = document.getElementById('dashboardHeader');
+        if (!headerContainer || !adminData) return;
+
+        const headerHTML = `
+            <div class="welcome-banner">
+                <h2>Welcome, ${adminData.name || 'Admin'}</h2>
+            </div>
+            <div class="faculty-profile-intro">
+                <img src="${adminData.profilePicture || 'default-avatar.png'}" alt="Profile Picture" class="profile-intro-pic" onerror="this.onerror=null;this.src='default-avatar.png';">
+                <h3>${adminData.name || 'Admin'}</h3>
+                <p>Username: ${adminData.username || 'N/A'}</p>
+            </div>
+        `;
+        headerContainer.innerHTML = headerHTML;
+    };
+
+    const fetchDashboardStats = async () => {
+        const kpiTotalStudents = document.getElementById('kpiTotalStudents');
+        const kpiTotalFaculty = document.getElementById('kpiTotalFaculty');
+
+        if (!kpiTotalStudents || !kpiTotalFaculty) return;
+
+        try {
+            const response = await fetch('/api/admin/stats');
+            const stats = await response.json();
+
+            if (!response.ok) {
+                throw new Error(stats.message || 'Failed to fetch stats.');
+            }
+
+            kpiTotalStudents.textContent = stats.totalStudents;
+            kpiTotalFaculty.textContent = stats.totalFaculty;
+
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            kpiTotalStudents.textContent = 'Error';
+            kpiTotalFaculty.textContent = 'Error';
+        }
+    };
+
+    // --- Data Fetching Functions for User Management ---
+    const fetchAllStudents = async () => {
+        const tableBody = document.querySelector('#allStudentsTable tbody');
+        if (!tableBody) return;
+        tableBody.innerHTML = '<tr><td colspan="7">Loading student data...</td></tr>';
+
+        try {
+            const response = await fetch('/api/all-students');
+            const students = await response.json();
+            if (!response.ok) throw new Error(students.message || 'Failed to fetch students.');
+
+            tableBody.innerHTML = ''; // Clear loading message
+            if (students.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="7">No students found.</td></tr>';
+                return;
+            }
+
+            students.forEach(student => {
+                const row = tableBody.insertRow();
+                const registeredDate = new Date(student.createdAt).toLocaleDateString('en-IN');
+                row.innerHTML = `
+                    <td>${student.rollNumber || 'N/A'}</td>
+                    <td>${student.name || 'N/A'}</td>
+                    <td>${student.email || 'N/A'}</td>
+                    <td>${student.mobileNumber || 'N/A'}</td>
+                    <td>${student.city || 'N/A'}</td>
+                    <td>${registeredDate}</td>
+                    <td><button class="action-btn-delete delete-student-btn" data-rollnumber="${student.rollNumber}">Delete</button></td>
+                `;
+            });
+
+        } catch (error) {
+            console.error('Error fetching all students:', error);
+            tableBody.innerHTML = `<tr><td colspan="7" style="color: red;">Error: ${error.message}</td></tr>`;
+        }
+    };
+
+    const fetchAllFaculty = async () => {
+        const tableBody = document.querySelector('#allFacultyTable tbody');
+        if (!tableBody) return;
+        tableBody.innerHTML = '<tr><td colspan="5">Loading faculty data...</td></tr>';
+
+        try {
+            const response = await fetch('/api/all-faculty');
+            const faculty = await response.json();
+            if (!response.ok) throw new Error(faculty.message || 'Failed to fetch faculty.');
+
+            tableBody.innerHTML = ''; // Clear loading message
+            if (faculty.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5">No faculty found.</td></tr>';
+                return;
+            }
+
+            faculty.forEach(member => {
+                const row = tableBody.insertRow();
+                const registeredDate = new Date(member.createdAt).toLocaleDateString('en-IN');
+                row.innerHTML = `
+                    <td>${member.username || 'N/A'}</td>
+                    <td>${member.name || 'N/A'}</td>
+                    <td>${member.email || 'N/A'}</td>
+                    <td>${registeredDate}</td>
+                    <td><button class="action-btn-delete delete-faculty-btn" data-username="${member.username}">Delete</button></td>
+                `;
+            });
+
+        } catch (error) {
+            console.error('Error fetching all faculty:', error);
+            tableBody.innerHTML = `<tr><td colspan="5" style="color: red;">Error: ${error.message}</td></tr>`;
+        }
+    };
+
+    const fetchAndDisplayAdmins = async () => {
+        const gridContainer = document.getElementById('adminUsersGrid');
+        if (!gridContainer) return;
+        gridContainer.innerHTML = '<p>Loading administrators...</p>';
+
+        try {
+            const response = await fetch('/api/admins');
+            if (!response.ok) throw new Error('Failed to fetch admin users.');
+            const admins = await response.json();
+
+            gridContainer.innerHTML = ''; // Clear loading message
+            if (admins.length === 0) {
+                gridContainer.innerHTML = '<p>No admin users found.</p>';
+                return;
+            }
+
+            admins.forEach(admin => {
+                const card = document.createElement('div');
+                card.className = 'admin-user-card';
+                card.innerHTML = `
+                    <img src="${admin.profilePicture || 'default-avatar.png'}" alt="Admin User Photo" onerror="this.onerror=null;this.src='default-avatar.png';">
+                    <p class="admin-name">${admin.name}</p>
+                    <div style="margin-top: 1rem;">
+                        <button class="action-btn-delete delete-user-btn" data-identifier="${admin.username}" data-type="Admin">Delete</button>
+                    </div>
+                `;
+                gridContainer.appendChild(card);
+            });
+        } catch (error) {
+            console.error('Error fetching admin users:', error);
+            gridContainer.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+        }
+    };
 
     // --- Active Link Management ---
     const setActiveNavLink = (activeLinkId) => {
@@ -210,22 +371,38 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- View Switching Logic ---
-    const showView = (viewToShow) => {
+    const showView = (viewToShow, data = null) => {
         mainDashboardView.style.display = 'none';
         allStudentsView.style.display = 'none';
         allFacultyView.style.display = 'none';
+        allAdminsView.style.display = 'none';
+        usersManagementView.style.display = 'none';
         allTimetablesView.style.display = 'none';
-        allUsersView.style.display = 'none';
 
         if (viewToShow === 'dashboard') {
             mainDashboardView.style.display = 'block';
             setActiveNavLink('sideNavDashboardLink');
             fetchDashboardStats(); // Fetch stats when dashboard is shown
+
+            // Use provided data if available, otherwise fetch it
+            if (data) {
+                populateDashboardHeader(data);
+            } else {
+                // Use the cached currentAdminData or fetch it
+                getCurrentAdminData().then(adminData => {
+                    if (adminData) {
+                        populateDashboardHeader(adminData);
+                    }
+                });
+            }
         } else if (viewToShow === 'timetables') {
             allTimetablesView.style.display = 'block';
             setActiveNavLink('sideNavTimetableLink');
-        } else if (viewToShow === 'users') {
-            allUsersView.style.display = 'block';
+        } else if (viewToShow === 'users-management') {
+            usersManagementView.style.display = 'block';
+            setActiveNavLink('sideNavUsersLink');
+        } else if (viewToShow === 'admins') {
+            allAdminsView.style.display = 'block';
             fetchAndDisplayAdmins();
             setActiveNavLink('sideNavUsersLink');
         } else if (viewToShow === 'students') {
@@ -241,12 +418,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const revertActiveLinkToView = () => {
         if (mainDashboardView.style.display === 'block') {
             setActiveNavLink('sideNavDashboardLink');
+        } else if (usersManagementView.style.display === 'block' || allAdminsView.style.display === 'block' || allStudentsView.style.display === 'block' || allFacultyView.style.display === 'block') {
+            setActiveNavLink('sideNavUsersLink');
         } else if (allTimetablesView.style.display === 'block') {
             setActiveNavLink('sideNavTimetableLink');
-        } else if (allUsersView.style.display === 'block') {
-            setActiveNavLink('sideNavUsersLink');
-        } else if (allStudentsView.style.display === 'block' || allFacultyView.style.display === 'block') {
-            setActiveNavLink('sideNavUsersLink');
         } else {
             setActiveNavLink('sideNavDashboardLink'); // Fallback
         }
@@ -285,11 +460,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Open Users view from side nav
+    // Open Users Management view from side nav
     if (sideNavUsersLink) {
         sideNavUsersLink.addEventListener('click', (e) => {
             e.preventDefault();
-            showView('users'); // This will now show the admin users view
+            showView('users-management');
             closeNav();
         });
     }
@@ -303,15 +478,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const openPostNoticeModal = () => {
-        if (postNoticeModalOverlay) {
+    // --- New Notice Sending Logic (Multi-step) ---
+    const openNoticeAudienceModal = () => {
+        if (selectNoticeAudienceModalOverlay) {
             setActiveNavLink('sideNavPostNoticeBtn');
-            postNoticeModalOverlay.style.display = 'flex';
-            noticeMessageInput.value = '';
-            noticeError.style.display = 'none';
+            selectNoticeAudienceModalOverlay.style.display = 'flex';
         }
         closeNav(); // Close the side nav if it's open
     };
+
+    // Open Post Notice modal from side nav (Corrected)
+    if (sideNavPostNoticeBtn) {
+        sideNavPostNoticeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openNoticeAudienceModal();
+        });
+    }
 
     // --- Helper to get current admin data, fetching if necessary ---
     const getCurrentAdminData = async () => {
@@ -410,6 +592,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('editAdminEmail').value = data.email || '';
             document.getElementById('editAdminMobile').value = data.mobileNumber || '';
             // Clear password fields
+            document.getElementById('editAdminProfilePicture').src = data.profilePicture || 'default-avatar.png';
+            document.getElementById('adminProfilePictureInput').value = ''; // Clear file input
             document.getElementById('editAdminCurrentPassword').value = '';
             document.getElementById('editAdminNewPassword').value = '';
             document.getElementById('editAdminConfirmPassword').value = '';
@@ -429,6 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const newPassword = document.getElementById('editAdminNewPassword').value;
             const confirmPassword = document.getElementById('editAdminConfirmPassword').value;
+            const currentPassword = document.getElementById('editAdminCurrentPassword').value;
 
             if (newPassword && newPassword !== confirmPassword) {
                 errorEl.textContent = 'New passwords do not match.';
@@ -436,15 +621,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const form = e.target;
-            const dataToSubmit = {
-                username: form.username.value,
-                name: form.name.value,
-                email: form.email.value,
-                mobileNumber: form.mobileNumber.value,
-                currentPassword: form.currentPassword.value,
-                newPassword: form.newPassword.value,
-            };
+            // Add client-side validation for current password, similar to the faculty portal
+            if (!currentPassword) {
+                errorEl.textContent = 'Current password is required to save any changes.';
+                errorEl.style.display = 'block';
+                document.getElementById('editAdminCurrentPassword').focus();
+                return;
+            }
+
+            const formData = new FormData(saveAdminSettingsForm);
+            formData.delete('confirmPassword'); // Not needed by server
 
             const submitBtn = saveAdminSettingsForm.querySelector('.submit-btn');
             submitBtn.disabled = true;
@@ -453,8 +639,8 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch('/api/admin/update-settings', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(dataToSubmit)
+                    // Do not set Content-Type header; the browser will set it correctly for multipart/form-data
+                    body: formData
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message);
@@ -462,6 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Settings updated successfully!');
                 currentAdminData = result.adminData; // Update local data
                 
+                populateSideNavHeader(currentAdminData); // Update side nav avatar and name
                 // Re-populate view mode with new data
                 document.getElementById('settingsAdminAvatar').src = currentAdminData.profilePicture || 'default-avatar.png';
                 document.getElementById('settingAdminName').textContent = currentAdminData.name;
@@ -481,24 +668,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Event Listeners for new buttons ---
-    if (viewAllStudentsBtn) {
-        viewAllStudentsBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            showView('students');
+    // --- Settings Modal: Profile Picture Preview ---
+    if (adminProfilePictureInput && editAdminProfilePicture) {
+        adminProfilePictureInput.addEventListener('change', () => {
+            const file = adminProfilePictureInput.files[0];
+            if (file) {
+                // Create a temporary URL for the selected file and show it in the <img> tag
+                editAdminProfilePicture.src = URL.createObjectURL(file);
+            }
         });
     }
-    if (viewAllFacultyBtn) {
-        viewAllFacultyBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            showView('faculty');
-        });
+
+    if (backToUsersFromStudentsBtn) {
+        backToUsersFromStudentsBtn.addEventListener('click', () => showView('users-management'));
     }
-    if (backToDashboardFromStudentsBtn) {
-        backToDashboardFromStudentsBtn.addEventListener('click', () => showView('dashboard'));
+    if (backToUsersFromFacultyBtn) {
+        backToUsersFromFacultyBtn.addEventListener('click', () => showView('users-management'));
     }
-    if (backToDashboardFromFacultyBtn) {
-        backToDashboardFromFacultyBtn.addEventListener('click', () => showView('dashboard'));
+    if (backToUsersFromAdminsBtn) {
+        backToUsersFromAdminsBtn.addEventListener('click', () => showView('users-management'));
+    }
+    if (backToDashboardFromUsersBtn) {
+        backToDashboardFromUsersBtn.addEventListener('click', () => showView('dashboard'));
+    }
+
+    // --- User Management Circle Buttons ---
+    if (manageAdminsBtn) {
+        manageAdminsBtn.addEventListener('click', (e) => { e.preventDefault(); showView('admins'); });
+    }
+    if (manageFacultyBtn) {
+        manageFacultyBtn.addEventListener('click', (e) => { e.preventDefault(); showView('faculty'); });
+    }
+    if (manageStudentsBtn) {
+        manageStudentsBtn.addEventListener('click', (e) => { e.preventDefault(); showView('students'); });
     }
     if (backToDashboardFromTimetablesBtn) {
         backToDashboardFromTimetablesBtn.addEventListener('click', () => showView('dashboard'));
@@ -628,52 +830,159 @@ document.addEventListener('DOMContentLoaded', () => {
     if (postNoticeBtn) {
         postNoticeBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            openPostNoticeModal();
+            openNoticeAudienceModal();
         });
     }
 
-    if (cancelNoticeBtn) {
-        cancelNoticeBtn.addEventListener('click', () => {
-            if (postNoticeModalOverlay) {
-                postNoticeModalOverlay.style.display = 'none';
-                revertActiveLinkToView();
-            }
-        });
-    }
-
-    if (postNoticeForm) {
-        postNoticeForm.addEventListener('submit', async (e) => {
+    if (selectNoticeAudienceModalOverlay) {
+        selectNoticeAudienceModalOverlay.addEventListener('click', (e) => {
             e.preventDefault();
-            const message = noticeMessageInput.value.trim();
+            const target = e.target.closest('.audience-option-btn');
+            if (!target) return;
+
+            const audience = target.dataset.audience;
+            selectNoticeAudienceModalOverlay.style.display = 'none';
+
+            if (audience === 'ALL_STUDENTS' || audience === 'ALL_FACULTY') {
+                openComposeNoticeModal(audience);
+            } else if (audience === 'SELECTED_STUDENTS') {
+                openSelectRecipientsModal('student');
+            } else if (audience === 'SELECTED_FACULTY') {
+                openSelectRecipientsModal('faculty');
+            }
+        });
+    }
+
+    const openSelectRecipientsModal = async (userType) => {
+        if (!selectRecipientsModalOverlay) return;
+
+        const titleEl = document.getElementById('selectRecipientsTitle');
+        const listEl = document.getElementById('recipientList');
+        const searchInput = document.getElementById('recipientSearchInput');
+        
+        titleEl.textContent = `Select ${userType === 'student' ? 'Students' : 'Faculty'}`;
+        listEl.innerHTML = '<li>Loading...</li>';
+        searchInput.value = '';
+        selectRecipientsModalOverlay.style.display = 'flex';
+
+        try {
+            const response = await fetch(userType === 'student' ? '/api/all-students' : '/api/all-faculty');
+            const users = await response.json();
+            if (!response.ok) throw new Error(users.message || 'Failed to fetch users.');
+
+            listEl.innerHTML = '';
+            if (users.length === 0) {
+                listEl.innerHTML = `<li>No ${userType}s found.</li>`;
+                return;
+            }
+
+            users.forEach(user => {
+                const id = user.rollNumber || user.username;
+                const name = user.name;
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <input type="checkbox" id="user-${id}" value="${id}">
+                    <label for="user-${id}">
+                        <div>${name}</div>
+                        <div class="recipient-id">${id}</div>
+                    </label>
+                `;
+                listEl.appendChild(li);
+            });
+
+            // Store userType for the continue button
+            continueToComposeBtn.dataset.userType = userType;
+
+        } catch (error) {
+            listEl.innerHTML = `<li style="color: red;">Error: ${error.message}</li>`;
+        }
+    };
+
+    const openComposeNoticeModal = (audience, recipients = []) => {
+        if (!composeNoticeModalOverlay) return;
+
+        const titleEl = document.getElementById('composeNoticeTitle');
+        const infoEl = document.getElementById('composeNoticeAudienceInfo');
+        const form = document.getElementById('composeNoticeForm');
+        const messageInput = document.getElementById('noticeMessageInput');
+        const errorEl = document.getElementById('compose-notice-error');
+
+        let audienceText = '';
+        switch (audience) {
+            case 'ALL_STUDENTS': audienceText = 'This notice will be sent to all students.'; break;
+            case 'ALL_FACULTY': audienceText = 'This notice will be sent to all faculty.'; break;
+            case 'SELECTED_STUDENTS': audienceText = `This notice will be sent to ${recipients.length} selected student(s).`; break;
+            case 'SELECTED_FACULTY': audienceText = `This notice will be sent to ${recipients.length} selected faculty.`; break;
+        }
+
+        titleEl.textContent = 'Compose Notice';
+        infoEl.textContent = audienceText;
+        messageInput.value = '';
+        errorEl.style.display = 'none';
+
+        // Store data on the form for submission
+        form.dataset.audience = audience;
+        form.dataset.recipients = JSON.stringify(recipients);
+
+        composeNoticeModalOverlay.style.display = 'flex';
+    };
+
+    if (continueToComposeBtn) {
+        continueToComposeBtn.addEventListener('click', () => {
+            const selectedCheckboxes = document.querySelectorAll('#recipientList input[type="checkbox"]:checked');
+            if (selectedCheckboxes.length === 0) {
+                alert('Please select at least one recipient.');
+                return;
+            }
+            const recipients = Array.from(selectedCheckboxes).map(cb => cb.value);
+            const userType = continueToComposeBtn.dataset.userType;
+            const audience = userType === 'student' ? 'SELECTED_STUDENTS' : 'SELECTED_FACULTY';
+
+            selectRecipientsModalOverlay.style.display = 'none';
+            openComposeNoticeModal(audience, recipients);
+        });
+    }
+
+    if (composeNoticeForm) {
+        composeNoticeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = document.getElementById('noticeMessageInput').value.trim();
+            const errorEl = document.getElementById('compose-notice-error');
+            const submitBtn = composeNoticeForm.querySelector('.submit-btn');
+
             if (!message) {
-                noticeError.textContent = 'Notice message cannot be empty.';
-                noticeError.style.display = 'block';
+                errorEl.textContent = 'Notice message cannot be empty.';
+                errorEl.style.display = 'block';
                 return;
             }
 
-            if (!confirm('Are you sure you want to send this notice to ALL students? This action cannot be undone.')) {
-                return;
-            }
+            const { audience, recipients } = composeNoticeForm.dataset;
+            const adminUsername = sessionStorage.getItem('currentAdminUsername');
 
-            const submitBtn = postNoticeForm.querySelector('.submit-btn');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Sending...';
-            noticeError.style.display = 'none';
+            errorEl.style.display = 'none';
 
             try {
-                const response = await fetch('/api/admin/send-notification', {
+                const response = await fetch('/api/admin/send-notice', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message })
+                    body: JSON.stringify({
+                        message,
+                        audience,
+                        recipients: JSON.parse(recipients),
+                        adminUsername
+                    })
                 });
                 const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to send notice.');
+                if (!response.ok) throw new Error(result.message);
+
                 alert(result.message);
-                postNoticeModalOverlay.style.display = 'none';
+                composeNoticeModalOverlay.style.display = 'none';
                 revertActiveLinkToView();
             } catch (error) {
-                noticeError.textContent = error.message;
-                noticeError.style.display = 'block';
+                errorEl.textContent = error.message;
+                errorEl.style.display = 'block';
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Send Notice';
@@ -681,12 +990,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Close buttons for new modals
+    if (closeSelectAudienceBtn) closeSelectAudienceBtn.addEventListener('click', () => { selectNoticeAudienceModalOverlay.style.display = 'none'; revertActiveLinkToView(); });
+    if (closeSelectRecipientsBtn) closeSelectRecipientsBtn.addEventListener('click', () => { selectRecipientsModalOverlay.style.display = 'none'; revertActiveLinkToView(); });
+    if (closeComposeNoticeBtn) closeComposeNoticeBtn.addEventListener('click', () => { composeNoticeModalOverlay.style.display = 'none'; revertActiveLinkToView(); });
+
     // --- Notice History Modal Logic ---
     if (viewNoticeHistoryBtn) {
         viewNoticeHistoryBtn.addEventListener('click', async () => {
             // Hide post notice modal
-            if (postNoticeModalOverlay) {
-                postNoticeModalOverlay.style.display = 'none';
+            if (selectNoticeAudienceModalOverlay) {
+                selectNoticeAudienceModalOverlay.style.display = 'none';
             }
 
             // Show history modal and fetch data
@@ -706,13 +1020,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         noticeHistoryList.innerHTML = '<li><p>No notices have been posted yet.</p></li>';
                     } else {
                         notices.forEach(notice => {
+                            const audienceMap = {
+                                'ALL_STUDENTS': 'All Students',
+                                'ALL_FACULTY': 'All Faculty',
+                                'SELECTED_STUDENTS': 'Selected Students',
+                                'SELECTED_FACULTY': 'Selected Faculty'
+                            };
                             const listItem = document.createElement('li');
                             const date = new Date(notice.createdAt).toLocaleString('en-IN', {
                                 day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
                             });
                             listItem.innerHTML = `
                                 <p>${notice.message}</p>
-                                <small>Posted on: ${date}</small>
+                                <small>To: <strong>${audienceMap[notice.target_audience] || notice.target_audience}</strong> (${notice.recipient_count} recipients) on ${date}</small>
                             `;
                             noticeHistoryList.appendChild(listItem);
                         });
@@ -753,15 +1073,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (closeAddFacultyModalBtn) {
+        closeAddFacultyModalBtn.addEventListener('click', () => {
+            if (addFacultyModalOverlay) addFacultyModalOverlay.style.display = 'none';
+        });
+    }
+
     if (addFacultyForm) {
         addFacultyForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('addFacultyName').value.trim();
             const password = document.getElementById('addFacultyPassword').value.trim();
+            const username = document.getElementById('addFacultyUsername').value.trim();
+            const email = document.getElementById('addFacultyEmail').value.trim();
             const submitBtn = addFacultyForm.querySelector('.submit-btn');
 
-            if (!name || !password) {
-                addFacultyError.textContent = 'Name and password are required.';
+            if (!name || !username || !email || !password) {
+                addFacultyError.textContent = 'Name, Username, Email, and Password are required.';
                 addFacultyError.style.display = 'block';
                 return;
             }
@@ -771,14 +1099,14 @@ document.addEventListener('DOMContentLoaded', () => {
             addFacultyError.style.display = 'none';
 
             try {
-                const response = await fetch('/api/admin/add-faculty', {
+                const response = await fetch('/api/admin/add-user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, password })
+                    body: JSON.stringify({ name, username, email, password })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message || 'Failed to create faculty.');
-                alert(result.message); // Shows success message with new username
+                alert(result.message);
                 addFacultyModalOverlay.style.display = 'none';
                 fetchAllFaculty(); // Refresh the faculty list
             } catch (error) {
@@ -837,10 +1165,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!response.ok) throw new Error(result.message || 'Failed to create user.');
                 alert(result.message);
                 addAdminModalOverlay.style.display = 'none';
-                // Refresh the admin users view if it's open
-                if (allUsersView.style.display === 'block') {
-                    fetchAndDisplayAdmins();
-                }
+                fetchAndDisplayAdmins(); // Refresh the admin list view
             } catch (error) {
                 addAdminError.textContent = error.message;
                 addAdminError.style.display = 'block';
@@ -851,30 +1176,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Collapsible Side Nav Logic ---
-    document.querySelectorAll('.nav-collapsible-toggle').forEach(toggle => {
-        toggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            const content = toggle.nextElementSibling;
-            const arrow = toggle.querySelector('.nav-arrow');
-            // Close other open menus
-            document.querySelectorAll('.nav-collapsible-content').forEach(otherContent => {
-                if (otherContent !== content) {
-                    otherContent.style.maxHeight = null;
-                    const otherArrow = otherContent.previousElementSibling.querySelector('.nav-arrow');
-                    if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
+    // --- Table Filtering Logic ---
+    const filterTable = (inputElement, tableElement) => {
+        const searchTerm = inputElement.value.toLowerCase();
+        const rows = tableElement.querySelectorAll('tbody tr');
+
+        rows.forEach(row => {
+            // Check if the row is a data row (and not a "loading" or "no data" message)
+            if (row.cells.length > 1) {
+                const rowText = row.textContent.toLowerCase();
+                if (rowText.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
                 }
-            });
-            // Toggle current menu
-            if (content.style.maxHeight) {
-                content.style.maxHeight = null;
-                if (arrow) arrow.style.transform = 'rotate(0deg)';
-            } else {
-                content.style.maxHeight = content.scrollHeight + "px";
-                if (arrow) arrow.style.transform = 'rotate(90deg)';
             }
         });
-    });
+    };
+
+    if (studentSearchInput) {
+        studentSearchInput.addEventListener('input', () => filterTable(studentSearchInput, document.getElementById('allStudentsTable')));
+    }
+
+    if (facultySearchInput) {
+        facultySearchInput.addEventListener('input', () => filterTable(facultySearchInput, document.getElementById('allFacultyTable')));
+    }
+
+    const recipientSearchInput = document.getElementById('recipientSearchInput');
+    if (recipientSearchInput) {
+        recipientSearchInput.addEventListener('input', () => {
+            const searchTerm = recipientSearchInput.value.toLowerCase();
+            const items = document.querySelectorAll('#recipientList li');
+            items.forEach(item => {
+                const itemText = item.textContent.toLowerCase();
+                if (itemText.includes(searchTerm)) item.style.display = 'flex';
+                else item.style.display = 'none';
+            });
+        });
+    }
 
     // --- Timetable Modal Logic ---
     const getSubjectsForClass = (className) => {
@@ -1016,7 +1355,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Unified User Deletion Logic ---
     const handleDeleteUser = async (event) => {
-        const button = event.currentTarget;
+        const button = event.target;
         const identifier = button.dataset.identifier || button.dataset.rollnumber || button.dataset.username;
         let type = button.dataset.type;
 
@@ -1053,11 +1392,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             alert(result.message);
             // Refresh the currently active view
-            if (allUsersView.style.display === 'block') {
+            if (type === 'Admin') {
                 fetchAndDisplayAdmins();
-            } else if (allStudentsView.style.display === 'block') {
+            } else if (type === 'Student') {
                 fetchAllStudents();
-            } else if (allFacultyView.style.display === 'block') {
+            } else if (type === 'Faculty') {
                 fetchAllFaculty();
             }
         } catch (error) {
@@ -1074,270 +1413,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- New functions to fetch and display data ---
-    const fetchAllStudents = async () => {
-        const tableBody = document.querySelector('#allStudentsTable tbody');
-        if (!tableBody) return;
-        tableBody.innerHTML = '<tr><td colspan="7">Loading student data...</td></tr>';
-
-        try {
-            const response = await fetch('/api/all-students');
-            const students = await response.json();
-            if (!response.ok) throw new Error(students.message || 'Failed to fetch students.');
-
-            tableBody.innerHTML = ''; // Clear loading message
-            if (students.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="7">No students found.</td></tr>';
-                return;
-            }
-
-            students.forEach(student => {
-                const row = tableBody.insertRow();
-                const registeredDate = new Date(student.createdAt).toLocaleDateString('en-IN');
-                row.innerHTML = `
-                    <td>${student.rollNumber || 'N/A'}</td>
-                    <td>${student.name || 'N/A'}</td>
-                    <td>${student.email || 'N/A'}</td>
-                    <td>${student.mobileNumber || 'N/A'}</td>
-                    <td>${student.city || 'N/A'}</td>
-                    <td>${registeredDate}</td>
-                    <td><button class="action-btn-delete delete-student-btn" data-rollnumber="${student.rollNumber}">Delete</button></td>
-                `;
-            });
-
-        } catch (error) {
-            console.error('Error fetching all students:', error);
-            tableBody.innerHTML = `<tr><td colspan="7" style="color: red;">Error: ${error.message}</td></tr>`;
-        }
-    };
-
-    const fetchAllFaculty = async () => {
-        const tableBody = document.querySelector('#allFacultyTable tbody');
-        if (!tableBody) return;
-        tableBody.innerHTML = '<tr><td colspan="5">Loading faculty data...</td></tr>';
-
-        try {
-            const response = await fetch('/api/all-faculty');
-            const faculty = await response.json();
-            if (!response.ok) throw new Error(faculty.message || 'Failed to fetch faculty.');
-
-            tableBody.innerHTML = ''; // Clear loading message
-            if (faculty.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="5">No faculty found.</td></tr>';
-                return;
-            }
-
-            faculty.forEach(member => {
-                const row = tableBody.insertRow();
-                const registeredDate = new Date(member.createdAt).toLocaleDateString('en-IN');
-                row.innerHTML = `
-                    <td>${member.username || 'N/A'}</td>
-                    <td>${member.name || 'N/A'}</td>
-                    <td>${member.email || 'N/A'}</td>
-                    <td>${registeredDate}</td>
-                    <td><button class="action-btn-delete delete-faculty-btn" data-username="${member.username}">Delete</button></td>
-                `;
-            });
-
-        } catch (error) {
-            console.error('Error fetching all faculty:', error);
-            tableBody.innerHTML = `<tr><td colspan="5" style="color: red;">Error: ${error.message}</td></tr>`;
-        }
-    };
-
-    // --- Debounce function for search ---
-    const debounce = (func, delay) => {
-        let timeoutId;
-        return (...args) => {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => {
-                func.apply(this, args);
-            }, delay);
-        };
-    };
-
-    // --- Search Modal Logic ---
-    if (searchUsersBtn) {
-        searchUsersBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (searchModalOverlay) {
-                searchModalOverlay.style.display = 'flex';
-                adminSearchInput.value = '';
-                adminSearchResultsList.innerHTML = '';
-                adminNoSearchResults.style.display = 'none';
-                adminSearchInput.focus();
-            }
-        });
-    }
-
-    if (closeSearchModalBtn) {
-        closeSearchModalBtn.addEventListener('click', () => {
-            if (searchModalOverlay) searchModalOverlay.style.display = 'none';
-        });
-    }
-
-    // --- User Detail Modal Logic ---
-    if (closeUserDetailBtn) {
-        closeUserDetailBtn.addEventListener('click', () => {
-            if (userDetailModalOverlay) userDetailModalOverlay.style.display = 'none';
-        });
-    }
-
-    // --- Search Input Handler ---
-    const handleSearch = async () => {
-        const query = adminSearchInput.value.trim();
-        adminSearchResultsList.innerHTML = '';
-        adminNoSearchResults.style.display = 'none';
-
-        if (query.length < 2) return;
-
-        try {
-            const response = await fetch(`/api/admin/search-users?query=${encodeURIComponent(query)}`);
-            const results = await response.json();
-
-            if (results.length === 0) {
-                adminNoSearchResults.style.display = 'block';
-                return;
-            }
-
-            results.forEach(user => {
-                const listItem = document.createElement('li');
-                const link = document.createElement('a');
-                link.href = '#';
-                link.dataset.identifier = user.identifier;
-                link.dataset.type = user.type;
-                link.innerHTML = `${user.name} <span class="user-type">${user.type}</span>`;
-                link.addEventListener('click', handleResultClick);
-                listItem.appendChild(link);
-                adminSearchResultsList.appendChild(listItem);
-            });
-        } catch (error) {
-            console.error('Search failed:', error);
-            adminSearchResultsList.innerHTML = '<li><p style="color: red;">Search failed. Please try again.</p></li>';
-        }
-    };
-
-    if (adminSearchInput) {
-        adminSearchInput.addEventListener('input', debounce(handleSearch, 300));
-    }
-
-    // --- Result Click Handler ---
-    const handleResultClick = async (e) => {
-        e.preventDefault();
-        const identifier = e.currentTarget.dataset.identifier;
-        const type = e.currentTarget.dataset.type;
-
-        if (searchModalOverlay) searchModalOverlay.style.display = 'none';
-        if (userDetailModalOverlay) userDetailModalOverlay.style.display = 'flex';
-
-        studentDetailSection.style.display = 'none';
-        facultyDetailSection.style.display = 'none';
-        userDetailName.textContent = 'Loading...';
-
-        try {
-            if (type === 'Student') {
-                const response = await fetch(`/student-data/${identifier}`);
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message || 'Failed to fetch student details.');
-                displayStudentDetails(data.studentData);
-            } else if (type === 'Faculty') {
-                const response = await fetch(`/api/faculty/${identifier}`);
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message || 'Failed to fetch faculty details.');
-                displayFacultyDetails(data);
-            }
-        } catch (error) {
-            console.error('Error fetching user details:', error);
-            userDetailName.textContent = 'Error';
-            alert(`Could not load details: ${error.message}`);
-        }
-    };
-
-    // --- Display Functions ---
-    const displayStudentDetails = (data) => {
-        studentDetailSection.style.display = 'block';
-        facultyDetailSection.style.display = 'none';
-        userDetailName.textContent = data.name || 'Student Details';
-        const formatDate = (ds) => ds ? new Date(ds).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
-        document.getElementById('detailStudentRoll').textContent = data.rollNumber || 'N/A';
-        document.getElementById('detailStudentEnroll').textContent = data.enrollmentNumber || 'N/A';
-        document.getElementById('detailStudentEmail').textContent = data.email || 'N/A';
-        document.getElementById('detailStudentMobile').textContent = data.mobileNumber || 'N/A';
-        document.getElementById('detailStudentGender').textContent = data.gender || 'N/A';
-        document.getElementById('detailStudentDob').textContent = formatDate(data.dob);
-        document.getElementById('detailStudentAddress').textContent = [data.addressLine1, data.addressLine2, data.city, data.state, data.pincode].filter(Boolean).join(', ') || 'N/A';
-        document.getElementById('detailStudentCity').textContent = data.city || 'N/A';
-        document.getElementById('detailStudentFather').textContent = data.fatherName || 'N/A';
-        document.getElementById('detailStudentMother').textContent = data.motherName || 'N/A';
-        document.getElementById('detailStudentBoard10').textContent = data.board10 || 'N/A';
-        document.getElementById('detailStudentPercent10').textContent = data.percentage10 ? `${data.percentage10}%` : 'N/A';
-        document.getElementById('detailStudentBoard12').textContent = data.board12 || 'N/A';
-        document.getElementById('detailStudentPercent12').textContent = data.percentage12 ? `${data.percentage12}%` : 'N/A';
-        let mainCourse = 'Not enrolled';
-        if (data.selectedCourse && data.selectedCourse.trim().startsWith('{')) { try { const c = JSON.parse(data.selectedCourse); if (c.paymentStatus === 'paid') mainCourse = c.branch; } catch(e) {} }
-        document.getElementById('detailStudentCourse').textContent = mainCourse;
-        let hobbyCourses = 'None';
-        if (data.hobbyCourses && Array.isArray(data.hobbyCourses) && data.hobbyCourses.length > 0) { hobbyCourses = data.hobbyCourses.map(c => c.name).join(', '); }
-        document.getElementById('detailStudentHobby').textContent = hobbyCourses;
-    };
-
-    const displayFacultyDetails = (data) => {
-        facultyDetailSection.style.display = 'block';
-        studentDetailSection.style.display = 'none';
-        userDetailName.textContent = data.name || 'Faculty Details';
-        const formatDate = (ds) => ds ? new Date(ds).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
-        document.getElementById('detailFacultyUsername').textContent = data.username || 'N/A';
-        document.getElementById('detailFacultyEmail').textContent = data.email || 'N/A';
-        document.getElementById('detailFacultyCreated').textContent = formatDate(data.createdAt);
-    };
-
-    // --- Navigation Helper ---
-    // This is good practice to have, even if session security isn't strict on this page.
-    // It allows other pages with security to be navigated to from here.
-    document.body.addEventListener('click', (e) => {
-        const link = e.target.closest('a');
-        // Ensure it's a valid, internal link before setting the flag.
-        if (link && link.href && (link.hostname === window.location.hostname || !link.hostname)) {
-            if (link.id !== 'adminLogoutBtn') {
-                sessionStorage.setItem('navigationAllowed', 'true');
-            }
-        }
-    });
-
-    // --- Initial Data Fetch on Page Load ---
-    fetchAndDisplayAdminNotifications();
-    
-    const fetchAndDisplayAdmins = async () => {
-        const gridContainer = document.getElementById('adminUsersGrid');
-        if (!gridContainer) return;
-        gridContainer.innerHTML = '<p>Loading administrators...</p>';
-
-        try {
-            const response = await fetch('/api/admins');
-            if (!response.ok) throw new Error('Failed to fetch admin users.');
-            const admins = await response.json();
-
-            gridContainer.innerHTML = ''; // Clear loading message
-            if (admins.length === 0) {
-                gridContainer.innerHTML = '<p>No admin users found.</p>';
-                return;
-            }
-
-            admins.forEach(admin => {
-                const card = document.createElement('div');
-                card.className = 'admin-user-card';
-                card.innerHTML = `
-                    <img src="${admin.profilePicture || 'default-avatar.png'}" alt="Admin User Photo">
-                    <p class="admin-name" style="flex-grow: 1;">${admin.name}</p>
-                    <div style="margin-top: 1rem;">
-                        <button class="action-btn-delete delete-user-btn" data-identifier="${admin.username}" data-type="Admin">Delete</button>
-                    </div>
-                `;
-                gridContainer.appendChild(card);
-            });
-        } catch (error) {
-            console.error('Error fetching admin users:', error);
-            gridContainer.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
-        }
-    };
 });
