@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeAdminProfileModalBtn = document.getElementById('closeAdminProfileModalBtn');
 
     let currentAdminData = null; // To store admin data locally
+    let schoolTimetable = null; // To store the generated full school timetable
 
     const populateSideNavHeader = (adminData) => {
         const sideNavName = document.getElementById('sideNavName');
@@ -1053,6 +1054,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const getAllUniqueSubjects = () => {
+        const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+        const allSubjects = new Set();
+        allClasses.forEach(className => {
+            getSubjectsForClass(className).forEach(subject => {
+                if (subject !== "---") { // Exclude free periods
+                    allSubjects.add(subject);
+                }
+            });
+        });
+        return Array.from(allSubjects).sort();
+    };
+
     // --- Add Faculty Modal Logic ---
     if (addFacultyBtn) {
         addFacultyBtn.addEventListener('click', (e) => {
@@ -1061,6 +1075,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 addFacultyModalOverlay.style.display = 'flex';
                 addFacultyForm.reset();
                 addFacultyError.style.display = 'none';
+
+                const classContainer = document.getElementById('addFacultyAssignedClasses');
+                const subjectSelect = document.getElementById('addFacultySubject');
+
+                // Populate classes
+                const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+                classContainer.innerHTML = ''; // Clear previous
+                allClasses.forEach(c => {
+                    const classDiv = document.createElement('div');
+                    classDiv.className = 'class-selection-option';
+                    classDiv.dataset.value = c;
+                    classDiv.textContent = c;
+                    classContainer.appendChild(classDiv);
+                });
+
+                // Populate subjects
+                const uniqueSubjects = getAllUniqueSubjects();
+                subjectSelect.innerHTML = '<option value="" disabled selected>-- Select Primary Subject --</option>';
+                uniqueSubjects.forEach(s => { subjectSelect.innerHTML += `<option value="${s}">${s}</option>`; });
             }
         });
     }
@@ -1086,10 +1119,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const password = document.getElementById('addFacultyPassword').value.trim();
             const username = document.getElementById('addFacultyUsername').value.trim();
             const email = document.getElementById('addFacultyEmail').value.trim();
+            const teacherChoice = document.getElementById('addFacultyTeacherChoice').value;
+            const subject = document.getElementById('addFacultySubject').value;
+            const selectedClassDivs = document.querySelectorAll('#addFacultyAssignedClasses .class-selection-option.selected');
+            const assignedClasses = Array.from(selectedClassDivs).map(div => div.dataset.value);
+
             const submitBtn = addFacultyForm.querySelector('.submit-btn');
 
-            if (!name || !username || !email || !password) {
-                addFacultyError.textContent = 'Name, Username, Email, and Password are required.';
+            if (!name || !username || !email || !password || !teacherChoice || !subject || assignedClasses.length !== 2) {
+                addFacultyError.textContent = 'All fields are required, and exactly two classes must be assigned.';
                 addFacultyError.style.display = 'block';
                 return;
             }
@@ -1102,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch('/api/admin/add-user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, username, email, password })
+                    body: JSON.stringify({ name, username, email, password, teacherChoice, subject, assignedClasses })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message || 'Failed to create faculty.');
@@ -1116,6 +1154,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Create Faculty';
             }
+        });
+    }
+
+    // --- Add Faculty Modal: Class Selection Highlighting ---
+    const addFacultyClassesContainer = document.getElementById('addFacultyAssignedClasses');
+    if (addFacultyClassesContainer) {
+        addFacultyClassesContainer.addEventListener('click', (e) => {
+            const targetDiv = e.target.closest('.class-selection-option');
+            if (!targetDiv) return;
+
+            const isSelected = targetDiv.classList.contains('selected');
+            const selectedCount = addFacultyClassesContainer.querySelectorAll('.class-selection-option.selected').length;
+
+            if (!isSelected && selectedCount >= 2) {
+                alert('You can assign a maximum of two classes.');
+                return;
+            }
+
+            targetDiv.classList.toggle('selected');
         });
     }
 
@@ -1243,21 +1300,84 @@ document.addEventListener('DOMContentLoaded', () => {
         return ['English', 'Maths', 'Science', 'History', 'Geography', 'Hindi', 'Art', 'Music', 'P.E.'];
     };
 
+    const generateFullSchoolTimetable = () => {
+        if (schoolTimetable) return; // Already generated
+
+        const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const periods = [1, 2, 3, 4, 5, 6];
+
+        let generatedTimetable = {};
+        allClasses.forEach(c => {
+            generatedTimetable[c] = {};
+            days.forEach(d => {
+                generatedTimetable[c][d] = {};
+            });
+        });
+
+        let periodBookings = {};
+        days.forEach(d => {
+            periodBookings[d] = {};
+            periods.forEach(p => {
+                periodBookings[d][p] = new Set();
+            });
+        });
+
+        const shuffleArray = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        };
+
+        allClasses.forEach(className => {
+            const subjectsForClass = getSubjectsForClass(className);
+            days.forEach(day => {
+                let subjectsUsedToday = new Set();
+                periods.forEach(period => {
+                    // Find available subjects by filtering out booked ones for this specific day and period
+                    let availableSubjects = shuffleArray(subjectsForClass.filter(s => !periodBookings[day][period].has(s)));
+                    // Prefer subjects not yet taught to this class today
+                    let preferredSubjects = availableSubjects.filter(s => !subjectsUsedToday.has(s));
+                    // Pick a preferred subject if available, otherwise any available one, or mark as free
+                    let subjectToAssign = preferredSubjects.length > 0 ? preferredSubjects[0] : (availableSubjects.length > 0 ? availableSubjects[0] : "---");
+
+                    generatedTimetable[className][day][period] = subjectToAssign;
+                    if (subjectToAssign !== "---") {
+                        periodBookings[day][period].add(subjectToAssign);
+                        subjectsUsedToday.add(subjectToAssign);
+                    }
+                });
+            });
+        });
+
+        schoolTimetable = generatedTimetable;
+        console.log("Full school timetable generated.");
+    };
+
     const openTimetableModal = (className) => {
         if (!timetableModalOverlay) return;
 
+        // Generate the full school timetable once if it hasn't been done yet
+        generateFullSchoolTimetable();
+
         timetableModalTitle.textContent = `Timetable for ${className}`;
 
-        // --- Placeholder Data Generation ---
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const subjects = getSubjectsForClass(className);
         timetableModalBody.innerHTML = ''; // Clear previous content
+
+        const classTimetable = schoolTimetable[className];
+        if (!classTimetable) {
+            timetableModalBody.innerHTML = '<tr><td colspan="8">Timetable data is not available for this class.</td></tr>';
+            return;
+        }
 
         days.forEach(day => {
             const row = document.createElement('tr');
             let rowHTML = `<td>${day}</td>`; // Day cell
-            for (let i = 1; i <= 6; i++) { // 6 periods up to 1:30 PM
-                const subject = subjects[Math.floor(Math.random() * subjects.length)];
+            for (let i = 1; i <= 6; i++) { // 6 periods
+                const subject = classTimetable[day][i] || '---';
                 rowHTML += `<td>${subject}</td>`;
             }
             row.innerHTML = rowHTML;

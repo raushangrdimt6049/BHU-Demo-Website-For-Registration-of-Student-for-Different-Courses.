@@ -9,9 +9,206 @@ window.addEventListener('pageshow', (event) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     const facultyDataString = sessionStorage.getItem('currentFaculty');
+    if (!facultyDataString) {
+        // This is a fallback. The head script should have already redirected.
+        window.location.replace('faculty-login.html');
+        return;
+    }
 
     let facultyData = JSON.parse(facultyDataString);
     let facultyNotifications = []; // To store fetched notifications
+
+    // --- Timetable Generation Logic (from admin.js) ---
+    let schoolTimetable = null; // Cache the generated timetable
+    const getSubjectsForClass = (className) => {
+        const prePrimary = ['Nursery', 'LKG', 'UKG'];
+        const primary = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'];
+        const middle = ['Class 6', 'Class 7', 'Class 8'];
+        const secondary = ['Class 9', 'Class 10'];
+        const seniorSecondary = ['Class 11', 'Class 12'];
+
+        if (prePrimary.includes(className)) {
+            return ['English (Alphabet)', 'Hindi (Basics)', 'Numbers (Maths)', 'General Knowledge', 'Drawing & Coloring', 'Rhymes / Stories', 'Games / P.E.'];
+        }
+        if (primary.includes(className)) {
+            return ['English', 'Hindi', 'Mathematics', 'E.V.S.', 'Computer Basics', 'Moral Science', 'Art & Craft', 'P.E. / Music'];
+        }
+        if (middle.includes(className)) {
+            return ['English', 'Hindi', 'Sanskrit', 'Mathematics', 'Science', 'Social Science', 'Computer Science', 'Moral Science', 'Art/Craft', 'P.E./Music'];
+        }
+        if (secondary.includes(className)) {
+            return ['English', 'Hindi', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Economics', 'Computer Apps', 'P.E.'];
+        }
+        if (seniorSecondary.includes(className)) {
+            return ['English', 'Physics', 'Chemistry', 'Mathematics', 'Biology', 'Accountancy', 'Business Studies', 'Economics', 'History', 'Pol. Science', 'Computer Sci.', 'P.E.'];
+        }
+        return ['English', 'Maths', 'Science', 'History', 'Geography', 'Hindi', 'Art', 'Music', 'P.E.'];
+    };
+
+    const generateFullSchoolTimetable = () => {
+        if (schoolTimetable) return schoolTimetable;
+
+        const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const periods = [1, 2, 3, 4, 5, 6];
+        let generatedTimetable = {};
+        allClasses.forEach(c => { generatedTimetable[c] = {}; days.forEach(d => { generatedTimetable[c][d] = {}; }); });
+        let periodBookings = {};
+        days.forEach(d => { periodBookings[d] = {}; periods.forEach(p => { periodBookings[d][p] = new Set(); }); });
+        const shuffleArray = (array) => { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[array[i], array[j]] = [array[j], array[i]]; } return array; };
+        allClasses.forEach(className => {
+            const subjectsForClass = getSubjectsForClass(className);
+            days.forEach(day => {
+                let subjectsUsedToday = new Set();
+                periods.forEach(period => {
+                    let availableSubjects = shuffleArray(subjectsForClass.filter(s => !periodBookings[day][period].has(s)));
+                    let preferredSubjects = availableSubjects.filter(s => !subjectsUsedToday.has(s));
+                    let subjectToAssign = preferredSubjects.length > 0 ? preferredSubjects[0] : (availableSubjects.length > 0 ? availableSubjects[0] : "---");
+                    generatedTimetable[className][day][period] = subjectToAssign;
+                    if (subjectToAssign !== "---") {
+                        periodBookings[day][period].add(subjectToAssign);
+                        subjectsUsedToday.add(subjectToAssign);
+                    }
+                });
+            });
+        });
+        schoolTimetable = generatedTimetable;
+        console.log("Full school timetable generated for faculty portal.");
+        return schoolTimetable;
+    };
+
+    // --- New function to display today's schedule ---
+    const displayTodaysSchedule = () => {
+        const scheduleList = document.querySelector('.schedule-list');
+        if (!scheduleList) return;
+
+        const facultySubject = facultyData.subject;
+        const assignedClasses = facultyData.assignedClasses;
+
+        if (!facultySubject || !assignedClasses || assignedClasses.length === 0) {
+            scheduleList.innerHTML = `<li>Please ensure your primary subject and assigned classes are set by the admin.</li>`;
+            return;
+        }
+
+        const fullTimetable = generateFullSchoolTimetable();
+        const today = new Date().toLocaleString('en-us', { weekday: 'long' });
+        const periodTimes = { 1: "9:00-9:40", 2: "9:40-10:20", 3: "10:20-11:00", 4: "11:00-11:40", 5: "12:10-12:50", 6: "12:50-1:30" };
+
+        let todayClasses = [];
+        assignedClasses.forEach(className => {
+            const daySchedule = fullTimetable[className] ? fullTimetable[className][today] : null;
+            if (daySchedule) {
+                Object.keys(daySchedule).forEach(period => {
+                    if (daySchedule[period] === facultySubject) {
+                        todayClasses.push({ period: parseInt(period), time: periodTimes[period], className: className });
+                    }
+                });
+            }
+        });
+
+        todayClasses.sort((a, b) => a.period - b.period);
+
+        if (todayClasses.length === 0) {
+            scheduleList.innerHTML = `<li>No classes scheduled for you today. Enjoy your day!</li>`;
+        } else {
+            scheduleList.innerHTML = todayClasses.map(cls => `<li><span class="time">${cls.time}</span><span class="class-info">${cls.className} - ${facultySubject}</span><a href="#" class="action-link">Mark Attendance</a></li>`).join('');
+        }
+    };
+
+    const createTimetableHTML = (className) => {
+        const fullTimetable = generateFullSchoolTimetable();
+        const classTimetable = fullTimetable[className];
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const today = new Date().toLocaleString('en-us', { weekday: 'long' });
+
+        if (!classTimetable) {
+            return `
+                <div class="timetable-container">
+                    <h5>Timetable for ${className}</h5>
+                    <p>Timetable data is not available for this class.</p>
+                </div>
+            `;
+        }
+
+        let tableHeader = `
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>P1 <small>(9:00-9:40)</small></th>
+                    <th>P2 <small>(9:40-10:20)</small></th>
+                    <th>P3 <small>(10:20-11:00)</small></th>
+                    <th>P4 <small>(11:00-11:40)</small></th>
+                    <th class="break-cell">Break</th>
+                    <th>P5 <small>(12:10-12:50)</small></th>
+                    <th>P6 <small>(12:50-1:30)</small></th>
+                </tr>
+            </thead>
+        `;
+
+        let tableBody = '<tbody>';
+        days.forEach(day => {
+            const isCurrentDay = day === today ? 'current-day-row' : '';
+            let rowHTML = `<tr class="${isCurrentDay}"><td>${day}</td>`;
+            for (let i = 1; i <= 4; i++) { rowHTML += `<td>${classTimetable[day][i] || '---'}</td>`; }
+            rowHTML += `<td class="break-cell">Break</td>`;
+            for (let i = 5; i <= 6; i++) { rowHTML += `<td>${classTimetable[day][i] || '---'}</td>`; }
+            rowHTML += `</tr>`;
+            tableBody += rowHTML;
+        });
+        tableBody += '</tbody>';
+
+        return `<div class="timetable-container"><h5>Timetable for ${className}</h5><table>${tableHeader}${tableBody}</table></div>`;
+    };
+
+    const openScheduleModal = () => {
+        const container = document.getElementById('scheduleModalContainer');
+        if (!container) return;
+
+        const assignedClasses = facultyData.assignedClasses;
+        if (!assignedClasses || assignedClasses.length === 0) {
+            container.innerHTML = '<p style="text-align: center;">You have not been assigned to any classes by the admin.</p>';
+        } else {
+            container.innerHTML = assignedClasses.map(className => createTimetableHTML(className)).join('');
+        }
+        openModal(scheduleModalOverlay);
+        closeNav();
+    };
+
+    const initializeDashboard = async () => {
+        try {
+            // Fetch the latest data to ensure it's fresh, especially after profile completion.
+            const response = await fetch(`/api/faculty/me?username=${facultyData.username}`);
+            if (!response.ok) {
+                throw new Error('Could not refresh profile data.');
+            }
+            const freshFacultyData = await response.json();
+            
+            // Update local variable and session storage
+            facultyData = freshFacultyData;
+            sessionStorage.setItem('currentFaculty', JSON.stringify(facultyData));
+
+            // Now populate the dashboard with fresh data
+            if (facultyDashboard) {
+                const headerHTML = `
+                    <div class="welcome-banner">
+                        <h2>Welcome, ${facultyData.name || 'Faculty'}</h2>
+                    </div>
+                    <div class="faculty-profile-intro">
+                        <img src="${facultyData.profilePicture || 'default-avatar.png'}" alt="Profile Picture" class="profile-intro-pic" onerror="this.onerror=null;this.src='default-avatar.png';">
+                        <h3>${facultyData.name || 'Faculty'}</h3>
+                        <p>Username: ${facultyData.username || 'N/A'}</p>
+                        <p>Subject: ${facultyData.subject || 'Not Set'}</p>
+                    </div>
+                `;
+                facultyDashboard.insertAdjacentHTML('afterbegin', headerHTML);
+                displayTodaysSchedule(); // This will now use the fresh data
+            }
+        } catch (error) {
+            console.error("Failed to initialize dashboard:", error);
+            const scheduleList = document.querySelector('.schedule-list');
+            if(scheduleList) scheduleList.innerHTML = `<li>Could not load schedule. Please try refreshing the page.</li>`;
+        }
+    };
 
     // --- DOM Elements ---
     const sideNavBtn = document.getElementById('sideNavBtn');
@@ -22,6 +219,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sideNavAvatar = document.getElementById('sideNavAvatar');
     const facultyLogoutBtn = document.getElementById('facultyLogoutBtn');
     const sideNavSettingsLink = document.getElementById('sideNavSettingsLink');
+    const quickActionScheduleLink = document.getElementById('quickActionScheduleLink');
+    const sideNavScheduleLink = document.getElementById('sideNavScheduleLink');
     const facultyDashboard = document.querySelector('.faculty-dashboard');
 
     // Profile Completion Modal
@@ -29,6 +228,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const profileCompletionForm = document.getElementById('profileCompletionForm');
     const completionPasswordError = document.getElementById('completion-password-error');
     const completionFormError = document.getElementById('completion-form-error');
+    const completionProfilePicture = document.getElementById('completionProfilePicture');
+    const completionEditProfilePicture = document.getElementById('completionEditProfilePicture');
 
     // --- Settings Modal Elements ---
     const facultySettingsModalOverlay = document.getElementById('facultySettingsModalOverlay');
@@ -59,6 +260,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const notificationDetailTitle = document.getElementById('notificationDetailTitle');
     const notificationDetailMessage = document.getElementById('notificationDetailMessage');
     const notificationDetailDate = document.getElementById('notificationDetailDate');
+
+    // --- New Schedule Modal Elements ---
+    const scheduleModalOverlay = document.getElementById('scheduleModalOverlay');
+    const closeScheduleModalBtn = document.getElementById('closeScheduleModalBtn');
+
 
     // --- Side Navigation Logic ---
     const openNav = () => {
@@ -102,31 +308,29 @@ document.addEventListener('DOMContentLoaded', () => {
             profileCompletionModalOverlay.classList.add('active');
             // Populate fields
             document.getElementById('completionName').value = facultyData.name || '';
+            document.getElementById('completionEmail').value = facultyData.email || '';
+            document.getElementById('completionTeacherChoice').value = facultyData.teacherChoice || '';
+            document.getElementById('completionSubject').value = facultyData.subject || '';
+
             // Populate DOB dropdowns
             const daySelect = document.getElementById('completionDobDay');
             const monthSelect = document.getElementById('completionDobMonth');
             const yearSelect = document.getElementById('completionDobYear');
+
+            daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
             for (let i = 1; i <= 31; i++) daySelect.innerHTML += `<option value="${i}">${i}</option>`;
+            
+            monthSelect.innerHTML = '<option value="" disabled selected>Month</option>';
             const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
             months.forEach((month, index) => monthSelect.innerHTML += `<option value="${index + 1}">${month}</option>`);
+
+            yearSelect.innerHTML = '<option value="" disabled selected>Year</option>';
             const currentYear = new Date().getFullYear();
             for (let i = currentYear - 22; i >= currentYear - 70; i--) yearSelect.innerHTML += `<option value="${i}">${i}</option>`;
         }
     } else {
-        // Profile is complete, so build the dashboard header
-        if (facultyDashboard) {
-            const headerHTML = `
-                <div class="welcome-banner">
-                    <h2>Welcome, ${facultyData.name || 'Faculty'}</h2>
-                </div>
-                <div class="faculty-profile-intro">
-                    <img src="${facultyData.profilePicture || 'default-avatar.png'}" alt="Profile Picture" class="profile-intro-pic" onerror="this.onerror=null;this.src='default-avatar.png';">
-                    <h3>${facultyData.name || 'Faculty'}</h3>
-                    <p>Username: ${facultyData.username || 'N/A'}</p>
-                </div>
-            `;
-            facultyDashboard.insertAdjacentHTML('afterbegin', headerHTML);
-        }
+        // Profile is complete, initialize the dashboard with fresh data
+        initializeDashboard();
 
         // Only attach settings listener if profile is complete
         if (sideNavSettingsLink) {
@@ -134,6 +338,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 openFacultySettingsModal();
                 closeNav();
+            });
+        }
+        if (sideNavScheduleLink) {
+            sideNavScheduleLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                openScheduleModal();
+            });
+        }
+
+        if (quickActionScheduleLink) {
+            quickActionScheduleLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                openScheduleModal();
             });
         }
 
@@ -160,36 +377,46 @@ document.addEventListener('DOMContentLoaded', () => {
             completionPasswordError.textContent = '';
             completionFormError.textContent = '';
 
+            const currentPassword = document.getElementById('completionCurrentPassword').value;
             const newPassword = document.getElementById('completionNewPassword').value;
             const confirmPassword = document.getElementById('completionConfirmPassword').value;
+            const mobileNumber = document.getElementById('completionMobile').value;
+            const day = document.getElementById('completionDobDay').value;
+            const month = document.getElementById('completionDobMonth').value;
+            const year = document.getElementById('completionDobYear').value;
 
-            if (newPassword !== confirmPassword) {
-                completionPasswordError.textContent = 'New passwords do not match.';
+            // --- New, more robust validation ---
+            if (!currentPassword || !newPassword || !confirmPassword || !mobileNumber || !day || !month || !year) {
+                completionFormError.textContent = 'All fields are required. Please fill out the entire form.';
+                completionFormError.style.display = 'block';
                 return;
             }
 
-            const formData = new FormData(profileCompletionForm);
-            const day = formData.get('dob-day');
-            const month = formData.get('dob-month');
-            const year = formData.get('dob-year');
-            const dob = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            if (newPassword !== confirmPassword) {
+                completionPasswordError.textContent = 'New passwords do not match.';
+                completionPasswordError.style.display = 'block'; // Also show this error
+                return;
+            }
 
-            const data = {
-                username: facultyData.username,
-                currentPassword: formData.get('currentPassword'),
-                newPassword: newPassword,
-                email: formData.get('email'),
-                mobileNumber: formData.get('mobileNumber'),
-                dob: dob,
-                teacherChoice: formData.get('teacherChoice'),
-                subject: formData.get('subject'),
-            };
+            // Manually construct FormData to ensure all required fields are present and correctly named.
+            const form = new FormData();
+            form.append('username', facultyData.username);
+            form.append('currentPassword', currentPassword);
+            form.append('newPassword', newPassword);
+            form.append('mobileNumber', mobileNumber);
+
+            const dob = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            form.append('dob', dob);
+
+            const photoInput = document.getElementById('completionEditProfilePicture');
+            if (photoInput.files[0]) {
+                form.append('photo', photoInput.files[0]);
+            }
 
             try {
                 const response = await fetch('/api/faculty/complete-profile', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: form
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message);
@@ -200,9 +427,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.location.reload(); // Reload to show dashboard
             } catch (error) {
                 completionFormError.textContent = error.message;
+                completionFormError.style.display = 'block';
             }
         });
     }
+
+    // --- Profile Completion Modal: Profile Picture Preview ---
+    if (completionEditProfilePicture && completionProfilePicture) {
+        completionEditProfilePicture.addEventListener('change', () => {
+            const file = completionEditProfilePicture.files[0];
+            if (file) {
+                // Create a temporary URL for the selected file and show it in the <img> tag
+                completionProfilePicture.src = URL.createObjectURL(file);
+            }
+        });
+    }
+
 
     // --- Notification Helper Functions ---
     const formatTimeAgo = (dateString) => {
@@ -451,6 +691,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const openModal = (modal) => {
+        if (modal) modal.classList.add('active');
+    };
+
     const closeModal = (modal) => {
         if (modal) modal.classList.remove('active');
     };
@@ -465,6 +709,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target === notificationDetailModalOverlay) closeModal(notificationDetailModalOverlay);
         });
     }
+
+    // --- New Schedule Modal Listeners ---
+    if (closeScheduleModalBtn) {
+        closeScheduleModalBtn.addEventListener('click', () => closeModal(scheduleModalOverlay));
+    }
+    if (scheduleModalOverlay) scheduleModalOverlay.addEventListener('click', (e) => { if (e.target === scheduleModalOverlay) closeModal(scheduleModalOverlay); });
 
     if (closeFacultySettingsModalBtn) {
         closeFacultySettingsModalBtn.addEventListener('click', () => {
@@ -524,10 +774,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 alert('Settings updated successfully!');
                 sessionStorage.setItem('currentFaculty', JSON.stringify(result.facultyData)); // Update session storage
-                facultyData = result.facultyData; // Update local data
-                // Update side nav avatar
-                if (sideNavAvatar) sideNavAvatar.src = facultyData.profilePicture || 'default-avatar.png';
-                closeModal(facultySettingsModalOverlay); // Close modal on success
+                window.location.reload(); // Reload to reflect all changes, including schedule
 
             } catch (error) {
                 facultySettingsError.textContent = error.message;

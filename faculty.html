@@ -66,6 +66,7 @@
         }
         .faculty-profile-intro h3 { margin: 0.5rem 0 0.25rem 0; font-size: 1.4rem; }
         .faculty-profile-intro p { margin: 0; color: var(--text-color-light); }
+        .faculty-profile-intro p + p { margin-top: 0.25rem; }
 
         /* --- Notification Panel Styles (from admin.html) --- */
         .notification-container { position: relative; }
@@ -141,24 +142,6 @@
             margin: 0 auto;
         }
 
-        .dashboard-header h2 {
-            color: var(--text-color);
-            margin: 0; /* flex-grow is no longer needed with space-between */
-            text-align: center; /* Center the title */
-        }
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        .header-controls select {
-            padding: 0.5rem;
-            border-radius: 6px;
-            border: 1px solid var(--input-border);
-            background-color: var(--input-bg);
-            color: var(--text-color);
-            font-size: 0.9rem;
-        }
         .logout-btn {
             background-color: var(--btn-secondary-bg);
             color: white;
@@ -171,26 +154,6 @@
         }
         .logout-btn:hover {
             background-color: var(--btn-secondary-hover-bg);
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 2rem;
-        }
-        .dashboard-panel {
-            background: var(--bg-main);
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 3px 10px var(--header-shadow);
-            margin-bottom: 2rem;
-        }
-        .dashboard-panel h3 {
-            margin-top: 0;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid var(--btn-bg);
-            padding-bottom: 0.5rem;
-            color: var(--btn-bg);
         }
 
         /* Quick Links Panel Styles (from home.html) */
@@ -328,19 +291,43 @@
             margin-bottom: 0.5rem;
         }
 
-        @media (max-width: 992px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
+        /* Responsive adjustments for schedule list on mobile */
+        @media (max-width: 600px) {
+            .schedule-list li {
+                padding: 0.8rem 0.5rem; /* Tighter padding */
+                font-size: 0.9rem; /* Slightly smaller font */
+            }
+            .schedule-list .time {
+                min-width: auto; /* Remove fixed width to allow shrinking */
+            }
+            .schedule-list .class-info {
+                white-space: nowrap; /* Prevent class/subject from wrapping */
+                overflow: hidden; /* Hide the overflowing text */
+                text-overflow: ellipsis; /* Show ... for long text */
+            }
+            .schedule-list .action-link {
+                padding: 0.3rem 0.6rem; /* Make button smaller */
             }
         }
-        @media (max-width: 480px) {
+
+        /* Timetable styles from admin.html */
+        .timetable-container { margin-bottom: 2rem; }
+        .timetable-container h5 { font-size: 1.2rem; margin-bottom: 0.5rem; color: var(--text-color); text-align: center; }
+        #scheduleModalContainer table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        #scheduleModalContainer th, #scheduleModalContainer td {
+            border: 1px solid var(--input-border);
+            padding: 0.5rem;
+            text-align: center;
+            min-width: 80px;
+        }
+        #scheduleModalContainer th { background-color: var(--bg-body); }
+        #scheduleModalContainer .break-cell { background-color: var(--readonly-bg); font-style: italic; }
+        #scheduleModalContainer .current-day-row { background-color: var(--btn-bg-light) !important; }
+        #scheduleModalContainer .current-day-row td:first-child { font-weight: 700; color: var(--btn-bg); }
+
+        @media (max-width: 992px) {
             .action-grid {
                 grid-template-columns: 1fr;
-            }
-            .course-list li, .schedule-list li {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 0.5rem;
             }
             .course-links {
                 margin-top: 0.5rem;
@@ -382,8 +369,9 @@
             <button id="closeSideNavBtn" class="close-btn">&times;</button>
         </div>
         <ul>
-            <li><a href="#"><span class="nav-icon">📚</span> Course Details</a></li>
-            <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
+            <li><a href="#"><span class="nav-icon">📚</span> My Courses</a></li>
+            <li><a href="#" id="sideNavScheduleLink"><span class="nav-icon">📅</span> Class Schedule</a></li>
+            <li><a href="#"><span class="nav-icon">✅</span> Mark Attendance</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Assignments</a></li>
             <li><a href="#"><span class="nav-icon">💯</span> Exam & Marks</a></li>
             <li><a href="#"><span class="nav-icon">🧑‍🎓</span> Student Profile</a></li>
@@ -450,6 +438,19 @@
             </div>
         </div>
 
+        <!-- New Class Schedule Modal -->
+        <div id="scheduleModalOverlay" class="profile-modal-overlay">
+            <div class="profile-modal-content" style="max-width: 90%;">
+                <button id="closeScheduleModalBtn" class="close-modal-btn">&times;</button>
+                <div class="settings-view">
+                    <h4 style="text-align: center; margin-bottom: 1.5rem;">My Class Schedules</h4>
+                    <div id="scheduleModalContainer" style="max-height: 70vh; overflow-y: auto; padding: 0 1rem;">
+                        <!-- Timetables will be populated here by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Faculty Settings Modal (replaces profile modal) -->
         <div id="facultySettingsModalOverlay" class="profile-modal-overlay">
             <div class="profile-modal-content" style="max-width: 500px;">
@@ -473,15 +474,11 @@
                             <div class="detail-group"><label for="editFacultyMobile">Mobile Number</label><input type="tel" id="editFacultyMobile" name="mobileNumber"></div>
                             <div class="detail-group">
                                 <label for="editFacultyTeacherChoice">Teacher Type</label>
-                                <select id="editFacultyTeacherChoice" name="teacherChoice" required>
-                                    <option value="" disabled selected>-- Select Type --</option>
-                                    <option value="TGT">TGT (Trained Graduate Teacher)</option>
-                                    <option value="PGT">PGT (Post-Graduate Teacher)</option>
-                                </select>
+                                <input type="text" id="editFacultyTeacherChoice" name="teacherChoice" readonly title="Teacher Type is set by admin and cannot be changed.">
                             </div>
                             <div class="detail-group">
                                 <label for="editFacultySubject">Primary Subject</label>
-                                <input type="text" id="editFacultySubject" name="subject" required>
+                                <input type="text" id="editFacultySubject" name="subject" readonly title="Primary Subject is set by admin and cannot be changed.">
                             </div>
                         </div>
                         <h4 style="margin-top: 2rem; margin-bottom: 1rem;">Change Password</h4>
@@ -524,7 +521,7 @@
                             </div>
                             <div class="detail-group">
                                 <label for="completionEmail">Email Address</label>
-                                <input type="email" id="completionEmail" name="email" required>
+                                <input type="email" id="completionEmail" name="email" readonly title="Email is set by admin.">
                             </div>
                             <div class="detail-group">
                                 <label for="completionMobile">Mobile Number</label>
@@ -540,15 +537,11 @@
                             </div>
                             <div class="detail-group">
                                 <label for="completionTeacherChoice">Teacher Type</label>
-                                <select id="completionTeacherChoice" name="teacherChoice" required>
-                                    <option value="" disabled selected>-- Select Type --</option>
-                                    <option value="TGT">TGT (Trained Graduate Teacher)</option>
-                                    <option value="PGT">PGT (Post-Graduate Teacher)</option>
-                                </select>
+                                <input type="text" id="completionTeacherChoice" name="teacherChoice" readonly title="Teacher Type is set by admin.">
                             </div>
                             <div class="detail-group">
                                 <label for="completionSubject">Primary Subject</label>
-                                <input type="text" id="completionSubject" name="subject" required>
+                                <input type="text" id="completionSubject" name="subject" readonly title="Primary Subject is set by admin.">
                             </div>
                         </div>
 
@@ -570,10 +563,21 @@
 
         <div class="faculty-dashboard">
 
+            <!-- Today's Schedule Panel -->
+            <div class="dashboard-grid">
+                <div class="dashboard-col-main">
+                    <div class="dashboard-panel">
+                        <h3 style="text-align: center;">Today's Schedule</h3>
+                        <ul class="schedule-list">
+                            <!-- Schedule will be populated by faculty.js -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
             <div class="quick-links-panel">
                 <div class="quick-links-header"><h4>Quick Actions</h4></div>
                 <div class="quick-links-grid">
-                    <a href="#" class="quick-link-item">Mark Attendance</a>
+                    <a href="#" id="quickActionScheduleLink" class="quick-link-item">Class Schedule</a>
                     <a href="#" class="quick-link-item">Upload Material</a>
                     <a href="#" class="quick-link-item">Create Assignment</a>
                     <a href="#" class="quick-link-item">Enter Marks</a>
@@ -582,30 +586,6 @@
                 </div>
             </div>
 
-            <div class="dashboard-grid">
-                <div class="dashboard-col-main">
-                    <div class="dashboard-panel">
-                        <h3>Today's Schedule</h3>
-                        <ul class="schedule-list">
-                            <li>
-                                <span class="time">10:00 AM - 11:00 AM</span>
-                                <span class="class-info">PHY101 - Hall 5</span>
-                                <a href="#" class="action-link">Mark Attendance</a>
-                            </li>
-                            <li>
-                                <span class="time">01:00 PM - 02:00 PM</span>
-                                <span class="class-info">MTH101 - Hall 2</span>
-                                <a href="#" class="action-link green">Start Online Class</a>
-                            </li>
-                             <li>
-                                <span class="time">03:00 PM - 04:00 PM</span>
-                                <span class="class-info">PHY101 - Lab 3</span>
-                                <span class="no-action">No Action Required</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
         </div>
     </main>
 

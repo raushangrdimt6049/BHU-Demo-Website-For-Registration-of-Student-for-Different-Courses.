@@ -1358,7 +1358,7 @@ app.get('/api/faculty/me', async (req, res) => {
     if (!username) return res.status(400).json({ message: 'Username is required.' });
 
     try {
-        const query = 'SELECT id, name, username, email, mobilenumber, teacherchoice, subject, profilepicture, isprofilecomplete FROM faculty WHERE LOWER(username) = LOWER($1)';
+        const query = 'SELECT id, name, username, email, mobilenumber, teacherchoice, subject, profilepicture, isprofilecomplete, assigned_classes FROM faculty WHERE LOWER(username) = LOWER($1)';
         const { rows } = await pool.query(query, [username]);
         if (rows.length === 0) return res.status(404).json({ message: 'Faculty not found.' });
         res.status(200).json(mapDbToCamelCase(rows[0]));
@@ -1828,23 +1828,22 @@ app.delete('/api/admin/delete/:username', async (req, res) => {
 
 // New endpoint for admin to add a faculty user
 app.post('/api/admin/add-user', jsonParser, async (req, res) => {
-    const { name, username, email, password } = req.body;
+    const { name, username, email, password, teacherChoice, subject, assignedClasses } = req.body;
     console.log(`Admin request to add new faculty user: ${username}`);
 
-    if (!name || !username || !email || !password) {
-        return res.status(400).json({ message: 'Name, username, email, and password are required.' });
+    if (!name || !username || !email || !password || !teacherChoice || !subject || !assignedClasses) {
+        return res.status(400).json({ message: 'Name, username, email, password, teacher type, subject, and assigned classes are required.' });
     }
 
     try {
         const passwordHash = await bcrypt.hash(password, saltRounds);
         // We set isprofilecomplete to false, so the faculty member is forced to update details on first login.
-        // We leave security question/answer as null.
         const query = `
-            INSERT INTO faculty (name, username, email, passwordhash, isprofilecomplete)
-            VALUES ($1, $2, $3, $4, FALSE)
+            INSERT INTO faculty (name, username, email, passwordhash, isprofilecomplete, teacherchoice, subject, assigned_classes)
+            VALUES ($1, $2, $3, $4, FALSE, $5, $6, $7)
             RETURNING id, name, username, email;
         `;
-        const values = [name, username.toLowerCase(), email.toLowerCase(), passwordHash];
+        const values = [name, username.toLowerCase(), email.toLowerCase(), passwordHash, teacherChoice, subject, assignedClasses];
         const { rows } = await pool.query(query, values);
         
         console.log(`Faculty member ${username} created successfully by admin.`);
@@ -1859,14 +1858,14 @@ app.post('/api/admin/add-user', jsonParser, async (req, res) => {
 });
 
 // New endpoint for faculty to complete their profile
-app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
+app.post('/api/faculty/complete-profile', facultyPicUpload.single('photo'), async (req, res) => {
     const { 
         username, currentPassword, newPassword, 
-        email, mobileNumber, dob, teacherChoice, subject 
+        mobileNumber, dob 
     } = req.body;
     console.log(`Profile completion attempt for faculty: ${username}`);
 
-    if (!username || !currentPassword || !newPassword || !email || !mobileNumber || !dob || !teacherChoice || !subject) {
+    if (!username || !currentPassword || !newPassword || !mobileNumber || !dob) {
         return res.status(400).json({ message: 'All fields are required to complete your profile.' });
     }
 
@@ -1875,25 +1874,45 @@ app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
         await client.query('BEGIN');
 
         const facultyRes = await client.query('SELECT * FROM faculty WHERE username = $1', [username]);
-        if (facultyRes.rows.length === 0) {
-            throw new Error('Faculty member not found.');
-        }
+        if (facultyRes.rows.length === 0) throw new Error('Faculty member not found.');
+        
         const faculty = facultyRes.rows[0];
 
         const isPasswordMatch = await bcrypt.compare(currentPassword, faculty.passwordhash);
-        if (!isPasswordMatch) {
-            return res.status(401).json({ message: 'Incorrect current password.' });
-        }
+        if (!isPasswordMatch) throw new Error('Incorrect current password.');
 
         const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+        const updateFields = [
+            'mobilenumber = $1', 'dob = $2', 'passwordhash = $3', 
+            'isprofilecomplete = TRUE', 'updatedat = CURRENT_TIMESTAMP'
+        ];
+        const values = [mobileNumber, dob, newPasswordHash];
+        let paramIndex = 4;
+
+        if (req.file) {
+            const sanitizedUsername = username.replace(/[^a-zA-Z0-9_.-]/g, '_');
+            const newFileName = `${sanitizedUsername}-${Date.now()}${path.extname(req.file.originalname)}`;
+            const newPath = path.join(path.dirname(req.file.path), newFileName);
+
+            try {
+                fs.renameSync(req.file.path, newPath);
+                const profilePictureUrl = newPath.replace(/\\/g, "/");
+                updateFields.push(`profilepicture = $${paramIndex++}`);
+                values.push(profilePictureUrl);
+            } catch (renameError) {
+                console.error('Error renaming faculty profile picture on completion:', renameError);
+                fs.unlinkSync(req.file.path); // Clean up temp file
+            }
+        }
+
+        values.push(username);
         const updateQuery = `
             UPDATE faculty 
-            SET email = $1, mobilenumber = $2, dob = $3, teacherchoice = $4, subject = $5, 
-                passwordhash = $6, isprofilecomplete = TRUE, updatedat = CURRENT_TIMESTAMP
-            WHERE username = $7
+            SET ${updateFields.join(', ')}
+            WHERE username = $${paramIndex}
             RETURNING *;
         `;
-        const values = [email.toLowerCase(), mobileNumber, dob, teacherChoice, subject, newPasswordHash, username];
         const updatedResult = await client.query(updateQuery, values);
 
         await client.query('COMMIT');
@@ -1903,8 +1922,8 @@ app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
         res.status(200).json({ message: 'Profile updated successfully!', facultyData: mapDbToCamelCase(updatedFaculty) });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error completing faculty profile:', error);
-        res.status(500).json({ message: 'Server error during profile update.' });
+        console.error('Error completing faculty profile:', error.message);
+        res.status(500).json({ message: error.message || 'Server error during profile update.' });
     } finally {
         client.release();
     }
@@ -1913,7 +1932,7 @@ app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
 // New endpoint to update faculty settings
 app.post('/api/faculty/update-settings', facultyPicUpload.single('profilePicture'), async (req, res) => {
     const { 
-        username, name, email, mobileNumber, teacherChoice, subject, 
+        username, name, email, mobileNumber, 
         currentPassword, newPassword 
     } = req.body;
     console.log(`Updating settings for faculty: ${username}`);
@@ -1940,8 +1959,6 @@ app.post('/api/faculty/update-settings', facultyPicUpload.single('profilePicture
         if (name !== undefined) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
         if (email !== undefined) { updateFields.push(`email = $${paramIndex++}`); values.push(email.toLowerCase()); }
         if (mobileNumber !== undefined) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
-        if (teacherChoice !== undefined) { updateFields.push(`teacherchoice = $${paramIndex++}`); values.push(teacherChoice); }
-        if (subject !== undefined) { updateFields.push(`subject = $${paramIndex++}`); values.push(subject); }
         if (req.file) {
             // Rename the temporary file to a permanent one
             const sanitizedUsername = username.replace(/[^a-zA-Z0-9_.-]/g, '_');
@@ -2045,7 +2062,11 @@ app.post('/api/faculty/login', jsonParser, async (req, res) => {
     console.log(`Faculty login attempt for identifier: ${loginIdentifier}`);
 
     try {
-        const query = 'SELECT * FROM faculty WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)';
+        // Explicitly select columns to ensure all necessary data is fetched and to avoid sending sensitive data.
+        const query = `
+            SELECT id, name, username, email, mobilenumber, dob, teacherchoice, subject, profilepicture, isprofilecomplete, assigned_classes, passwordhash 
+            FROM faculty WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)
+        `;
         const { rows } = await pool.query(query, [loginIdentifier.toLowerCase()]);
 
         if (rows.length === 0) {
@@ -2169,6 +2190,7 @@ function mapDbToCamelCase(dbObject) {
             hobbycourses: 'hobbyCourses',
             isprofilecomplete: 'isProfileComplete',
             teacherchoice: 'teacherChoice', // This was correct, but adding a check below for safety
+            assigned_classes: 'assignedClasses',
             gender: 'gender',
             subject: 'subject',
             isread: 'isRead',
