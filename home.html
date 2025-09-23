@@ -43,6 +43,7 @@
         .profile-intro-pic { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--btn-bg); margin-bottom: 0.5rem; }
         .student-profile-intro h3 { margin: 0.5rem 0 0.25rem 0; font-size: 1.4rem; }
         .student-profile-intro p { margin: 0; color: var(--text-color-light); }
+        .student-profile-intro p + p { margin-top: 0.25rem; } /* Add spacing between paragraphs */
 
         .quick-links-header h4 { margin: 0; border-bottom: none; padding-bottom: 0; text-align: left; font-size: 1.2rem; }
         .quick-links-panel ul { list-style: none; padding: 0; margin: 0; } /* Keep old style for compatibility if needed */
@@ -482,7 +483,7 @@
         <ul>
             <li><a href="home.html" class="active-nav-link"><span class="nav-icon">🏠</span> Dashboard</a></li>
             <li><a href="#" id="sideNavMyCoursesBtn"><span class="nav-icon">📚</span> My Courses</a></li>
-            <li><a href="#"><span class="nav-icon">📅</span> Timetable</a></li>
+            <li><a href="#" id="sideNavTimetableLink"><span class="nav-icon">📅</span> Timetable</a></li>
             <li><a href="#" id="sideNavFeeStructureBtn"><span class="nav-icon">💰</span> Fee Structure</a></li>
             <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Assignments</a></li>
@@ -726,6 +727,32 @@
                 <div id="notificationDetailContent" style="margin-top: 1.5rem; line-height: 1.7;">
                     <p id="notificationDetailMessage"></p>
                     <small id="notificationDetailDate" style="display: block; margin-top: 1rem; text-align: right; color: var(--text-color-light);"></small>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Student Timetable Modal -->
+    <div id="studentTimetableModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 900px;">
+            <button id="closeStudentTimetableModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view">
+                <h4 id="studentTimetableTitle" style="margin-top: 0;">My Class Timetable</h4>
+                <div class="history-table-container">
+                    <table id="studentTimetableTable">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>P1 <small>(9:00-9:40)</small></th>
+                                <th>P2 <small>(9:40-10:20)</small></th>
+                                <th>P3 <small>(10:20-11:00)</small></th>
+                                <th>P4 <small>(11:00-11:40)</small></th>
+                                <th class="break-cell">Break</th>
+                                <th>P5 <small>(12:10-12:50)</small></th>
+                                <th>P6 <small>(12:50-1:30)</small></th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTimetableBody"></tbody>
+                    </table>
                 </div>
             </div>
         </div>

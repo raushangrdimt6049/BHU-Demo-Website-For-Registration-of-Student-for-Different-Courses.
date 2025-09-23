@@ -70,14 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
     populateField('previewMotherOccupation', studentData.motherOccupation);
     populateField('previewParentMobile', studentData.parentMobile);
 
-    // --- Populate Academic Details ---
-    populateField('previewBoard10', studentData.board10);
-    populateField('previewPercentage10', studentData.percentage10 ? `${studentData.percentage10}%` : 'N/A');
-    populateField('previewYear10', studentData.year10);
-    populateField('previewBoard12', studentData.board12);
-    populateField('previewPercentage12', studentData.percentage12 ? `${studentData.percentage12}%` : 'N/A');
-    populateField('previewYear12', studentData.year12);
-
     // --- Populate Uploaded Documents ---
     const populateDocumentLink = (id, path) => {
         const link = document.getElementById(id);
@@ -95,11 +87,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     populateDocumentLink('previewProfilePicture', studentData.profilePicture);
     populateDocumentLink('previewSignature', studentData.signature);
-    populateDocumentLink('previewMarksheet10', studentData.marksheet10);
-    populateDocumentLink('previewMarksheet12', studentData.marksheet12);
+    populateDocumentLink('previewMigrationCertificate', studentData.migrationCertificate);
+    populateDocumentLink('previewTcCertificate', studentData.tcCertificate);
 
     // --- Populate Course Selection ---
-    populateField('previewHonsSubject', courseData.branch);
+    populateField('previewClass', courseData.branch);
     populateField('previewFee', `₹${(courseData.amount / 100).toLocaleString('en-IN')}`);
 
     // --- Terms and Conditions Logic ---

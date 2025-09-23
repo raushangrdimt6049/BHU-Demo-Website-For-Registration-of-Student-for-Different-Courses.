@@ -1054,27 +1054,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    const getAllUniqueSubjects = () => {
-        const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+    const getAllUniqueSubjects = (timetable) => {
         const allSubjects = new Set();
-        allClasses.forEach(className => {
-            getSubjectsForClass(className).forEach(subject => {
-                if (subject !== "---") { // Exclude free periods
-                    allSubjects.add(subject);
+        if (!timetable) {
+            // If timetable data isn't loaded, we can't get subjects from it.
+            return [];
+        }
+        // Iterate over the actual timetable data from the database
+        for (const className in timetable) {
+            for (const day in timetable[className]) {
+                for (const period in timetable[className][day]) {
+                    const subject = timetable[className][day][period];
+                    if (subject && subject !== '---') {
+                        allSubjects.add(subject);
+                    }
                 }
-            });
-        });
+            }
+        }
         return Array.from(allSubjects).sort();
     };
 
     // --- Add Faculty Modal Logic ---
     if (addFacultyBtn) {
-        addFacultyBtn.addEventListener('click', (e) => {
+        addFacultyBtn.addEventListener('click', async (e) => { // Make it async
             e.preventDefault();
             if (addFacultyModalOverlay) {
                 addFacultyModalOverlay.style.display = 'flex';
                 addFacultyForm.reset();
                 addFacultyError.style.display = 'none';
+
+                // Ensure timetable data is loaded before populating subjects
+                await generateFullSchoolTimetable();
 
                 const classContainer = document.getElementById('addFacultyAssignedClasses');
                 const subjectSelect = document.getElementById('addFacultySubject');
@@ -1091,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 // Populate subjects
-                const uniqueSubjects = getAllUniqueSubjects();
+                const uniqueSubjects = getAllUniqueSubjects(schoolTimetable);
                 subjectSelect.innerHTML = '<option value="" disabled selected>-- Select Primary Subject --</option>';
                 uniqueSubjects.forEach(s => { subjectSelect.innerHTML += `<option value="${s}">${s}</option>`; });
             }
@@ -1273,94 +1283,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Timetable Modal Logic ---
-    const getSubjectsForClass = (className) => {
-        const prePrimary = ['Nursery', 'LKG', 'UKG'];
-        const primary = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'];
-        const middle = ['Class 6', 'Class 7', 'Class 8'];
-        const secondary = ['Class 9', 'Class 10'];
-        const seniorSecondary = ['Class 11', 'Class 12'];
+    const generateFullSchoolTimetable = async () => {
+        if (schoolTimetable) return; // Already fetched/generated
 
-        if (prePrimary.includes(className)) {
-            return ['English (Alphabet)', 'Hindi (Basics)', 'Numbers (Maths)', 'General Knowledge', 'Drawing & Coloring', 'Rhymes / Stories', 'Games / P.E.'];
-        }
-        if (primary.includes(className)) {
-            return ['English', 'Hindi', 'Mathematics', 'E.V.S.', 'Computer Basics', 'Moral Science', 'Art & Craft', 'P.E. / Music'];
-        }
-        if (middle.includes(className)) {
-            return ['English', 'Hindi', 'Sanskrit', 'Mathematics', 'Science', 'Social Science', 'Computer Science', 'Moral Science', 'Art/Craft', 'P.E./Music'];
-        }
-        if (secondary.includes(className)) {
-            return ['English', 'Hindi', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Economics', 'Computer Apps', 'P.E.'];
-        }
-        if (seniorSecondary.includes(className)) {
-            // A mix of streams for demo purposes
-            return ['English', 'Physics', 'Chemistry', 'Mathematics', 'Biology', 'Accountancy', 'Business Studies', 'Economics', 'History', 'Pol. Science', 'Computer Sci.', 'P.E.'];
-        }
-        // Default
-        return ['English', 'Maths', 'Science', 'History', 'Geography', 'Hindi', 'Art', 'Music', 'P.E.'];
-    };
+        try {
+            console.log("Attempting to fetch timetable from server...");
+            let response = await fetch('/api/timetable/all');
+            let result = await response.json();
 
-    const generateFullSchoolTimetable = () => {
-        if (schoolTimetable) return; // Already generated
+            if (!response.ok) throw new Error(result.message || 'Failed to fetch timetable.');
 
-        const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const periods = [1, 2, 3, 4, 5, 6];
+            if (result.exists) {
+                console.log("Timetable found in database.");
+                schoolTimetable = result.data;
+            } else {
+                console.log("Timetable not found in DB, requesting generation...");
+                // If it doesn't exist, ask the server to generate it
+                const genResponse = await fetch('/api/timetable/generate', { method: 'POST' });
+                const genResult = await genResponse.json();
+                if (!genResponse.ok) throw new Error(genResult.message || 'Failed to generate timetable.');
 
-        let generatedTimetable = {};
-        allClasses.forEach(c => {
-            generatedTimetable[c] = {};
-            days.forEach(d => {
-                generatedTimetable[c][d] = {};
-            });
-        });
-
-        let periodBookings = {};
-        days.forEach(d => {
-            periodBookings[d] = {};
-            periods.forEach(p => {
-                periodBookings[d][p] = new Set();
-            });
-        });
-
-        const shuffleArray = (array) => {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
+                console.log("Generation successful, fetching again...");
+                // Fetch it again now that it's generated
+                response = await fetch('/api/timetable/all');
+                result = await response.json();
+                if (!response.ok || !result.exists) throw new Error('Failed to fetch newly generated timetable.');
+                
+                schoolTimetable = result.data;
             }
-            return array;
-        };
-
-        allClasses.forEach(className => {
-            const subjectsForClass = getSubjectsForClass(className);
-            days.forEach(day => {
-                let subjectsUsedToday = new Set();
-                periods.forEach(period => {
-                    // Find available subjects by filtering out booked ones for this specific day and period
-                    let availableSubjects = shuffleArray(subjectsForClass.filter(s => !periodBookings[day][period].has(s)));
-                    // Prefer subjects not yet taught to this class today
-                    let preferredSubjects = availableSubjects.filter(s => !subjectsUsedToday.has(s));
-                    // Pick a preferred subject if available, otherwise any available one, or mark as free
-                    let subjectToAssign = preferredSubjects.length > 0 ? preferredSubjects[0] : (availableSubjects.length > 0 ? availableSubjects[0] : "---");
-
-                    generatedTimetable[className][day][period] = subjectToAssign;
-                    if (subjectToAssign !== "---") {
-                        periodBookings[day][period].add(subjectToAssign);
-                        subjectsUsedToday.add(subjectToAssign);
-                    }
-                });
-            });
-        });
-
-        schoolTimetable = generatedTimetable;
-        console.log("Full school timetable generated.");
+            console.log("Full school timetable is ready.");
+        } catch (error) {
+            console.error("Error managing timetable:", error);
+            alert(`Could not load or generate timetable: ${error.message}`);
+            // Set to an empty object to prevent repeated failed attempts
+            schoolTimetable = {}; 
+        }
     };
 
-    const openTimetableModal = (className) => {
+    const openTimetableModal = async (className) => {
         if (!timetableModalOverlay) return;
 
         // Generate the full school timetable once if it hasn't been done yet
-        generateFullSchoolTimetable();
+        await generateFullSchoolTimetable();
 
         timetableModalTitle.textContent = `Timetable for ${className}`;
 
@@ -1444,12 +1408,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save button
     if (saveTimetableBtn) {
         saveTimetableBtn.addEventListener('click', async () => {
-            // In a real app, you would collect the data and send it to the server
-            // const timetableData = [];
-            // timetableModalBody.querySelectorAll('tr').forEach(row => { ... });
-            // await fetch('/api/timetable/update', { method: 'POST', body: JSON.stringify(timetableData) });
+            const className = timetableModalTitle.textContent.replace('Timetable for ', '');
+            const rows = timetableModalBody.querySelectorAll('tr');
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            let hasError = false;
 
-            alert('Timetable changes saved! (This is a demo, data is not persisted.)');
+            const updatePromises = [];
+
+            rows.forEach((row, dayIndex) => {
+                const day = days[dayIndex];
+                const cells = row.querySelectorAll('td'); // All <td> elements in the row
+
+                // cells[0] is Day name, cells[1-4] are P1-4, cells[5] is Break, cells[6-7] are P5-6
+                for (let i = 1; i <= 7; i++) {
+                    if (i === 5) continue; // Skip the break cell
+
+                    const period = (i < 5) ? i : (i - 1); // Map cell index to period number
+                    const subject = cells[i].textContent.trim();
+
+                    // Update local cache
+                    if (schoolTimetable[className] && schoolTimetable[className][day]) {
+                        schoolTimetable[className][day][period] = subject;
+                    }
+
+                    // Create a promise for the update request
+                    const promise = fetch('/api/timetable/update', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ className, day, period, subject })
+                    }).then(async response => {
+                        if (!response.ok) { hasError = true; const err = await response.json(); console.error(`Failed to update ${className}, ${day}, Period ${period}: ${err.message}`); }
+                    });
+                    updatePromises.push(promise);
+                }
+            });
+
+            await Promise.all(updatePromises);
+
+            if (hasError) {
+                alert('Some timetable changes could not be saved. Please check the console for details.');
+            } else {
+                alert('Timetable changes saved successfully!');
+            }
 
             // Revert to non-editable state
             timetableModalTable.classList.remove('editable');

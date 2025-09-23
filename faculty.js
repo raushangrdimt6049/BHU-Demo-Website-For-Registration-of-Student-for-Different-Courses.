@@ -18,67 +18,41 @@ document.addEventListener('DOMContentLoaded', () => {
     let facultyData = JSON.parse(facultyDataString);
     let facultyNotifications = []; // To store fetched notifications
 
-    // --- Timetable Generation Logic (from admin.js) ---
-    let schoolTimetable = null; // Cache the generated timetable
-    const getSubjectsForClass = (className) => {
-        const prePrimary = ['Nursery', 'LKG', 'UKG'];
-        const primary = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'];
-        const middle = ['Class 6', 'Class 7', 'Class 8'];
-        const secondary = ['Class 9', 'Class 10'];
-        const seniorSecondary = ['Class 11', 'Class 12'];
+    // --- Timetable Logic ---
+    let schoolTimetable = null; // This will cache the timetable fetched from the server.
 
-        if (prePrimary.includes(className)) {
-            return ['English (Alphabet)', 'Hindi (Basics)', 'Numbers (Maths)', 'General Knowledge', 'Drawing & Coloring', 'Rhymes / Stories', 'Games / P.E.'];
-        }
-        if (primary.includes(className)) {
-            return ['English', 'Hindi', 'Mathematics', 'E.V.S.', 'Computer Basics', 'Moral Science', 'Art & Craft', 'P.E. / Music'];
-        }
-        if (middle.includes(className)) {
-            return ['English', 'Hindi', 'Sanskrit', 'Mathematics', 'Science', 'Social Science', 'Computer Science', 'Moral Science', 'Art/Craft', 'P.E./Music'];
-        }
-        if (secondary.includes(className)) {
-            return ['English', 'Hindi', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Economics', 'Computer Apps', 'P.E.'];
-        }
-        if (seniorSecondary.includes(className)) {
-            return ['English', 'Physics', 'Chemistry', 'Mathematics', 'Biology', 'Accountancy', 'Business Studies', 'Economics', 'History', 'Pol. Science', 'Computer Sci.', 'P.E.'];
-        }
-        return ['English', 'Maths', 'Science', 'History', 'Geography', 'Hindi', 'Art', 'Music', 'P.E.'];
-    };
+    const fetchFullSchoolTimetable = async () => {
+        // If we already fetched it, don't do it again.
+        if (schoolTimetable) return;
 
-    const generateFullSchoolTimetable = () => {
-        if (schoolTimetable) return schoolTimetable;
+        try {
+            console.log("Faculty Portal: Attempting to fetch timetable from server...");
+            const response = await fetch('/api/timetable/all');
+            const result = await response.json();
 
-        const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const periods = [1, 2, 3, 4, 5, 6];
-        let generatedTimetable = {};
-        allClasses.forEach(c => { generatedTimetable[c] = {}; days.forEach(d => { generatedTimetable[c][d] = {}; }); });
-        let periodBookings = {};
-        days.forEach(d => { periodBookings[d] = {}; periods.forEach(p => { periodBookings[d][p] = new Set(); }); });
-        const shuffleArray = (array) => { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[array[i], array[j]] = [array[j], array[i]]; } return array; };
-        allClasses.forEach(className => {
-            const subjectsForClass = getSubjectsForClass(className);
-            days.forEach(day => {
-                let subjectsUsedToday = new Set();
-                periods.forEach(period => {
-                    let availableSubjects = shuffleArray(subjectsForClass.filter(s => !periodBookings[day][period].has(s)));
-                    let preferredSubjects = availableSubjects.filter(s => !subjectsUsedToday.has(s));
-                    let subjectToAssign = preferredSubjects.length > 0 ? preferredSubjects[0] : (availableSubjects.length > 0 ? availableSubjects[0] : "---");
-                    generatedTimetable[className][day][period] = subjectToAssign;
-                    if (subjectToAssign !== "---") {
-                        periodBookings[day][period].add(subjectToAssign);
-                        subjectsUsedToday.add(subjectToAssign);
-                    }
-                });
-            });
-        });
-        schoolTimetable = generatedTimetable;
-        console.log("Full school timetable generated for faculty portal.");
-        return schoolTimetable;
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to fetch timetable.');
+            }
+
+            if (result.exists) {
+                console.log("Faculty Portal: Timetable found in database.");
+                schoolTimetable = result.data;
+            } else {
+                // Faculty should not generate the timetable. They can only view it.
+                console.log("Faculty Portal: Timetable not found in DB. Admin needs to generate it.");
+                schoolTimetable = {}; // Set to empty to prevent re-fetching
+                // Inform the user. This is better than a silent failure.
+                alert('The school timetable has not been generated by the admin yet. Please contact administration.');
+            }
+        } catch (error) {
+            console.error("Faculty Portal: Error fetching timetable:", error);
+            // Set to an empty object to prevent the app from trying to fetch again on every click.
+            schoolTimetable = {}; 
+        }
     };
 
     // --- New function to display today's schedule ---
-    const displayTodaysSchedule = () => {
+    const displayTodaysSchedule = async () => {
         const scheduleList = document.querySelector('.schedule-list');
         if (!scheduleList) return;
 
@@ -90,10 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const fullTimetable = generateFullSchoolTimetable();
+        await fetchFullSchoolTimetable(); // Ensure the timetable is loaded
+        const fullTimetable = schoolTimetable;
         const today = new Date().toLocaleString('en-us', { weekday: 'long' });
         const periodTimes = { 1: "9:00-9:40", 2: "9:40-10:20", 3: "10:20-11:00", 4: "11:00-11:40", 5: "12:10-12:50", 6: "12:50-1:30" };
-
+        
         let todayClasses = [];
         assignedClasses.forEach(className => {
             const daySchedule = fullTimetable[className] ? fullTimetable[className][today] : null;
@@ -115,8 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const createTimetableHTML = (className) => {
-        const fullTimetable = generateFullSchoolTimetable();
+    const createTimetableHTML = async (className) => {
+        await fetchFullSchoolTimetable(); // Ensure timetable is loaded
+        const fullTimetable = schoolTimetable;
         const classTimetable = fullTimetable[className];
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const today = new Date().toLocaleString('en-us', { weekday: 'long' });
@@ -160,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<div class="timetable-container"><h5>Timetable for ${className}</h5><table>${tableHeader}${tableBody}</table></div>`;
     };
 
-    const openScheduleModal = () => {
+    const openScheduleModal = async () => {
         const container = document.getElementById('scheduleModalContainer');
         if (!container) return;
 
@@ -168,7 +144,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!assignedClasses || assignedClasses.length === 0) {
             container.innerHTML = '<p style="text-align: center;">You have not been assigned to any classes by the admin.</p>';
         } else {
-            container.innerHTML = assignedClasses.map(className => createTimetableHTML(className)).join('');
+            // Since createTimetableHTML is now async, we must await the results.
+            const timetablePromises = assignedClasses.map(className => createTimetableHTML(className));
+            const timetableHTMLs = await Promise.all(timetablePromises);
+            container.innerHTML = timetableHTMLs.join('');
         }
         openModal(scheduleModalOverlay);
         closeNav();

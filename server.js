@@ -636,8 +636,8 @@ app.post('/update', upload.single('profilePicture'), async (req, res) => {
 app.post('/upload-documents', docUpload.fields([
     { name: 'profilePicture', maxCount: 1 },
     { name: 'signature', maxCount: 1 },
-    { name: 'marksheet10', maxCount: 1 },
-    { name: 'marksheet12', maxCount: 1 }
+    { name: 'migrationCertificate', maxCount: 1 },
+    { name: 'tcCertificate', maxCount: 1 }
 ]), async (req, res) => {
     console.log("Received a request at /upload-documents endpoint.");
     const { rollNumber } = req.body;
@@ -684,7 +684,7 @@ app.post('/upload-documents', docUpload.fields([
 
         // --- Fetch existing paths and merge with new ones ---
         const existingPathsResult = await pool.query(
-            'SELECT profilepicture, signature, marksheet10, marksheet12 FROM students WHERE rollnumber = $1',
+            'SELECT profilepicture, signature, marksheet10, marksheet12 FROM students WHERE rollnumber = $1', // DB columns remain the same
             [rollNumber]
         );
 
@@ -693,21 +693,21 @@ app.post('/upload-documents', docUpload.fields([
         }
         const existingPaths = existingPathsResult.rows[0];
 
-        // Merge new paths over existing ones. If a new path is undefined, the existing one is used.
+        // Merge new paths over existing ones. If a new path is undefined, the existing one from the DB is used.
         const finalFilePaths = {
             profilePicture: filePaths.profilePicture || existingPaths.profilepicture,
             signature: filePaths.signature || existingPaths.signature,
-            marksheet10: filePaths.marksheet10 || existingPaths.marksheet10,
-            marksheet12: filePaths.marksheet12 || existingPaths.marksheet12
+            migrationCertificate: filePaths.migrationCertificate || existingPaths.marksheet10,
+            tcCertificate: filePaths.tcCertificate || existingPaths.marksheet12
         };
 
         const query = `
             UPDATE students 
-            SET profilepicture=$1, signature=$2, marksheet10=$3, marksheet12=$4, updatedat=CURRENT_TIMESTAMP
+            SET profilepicture=$1, signature=$2, marksheet10=$3, marksheet12=$4, updatedat=CURRENT_TIMESTAMP /* DB columns remain marksheet10/12 */
             WHERE rollnumber = $5
             RETURNING *;
         `;
-        const values = [finalFilePaths.profilePicture, finalFilePaths.signature, finalFilePaths.marksheet10, finalFilePaths.marksheet12, rollNumber];
+        const values = [finalFilePaths.profilePicture, finalFilePaths.signature, finalFilePaths.migrationCertificate, finalFilePaths.tcCertificate, rollNumber];
         const { rows } = await pool.query(query, values);
 
         if (rows.length === 0) {
@@ -1297,6 +1297,202 @@ app.get('/student-data/:rollNumber', async (req, res) => {
     } catch (error) {
         console.error('Error fetching student data:', error);
         res.status(500).json({ message: 'Server error while fetching student data.' });
+    }
+});
+
+/**
+ * =============================================================================
+ * TIMETABLE ENDPOINTS
+ * =============================================================================
+ */
+
+// Helper function to get subjects for a class (moved from admin.js)
+const getSubjectsForClass = (className) => {
+    const prePrimary = ['Nursery', 'LKG', 'UKG'];
+    const primary = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'];
+    const middle = ['Class 6', 'Class 7', 'Class 8'];
+    const secondary = ['Class 9', 'Class 10'];
+    const seniorSecondary = ['Class 11', 'Class 12'];
+
+    if (prePrimary.includes(className)) {
+        return ['English (Alphabet)', 'Hindi (Basics)', 'Numbers (Maths)', 'General Knowledge', 'Drawing & Coloring', 'Rhymes / Stories', 'Games / P.E.'];
+    }
+    if (primary.includes(className)) {
+        return ['English', 'Hindi', 'Mathematics', 'E.V.S.', 'Computer Basics', 'Moral Science', 'Art & Craft', 'P.E. / Music'];
+    }
+    if (middle.includes(className)) {
+        return ['English', 'Hindi', 'Sanskrit', 'Mathematics', 'Science', 'Social Science', 'Computer Science', 'Moral Science', 'Art/Craft', 'P.E./Music'];
+    }
+    if (secondary.includes(className)) {
+        return ['English', 'Hindi', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Economics', 'Computer Apps', 'P.E.'];
+    }
+    if (seniorSecondary.includes(className)) {
+        return ['English', 'Physics', 'Chemistry', 'Mathematics', 'Biology', 'Accountancy', 'Business Studies', 'Economics', 'History', 'Pol. Science', 'Computer Sci.', 'P.E.'];
+    }
+    return ['English', 'Maths', 'Science', 'History', 'Geography', 'Hindi', 'Art', 'Music', 'P.E.'];
+};
+
+// Helper function to generate the timetable data structure (moved from admin.js)
+const generateFullSchoolTimetableData = async () => {
+    const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const periods = [1, 2, 3, 4, 5, 6];
+
+    // 1. Fetch all subjects and create a name-to-ID map
+    const subjectsResult = await pool.query('SELECT id, subject_name FROM subjects');
+    const subjectNameToIdMap = subjectsResult.rows.reduce((acc, subject) => {
+        acc[subject.subject_name] = subject.id;
+        return acc;
+    }, {});
+
+    let generatedTimetable = {};
+    allClasses.forEach(c => { generatedTimetable[c] = {}; days.forEach(d => { generatedTimetable[c][d] = {}; }); });
+    let periodBookings = {};
+    days.forEach(d => { periodBookings[d] = {}; periods.forEach(p => { periodBookings[d][p] = new Set(); }); }); // This will store subject IDs
+    const shuffleArray = (array) => { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[array[i], array[j]] = [array[j], array[i]]; } return array; };
+    
+    allClasses.forEach(className => {
+        const subjectsForClass = getSubjectsForClass(className);
+        days.forEach(day => {
+            let subjectsUsedToday = new Set();
+            periods.forEach(period => {
+                // Filter based on subject name, but check bookings using subject ID
+                let availableSubjects = shuffleArray(subjectsForClass.filter(s => {
+                    const subjectId = subjectNameToIdMap[s];
+                    return !periodBookings[day][period].has(subjectId);
+                }));
+                let preferredSubjects = availableSubjects.filter(s => !subjectsUsedToday.has(s));
+                let subjectNameToAssign = preferredSubjects.length > 0 ? preferredSubjects[0] : (availableSubjects.length > 0 ? availableSubjects[0] : null);
+
+                if (subjectNameToAssign) {
+                    const subjectIdToAssign = subjectNameToIdMap[subjectNameToAssign];
+                    generatedTimetable[className][day][period] = subjectIdToAssign;
+                    periodBookings[day][period].add(subjectIdToAssign);
+                    subjectsUsedToday.add(subjectNameToAssign); // Track by name for today's class
+                } else {
+                    generatedTimetable[className][day][period] = null; // Represents a free period
+                }
+            });
+        });
+    });
+
+    return generatedTimetable;
+};
+
+// New endpoint to get the entire timetable from the database
+app.get('/api/timetable/all', async (req, res) => {
+    console.log('Fetching entire school timetable from DB.');
+    try {
+        const query = `
+            SELECT 
+                t.class_name, t.day_of_week, t.period, s.subject_name 
+            FROM timetables t
+            LEFT JOIN subjects s ON t.subject_id = s.id
+            ORDER BY t.class_name, t.day_of_week, t.period;
+        `;
+        const { rows } = await pool.query(query);
+        
+        // If no records, it means it hasn't been generated yet.
+        if (rows.length === 0) {
+            return res.json({ exists: false, data: {} });
+        }
+
+        // Reconstruct the nested object structure for the frontend
+        const timetable = {};
+        rows.forEach(row => {
+            if (!timetable[row.class_name]) {
+                timetable[row.class_name] = {};
+            }
+            if (!timetable[row.class_name][row.day_of_week]) {
+                timetable[row.class_name][row.day_of_week] = {};
+            }
+            timetable[row.class_name][row.day_of_week][row.period] = row.subject_name || '---';
+        });
+
+        res.json({ exists: true, data: timetable });
+    } catch (error) {
+        console.error('Error fetching timetable:', error);
+        res.status(500).json({ message: 'Server error while fetching timetable.' });
+    }
+});
+
+// New endpoint to generate and save the timetable if it doesn't exist
+app.post('/api/timetable/generate', async (req, res) => {
+    console.log('Request to generate and save timetable.');
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check if data already exists to prevent accidental overwrite
+        const checkResult = await client.query('SELECT id FROM timetables LIMIT 1');
+        if (checkResult.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Timetable already exists in the database.' });
+        }
+
+        const timetableData = await generateFullSchoolTimetableData();
+        const insertQuery = 'INSERT INTO timetables (class_name, day_of_week, period, subject_id) VALUES ($1, $2, $3, $4)';
+
+        // Flatten the object and insert into the database
+        for (const className in timetableData) {
+            for (const day in timetableData[className]) {
+                for (const period in timetableData[className][day]) {
+                    const subjectId = timetableData[className][day][period]; // This is now an ID or null
+                    await client.query(insertQuery, [className, day, period, subjectId]);
+                }
+            }
+        }
+
+        await client.query('COMMIT');
+        console.log('Timetable generated and saved to database successfully.');
+        res.status(201).json({ message: 'Timetable generated and saved successfully.' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error generating/saving timetable:', error);
+        res.status(500).json({ message: 'Server error while generating timetable.' });
+    } finally {
+        client.release();
+    }
+});
+
+// New endpoint to update a timetable entry
+app.put('/api/timetable/update', jsonParser, async (req, res) => {
+    const { className, day, period, subject } = req.body;
+    console.log(`Updating timetable for ${className}, ${day}, Period ${period} to ${subject}`);
+
+    if (!className || !day || !period || subject === undefined) {
+        return res.status(400).json({ message: 'Class name, day, period, and subject are required.' });
+    }
+
+    try {
+        let subjectId = null;
+        // Find the subject_id for the given subject name.
+        // If the subject is "---" or an empty string, we'll treat it as a free period (null ID).
+        if (subject && subject !== '---') {
+            const subjectRes = await pool.query('SELECT id FROM subjects WHERE subject_name = $1', [subject]);
+            if (subjectRes.rows.length === 0) {
+                // If an admin types a subject that doesn't exist, we can't save it.
+                return res.status(400).json({ message: `Subject "${subject}" not found in the database.` });
+            }
+            subjectId = subjectRes.rows[0].id;
+        }
+
+        const query = `
+            UPDATE timetables 
+            SET subject_id = $1, updated_at = NOW()
+            WHERE class_name = $2 AND day_of_week = $3 AND period = $4
+            RETURNING *;
+        `;
+        const { rows } = await pool.query(query, [subjectId, className, day, period]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Timetable entry not found.' });
+        }
+
+        res.status(200).json({ message: 'Timetable updated successfully.' });
+    } catch (error) {
+        console.error('Error updating timetable:', error);
+        res.status(500).json({ message: 'Server error while updating timetable.' });
     }
 });
 
@@ -2176,13 +2372,15 @@ function mapDbToCamelCase(dbObject) {
             mothername: 'motherName',
             motheroccupation: 'motherOccupation',
             parentmobile: 'parentMobile',
-            board10: 'board10',
+            board10: 'board10', // DB column name: JS object key
             marks10: 'marks10',
+            marksheet10: 'migrationCertificate', // DB: marksheet10 -> JS: migrationCertificate
             totalmarks10: 'totalMarks10',
             percentage10: 'percentage10',
             year10: 'year10',
             board12: 'board12',
             marks12: 'marks12',
+            marksheet12: 'tcCertificate', // DB: marksheet12 -> JS: tcCertificate
             totalmarks12: 'totalMarks12',
             percentage12: 'percentage12',
             year12: 'year12',
@@ -2201,6 +2399,32 @@ function mapDbToCamelCase(dbObject) {
     }
     return camelCaseObject;
 }
+
+/**
+ * =============================================================================
+ * GLOBAL ERROR HANDLER
+ * =============================================================================
+ * This middleware must be the LAST `app.use()` call. It catches errors from
+ * any route, including async errors and errors from middleware like Multer.
+ * This ensures that the client always receives a JSON error response instead
+ * of a default HTML error page.
+ */
+app.use((err, req, res, next) => {
+    console.error("An unhandled error occurred:", err);
+
+    // Handle Multer-specific errors (e.g., file size limits, etc.)
+    if (err instanceof multer.MulterError) {
+        return res.status(422).json({ message: `File Upload Error: ${err.message}` });
+    }
+
+    // If headers have already been sent, delegate to the default Express handler.
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    // For all other errors, send a generic 500 server error response.
+    res.status(500).json({ message: err.message || 'An unexpected server error occurred.' });
+});
 
 app.listen(port, () => {
     console.log("\n✅ Backend server is running!");

@@ -63,6 +63,33 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Helper function to format class names with ordinal suffixes
+        const formatClassName = (className) => {
+            if (!className) return 'N/A';
+            if (className.toLowerCase().includes('nursery')) return 'Nursery';
+            if (className.toLowerCase().includes('lkg')) return 'LKG';
+            if (className.toLowerCase().includes('ukg')) return 'UKG';
+
+            const numberMatch = className.match(/\d+/);
+            if (!numberMatch) return className; // Return as is if no number found
+
+            const number = parseInt(numberMatch[0], 10);
+            if (isNaN(number)) return className;
+
+            // Special case for 11, 12, 13
+            if (number >= 11 && number <= 13) {
+                return `${number}th`;
+            }
+
+            const lastDigit = number % 10;
+            switch (lastDigit) {
+                case 1: return `${number}st`;
+                case 2: return `${number}nd`;
+                case 3: return `${number}rd`;
+                default: return `${number}th`;
+            }
+        };
+
         // --- Hobby Course Data ---
         const HOBBY_COURSES = {
             "Dancing": { name: "Dancing", fee: 50000 }, // ₹500.00
@@ -73,24 +100,28 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // --- Course Data (from course-selection.js) ---
-        const COURSES = {
-            "Physics": { name: "Physics", fee: 150000 }, // ₹1,500.00
-            "Chemistry": { name: "Chemistry", fee: 165000 }, // ₹1,650.00
-            "Mathematics": { name: "Mathematics", fee: 145000 }, // ₹1,450.00
-            "Botany": { name: "Botany", fee: 155000 }, // ₹1,550.00
-            "Zoology": { name: "Zoology", fee: 155000 }, // ₹1,550.00
-            "Computer Science": { name: "Computer Science", fee: 250000 }, // ₹2,500.00
-            "Commerce": { name: "Commerce", fee: 120000 }, // ₹1,200.00
-            "History": { name: "History", fee: 110000 }, // ₹1,100.00
-            "Political Science": { name: "Political Science", fee: 110000 }, // ₹1,100.00
-            "Economics": { name: "Economics", fee: 135000 }, // ₹1,350.00
-            "English": { name: "English", fee: 115000 }, // ₹1,150.00
-            "Hindi": { name: "Hindi", fee: 105000 }  // ₹1,050.00
+        const CLASSES = {
+            "Nursery": { name: "Nursery", fee: 500000 },
+            "LKG": { name: "LKG", fee: 550000 },
+            "UKG": { name: "UKG", fee: 600000 },
+            "Class 1": { name: "Class 1", fee: 700000 },
+            "Class 2": { name: "Class 2", fee: 750000 },
+            "Class 3": { name: "Class 3", fee: 800000 },
+            "Class 4": { name: "Class 4", fee: 850000 },
+            "Class 5": { name: "Class 5", fee: 900000 },
+            "Class 6": { name: "Class 6", fee: 1000000 },
+            "Class 7": { name: "Class 7", fee: 1050000 },
+            "Class 8": { name: "Class 8", fee: 1100000 },
+            "Class 9": { name: "Class 9", fee: 1250000 },
+            "Class 10": { name: "Class 10", fee: 1300000 },
+            "Class 11": { name: "Class 11", fee: 1500000 },
+            "Class 12": { name: "Class 12", fee: 1550000 }
         };
 
         let studentData = JSON.parse(studentDataString);
         let studentNotifications = []; // To store fetched notifications
         let searchableItems = []; // Define the array to hold all searchable items
+        let schoolTimetable = null; // Cache for the full school timetable
 
         // --- View Containers ---
         const proceedSection = document.querySelector('.proceed-section');
@@ -104,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sideNavMyCoursesBtn = document.getElementById('sideNavMyCoursesBtn');
         const sideNavFeeStructureBtn = document.getElementById('sideNavFeeStructureBtn');
         const sideNavSettingsBtn = document.getElementById('sideNavSettingsBtn');
+        const sideNavTimetableLink = document.getElementById('sideNavTimetableLink');
         const sideNavLogoutBtn = document.getElementById('sideNavLogoutBtn');
         const sideNavAvatar = document.getElementById('sideNavAvatar');
         const sideNavName = document.getElementById('sideNavName');
@@ -179,6 +211,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const notificationDetailTitle = document.getElementById('notificationDetailTitle');
         const notificationDetailMessage = document.getElementById('notificationDetailMessage');
         const notificationDetailDate = document.getElementById('notificationDetailDate');
+
+        // --- Student Timetable Modal ---
+        const studentTimetableModalOverlay = document.getElementById('studentTimetableModalOverlay');
+        const closeStudentTimetableModalBtn = document.getElementById('closeStudentTimetableModalBtn');
+        const studentTimetableTitle = document.getElementById('studentTimetableTitle');
+        const studentTimetableBody = document.getElementById('studentTimetableBody');
 
 
         // Helper function to generate HTML for each application step
@@ -258,6 +296,71 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (closeProfileModalBtn) closeProfileModalBtn.addEventListener('click', () => closeModal(profileModalOverlay));
         if (profileModalOverlay) profileModalOverlay.addEventListener('click', (event) => { if (event.target === profileModalOverlay) closeModal(profileModalOverlay); });
+
+        // --- Timetable Logic ---
+        const fetchFullSchoolTimetable = async () => {
+            if (schoolTimetable) return; // Already fetched
+
+            try {
+                console.log("Student Portal: Fetching timetable from server...");
+                const response = await fetch('/api/timetable/all');
+                const result = await response.json();
+
+                if (!response.ok) throw new Error(result.message || 'Failed to fetch timetable.');
+
+                if (result.exists) {
+                    schoolTimetable = result.data;
+                } else {
+                    schoolTimetable = {}; // Set to empty to prevent re-fetching
+                    alert('The school timetable has not been generated by the admin yet.');
+                }
+            } catch (error) {
+                console.error("Student Portal: Error fetching timetable:", error);
+                schoolTimetable = {};
+            }
+        };
+
+        const openStudentTimetableModal = async () => {
+            if (!studentTimetableModalOverlay) return;
+
+            const studentClass = parsedCourse.branch;
+            if (!studentClass) {
+                alert("Your class information is not available. Cannot display timetable.");
+                return;
+            }
+
+            await fetchFullSchoolTimetable();
+
+            if (!schoolTimetable || Object.keys(schoolTimetable).length === 0) {
+                // Alert was already shown in fetch function if it doesn't exist
+                return;
+            }
+
+            const classTimetable = schoolTimetable[studentClass];
+            studentTimetableTitle.textContent = `Timetable for ${studentClass}`;
+            studentTimetableBody.innerHTML = ''; // Clear previous content
+
+            if (!classTimetable) {
+                studentTimetableBody.innerHTML = '<tr><td colspan="8">Timetable data is not available for your class.</td></tr>';
+            } else {
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const today = new Date().toLocaleString('en-us', { weekday: 'long' });
+
+                days.forEach(day => {
+                    const row = document.createElement('tr');
+                    if (day === today) row.classList.add('current-day-row');
+                    let rowHTML = `<td>${day}</td>`;
+                    for (let i = 1; i <= 6; i++) { rowHTML += `<td>${classTimetable[day]?.[i] || '---'}</td>`; }
+                    row.innerHTML = rowHTML;
+                    const breakCell = document.createElement('td');
+                    breakCell.classList.add('break-cell'); breakCell.textContent = 'Break';
+                    row.insertBefore(breakCell, row.children[5]);
+                    studentTimetableBody.appendChild(row);
+                });
+            }
+            openModal(studentTimetableModalOverlay);
+            closeNav();
+        };
 
         // --- My Courses Modal Logic ---
         const populateEnrolledCourses = () => {
@@ -358,9 +461,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const populateFeeStructureTable = () => {
             if (!feeStructureContainer) return;
 
-            let tableHTML = '<table><thead><tr><th>Course Name</th><th>Fee</th></tr></thead><tbody>';
-            for (const key in COURSES) {
-                const course = COURSES[key];
+            let tableHTML = '<table><thead><tr><th>Class</th><th>Annual Fee</th></tr></thead><tbody>';
+            for (const key in CLASSES) {
+                const course = CLASSES[key];
                 tableHTML += `<tr><td>${course.name}</td><td>₹${(course.fee / 100).toLocaleString('en-IN')}</td></tr>`;
             }
             tableHTML += '</tbody></table>';
@@ -570,6 +673,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (closeNotificationDetailModalBtn) closeNotificationDetailModalBtn.addEventListener('click', () => closeModal(notificationDetailModalOverlay));
         if (notificationDetailModalOverlay) notificationDetailModalOverlay.addEventListener('click', (event) => { if (event.target === notificationDetailModalOverlay) closeModal(notificationDetailModalOverlay); });
+
+        // --- Student Timetable Modal Listeners ---
+        if (closeStudentTimetableModalBtn) {
+            closeStudentTimetableModalBtn.addEventListener('click', () => closeModal(studentTimetableModalOverlay));
+        }
+        if (studentTimetableModalOverlay) {
+            studentTimetableModalOverlay.addEventListener('click', (e) => { if (e.target === studentTimetableModalOverlay) closeModal(studentTimetableModalOverlay); });
+        }
 
         // --- Side Navigation Action Listeners ---
         if (sideNavLogoutBtn) {
@@ -784,12 +895,11 @@ document.addEventListener('DOMContentLoaded', () => {
             searchableItems = [
                 { title: 'Dashboard', keywords: 'home main', action: { type: 'function', func: () => { closeModal(searchModalOverlay); } } },
                 { title: 'My Courses', keywords: 'my courses subjects enrolled', action: { type: 'function', func: openMyCoursesModal } },
-                { title: 'Admission Summary', keywords: 'form details', action: { type: 'link', href: 'payment-summary.html' } },
+                { title: 'Admission Summary', keywords: 'form details receipt', action: { type: 'link', href: 'payment-summary.html' } },
                 { title: 'Attendance Details', keywords: 'present absent', action: { type: 'link', href: '#' } },
-                { title: 'Upcoming Events', keywords: 'calendar', action: { type: 'link', href: '#' } },
-                { title: 'Time Table', keywords: 'schedule class routine', action: { type: 'link', href: '#' } },
+                { title: 'Time Table', keywords: 'schedule class routine', action: { type: 'function', func: openStudentTimetableModal } },
                 { title: 'Check Results', keywords: 'grades marks', action: { type: 'link', href: '#' } },
-                { title: 'Library Portal', keywords: 'books', action: { type: 'link', href: '#' } },
+                { title: 'Library Portal', keywords: 'books issue', action: { type: 'link', href: '#' } },
                 { title: 'Notices', keywords: 'announcements updates', action: { type: 'link', href: '#' } },
                 { title: 'Support / Helpdesk', keywords: 'help ticket', action: { type: 'link', href: '#' } },
                 { title: 'Fee Payment History', keywords: 'fee payment transaction receipt details', action: { type: 'function', func: openHistoryModal } },
@@ -806,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="student-profile-intro">
                         <img src="${studentData.profilePicture || 'default-avatar.png'}" alt="Profile Picture" class="profile-intro-pic" onerror="this.onerror=null;this.src='default-avatar.png';">
                         <h3>${studentData.name || 'Student'}</h3>
-                        <p>Roll No: ${studentData.rollNumber || 'N/A'}</p>
+                        <p>Class: <strong>${formatClassName(parsedCourse.branch) || 'N/A'}</strong></p>
                     </div>
                     <div class="quick-links-panel">
                          <div class="quick-links-header">
@@ -816,11 +926,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <a href="#" id="quickLinkMyCourses" class="quick-link-item">My Courses</a>
                             <a href="payment-summary.html" class="quick-link-item">Admission Summary</a>
                             <a href="#" class="quick-link-item">Attendance Details</a>
-                            <a href="#" class="quick-link-item">Upcoming Events</a>
+                            <a href="#" id="quickLinkTimetable" class="quick-link-item">Time Table</a>
                             <a href="#" id="quickLinkPaymentHistory" class="quick-link-item">Payment Details</a>
-                            <a href="#" class="quick-link-item">Time Table</a>
                             <a href="#" class="quick-link-item">Check Results</a>
-                            <a href="#" class="quick-link-item">Library Portal</a>
+                            <a href="#" class="quick-link-item">Library</a>
                         </div>
                     </div>
                 </div>
@@ -857,12 +966,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     openHistoryModal();
                 });
             }
+
+            // Attach listener for the timetable quick link
+            const quickLinkTimetable = document.getElementById('quickLinkTimetable');
+            if (quickLinkTimetable) {
+                quickLinkTimetable.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openStudentTimetableModal();
+                });
+            }
         } else {
             // --- PRE-PAYMENT VIEW (UNLOCKED) ---
+
+            // Add the welcome banner and profile intro at the top
+            proceedSection.innerHTML = `
+                <div class="welcome-banner">
+                    <h2>Welcome, ${studentData.name || 'Student'}</h2>
+                </div>
+                <div class="student-profile-intro">
+                    <img src="${studentData.profilePicture || 'default-avatar.png'}" alt="Profile Picture" class="profile-intro-pic" onerror="this.onerror=null;this.src='default-avatar.png';">
+                    <h3>${studentData.name || 'Student'}</h3>
+                    <p>Roll No: <strong>${studentData.rollNumber || 'N/A'}</strong> | Enrollment No: <strong>${studentData.enrollmentNumber || 'N/A'}</strong></p>
+                    <p>Email: ${studentData.email || 'N/A'}</p>
+                    <p>Mobile: ${studentData.mobileNumber || 'N/A'}</p>
+                </div>
+            `;
+
+            // --- PRE-PAYMENT VIEW (UNLOCKED) ---
             const contactDone = studentData.addressLine1 && studentData.addressLine1.trim() !== '';
-            const academicDone = studentData.board10 && studentData.board10.trim() !== '';
             // Check for the new document fields to mark this step as done
-            const documentsDone = studentData.profilePicture && studentData.signature && studentData.marksheet10 && studentData.marksheet12;
+            const documentsDone = studentData.profilePicture && studentData.signature && studentData.migrationCertificate && studentData.tcCertificate;
             // A course is considered "selected" if a valid course object (with an amount) was parsed from the student data.
             const courseSelected = !!parsedCourse.amount;
 
@@ -871,10 +1004,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 { title: 'Dashboard', keywords: 'home main progress', action: { type: 'function', func: () => { closeModal(searchModalOverlay); } } },
                 { title: 'My Courses', keywords: 'my courses subjects enrolled', action: { type: 'function', func: openMyCoursesModal } },
                 { title: 'Address & Parents Detail', keywords: 'contact parent', action: { type: 'link', href: 'contact-details.html' }, enabled: true },
-                { title: 'Academic Details', keywords: 'marks results 10th 12th', action: { type: 'link', href: 'academic-details.html' }, enabled: contactDone },
-                { title: 'Upload Documents', keywords: 'photo signature marksheet', action: { type: 'link', href: 'document-upload.html' }, enabled: academicDone },
-                { title: 'Course Selection', keywords: 'subject choose', action: { type: 'link', href: 'course-selection.html' }, enabled: documentsDone },
-                { title: 'Preview Application', keywords: 'review form', action: { type: 'link', href: 'preview.html' }, enabled: (contactDone && academicDone && documentsDone && courseSelected) },
+                { title: 'Upload Documents', keywords: 'photo signature marksheet', action: { type: 'link', href: 'document-upload.html' }, enabled: contactDone },
+                { title: 'Class Selection', keywords: 'class choose admission', action: { type: 'link', href: 'course-selection.html' }, enabled: documentsDone },
+                { title: 'Preview Application', keywords: 'review form', action: { type: 'link', href: 'preview.html' }, enabled: (contactDone && documentsDone && courseSelected) },
                 { title: 'Fee Structure', keywords: 'course fees price', action: { type: 'function', func: openFeeStructureModal } },
                 { title: 'Fee Payment History', keywords: 'fee payment transaction receipt details', action: { type: 'function', func: openHistoryModal } },
                 { title: 'Settings', keywords: 'profile edit change password', action: { type: 'function', func: openSettingsModal } },
@@ -891,28 +1023,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 'contact-details.html', contactDone, true
             );
 
-            // Step 2: Academic Details
+            // Step 2: Upload Documents (New Order)
             stepsContainer.innerHTML += createStepHTML(
-                '2. Academic Details', 'Provide your 10th and 12th board results.',
-                'academic-details.html', academicDone, contactDone
+                '2. Upload Documents', 'Upload your photo, signature, and marksheets.',
+                'document-upload.html', documentsDone, contactDone
             );
 
-            // Step 3: Upload Documents
+            // Step 3: Class Selection (New Order)
             stepsContainer.innerHTML += createStepHTML(
-                '3. Upload Documents', 'Upload your photo, signature, and marksheets.',
-                'document-upload.html', documentsDone, academicDone
-            );
-
-            // Step 4: Course Selection
-            stepsContainer.innerHTML += createStepHTML(
-                '4. Course Selection', 'Select your desired course.',
+                '3. Class Selection', 'Select the class for admission.',
                 'course-selection.html', courseSelected, documentsDone
             );
 
             proceedSection.appendChild(stepsContainer);
 
             // Add the "Proceed to Preview" button only when all steps are complete
-            if (contactDone && academicDone && documentsDone && courseSelected) {
+            if (contactDone && documentsDone && courseSelected) {
                 const previewSection = document.createElement('div');
                 previewSection.className = 'final-proceed-section';
                 previewSection.innerHTML = `
@@ -1079,6 +1205,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert(`Failed to update settings: ${error.message}`);
                     });
                 }
+            });
+        }
+
+        // Attach listener for timetable link in side nav (only works if student is paid)
+        if (isPaid && sideNavTimetableLink) {
+            sideNavTimetableLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                openStudentTimetableModal();
             });
         }
 
