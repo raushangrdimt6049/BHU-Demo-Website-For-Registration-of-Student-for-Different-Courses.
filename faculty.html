@@ -589,6 +589,23 @@
         </div>
     </main>
 
+    <!-- Mark Attendance Modal -->
+    <div id="markAttendanceModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 700px;">
+            <button id="closeMarkAttendanceModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view">
+                <h4 id="markAttendanceTitle" style="text-align: center; margin-bottom: 1.5rem;">Mark Attendance</h4>
+                <div id="attendanceStudentList" style="max-height: 60vh; overflow-y: auto; padding: 0.5rem; border: 1px solid var(--input-border); border-radius: 6px;">
+                    <!-- Student list will be populated here -->
+                </div>
+                <p id="attendance-error" class="error-message" style="text-align: center; margin-top: 1rem;"></p>
+                <div class="button-group" style="margin-top: 1.5rem;">
+                    <button id="submitAttendanceBtn" class="submit-btn">Confirm & Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="theme.js"></script>
     <script src="faculty.js"></script>
 </body>

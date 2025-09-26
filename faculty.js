@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (todayClasses.length === 0) {
             scheduleList.innerHTML = `<li>No classes scheduled for you today. Enjoy your day!</li>`;
         } else {
-            scheduleList.innerHTML = todayClasses.map(cls => `<li><span class="time">${cls.time}</span><span class="class-info">${cls.className} - ${facultySubject}</span><a href="#" class="action-link">Mark Attendance</a></li>`).join('');
+            scheduleList.innerHTML = todayClasses.map(cls => `<li><span class="time">${cls.time}</span><span class="class-info">${cls.className} - ${facultySubject}</span><a href="#" class="action-link mark-attendance-link" data-class="${cls.className}">Mark Attendance</a></li>`).join('');
         }
     };
 
@@ -243,6 +243,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- New Schedule Modal Elements ---
     const scheduleModalOverlay = document.getElementById('scheduleModalOverlay');
     const closeScheduleModalBtn = document.getElementById('closeScheduleModalBtn');
+
+    // --- Mark Attendance Modal Elements ---
+    const markAttendanceModalOverlay = document.getElementById('markAttendanceModalOverlay');
+    const closeMarkAttendanceModalBtn = document.getElementById('closeMarkAttendanceModalBtn');
+    const markAttendanceTitle = document.getElementById('markAttendanceTitle');
+    const attendanceStudentList = document.getElementById('attendanceStudentList');
 
 
     // --- Side Navigation Logic ---
@@ -786,4 +792,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Initial Data Fetch on Page Load ---
     fetchAndDisplayFacultyNotifications();
+
+    // --- Event delegation for dynamically added "Mark Attendance" links ---
+    document.body.addEventListener('click', (e) => {
+        const targetLink = e.target.closest('.mark-attendance-link');
+        if (targetLink) {
+            e.preventDefault();
+            const className = targetLink.dataset.class;
+            openMarkAttendanceModal(className);
+        }
+    });
 });

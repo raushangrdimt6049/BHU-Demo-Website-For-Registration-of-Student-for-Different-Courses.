@@ -1771,6 +1771,45 @@ app.post('/api/student/request-attendance-correction', correctionUpload.single('
     res.status(200).json({ message: 'Your attendance correction request has been submitted successfully.' });
 });
 
+app.get('/api/students-by-class/:className', async (req, res) => {
+    const { className } = req.params;
+    console.log(`Fetching students for class: ${className}`);
+    try {
+        // We need to query based on the 'branch' inside the 'selectedcourse' JSONB column
+        const query = `
+            SELECT name, rollnumber, profilepicture 
+            FROM students 
+            WHERE selectedcourse->>'branch' = $1
+            ORDER BY name;
+        `;
+        const { rows } = await pool.query(query, [className]);
+        res.json(rows.map(student => mapDbToCamelCase(student)));
+    } catch (error) {
+        console.error(`Error fetching students for class ${className}:`, error);
+        res.status(500).json({ message: 'Server error while fetching students.' });
+    }
+});
+
+app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
+    const { className, subject, attendanceData, facultyUsername } = req.body;
+    console.log(`Received attendance for ${className} - ${subject} from ${facultyUsername}`);
+
+    if (!className || !subject || !attendanceData || !facultyUsername) {
+        return res.status(400).json({ message: 'Missing required attendance information.' });
+    }
+
+    // In a real application, you would loop through attendanceData and save each record to a dedicated 'attendance' table.
+    // For this demo, we will just log the received data.
+    console.log('--- Attendance Data ---');
+    for (const rollNumber in attendanceData) {
+        console.log(`  Roll No: ${rollNumber}, Status: ${attendanceData[rollNumber]}`);
+    }
+    console.log('-----------------------');
+
+    // Simulate a successful save.
+    res.status(200).json({ message: `Attendance for ${className} - ${subject} has been submitted successfully.` });
+});
+
 /**
  * =============================================================================
  * ADMIN-FACING ENDPOINTS
