@@ -387,18 +387,144 @@ async function generateAdmissionSummaryPdf(studentData, courseData, orderId) {
             <div class="footer"><p>This is a computer-generated document and does not require a signature.</p></div></div></main></body></html>`;
 
     // --- 2. Generate PDF ---
-    const browser = await puppeteer.launch({
+    const launchOptions = {
         args: chromium.args,
         defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
         headless: chromium.headless,
         ignoreHTTPSErrors: true,
-    });
+    };
+    // For local development, puppeteer can find a local chrome install.
+    // For production (like on Render), we must use the path from @sparticuz/chromium.
+    if (chromium.headless) {
+        launchOptions.executablePath = await chromium.executablePath();
+    }
+    const browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
 
     await page.setContent(summaryHtmlContent, { waitUntil: 'networkidle0' });
     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } });
 
+    await browser.close();
+    return pdfBuffer;
+}
+
+// --- PDF Generation Helper for Student ID Card ---
+// Helper function to format class names with ordinal suffixes
+const formatClassNameForIdCard = (className) => {
+    if (!className) return 'N/A';
+    if (className.toLowerCase().includes('nursery')) return 'Nursery';
+    if (className.toLowerCase().includes('lkg')) return 'LKG';
+    if (className.toLowerCase().includes('ukg')) return 'UKG';
+
+    const numberMatch = className.match(/\d+/);
+    if (!numberMatch) return className; // Return as is if no number found
+
+    const number = parseInt(numberMatch[0], 10);
+    if (isNaN(number)) return className;
+
+    // Special case for 11, 12, 13
+    if (number >= 11 && number <= 13) {
+        return `${number}th`;
+    }
+
+    const lastDigit = number % 10;
+    switch (lastDigit) {
+        case 1: return `${number}st`;
+        case 2: return `${number}nd`;
+        case 3: return `${number}rd`;
+        default: return `${number}th`;
+    }
+};
+
+async function generateIdCardHtml(studentData, courseData) {
+    const formatDate = (date) => {
+        if (!date) return 'N/A';
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+    };
+
+    // Determine Issue and Expiry Date
+    // Use the student's creation date as the 'joining date'
+    const issueDate = new Date(studentData.createdAt);
+    const expiryDate = new Date(issueDate);
+    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+
+    let profilePictureSrc = 'https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png'; // Fallback
+    if (studentData.profilePicture) {
+        const picPath = path.join(__dirname, studentData.profilePicture);
+        if (fs.existsSync(picPath)) {
+            // Convert to base64 to embed directly in HTML, avoiding file path issues in Puppeteer
+            const imageBuffer = fs.readFileSync(picPath);
+            const imageType = path.extname(picPath).substring(1);
+            profilePictureSrc = `data:image/${imageType};base64,${imageBuffer.toString('base64')}`;
+        }
+    }
+
+    const idCardHtmlContent = `
+        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Student ID Card</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
+            .id-card {
+                width: 320px;
+                border-radius: 15px;
+                box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+                background: #fff;
+                overflow: hidden;
+                border: 4px solid transparent; /* Border thickness */
+                background-clip: padding-box; /* Important: keeps background from showing under the border */
+                border-image: linear-gradient(45deg, #4f46e5, #7c3aed, #db2777, #f472b6) 1;
+            }
+            .id-header { background-color: #002147; color: white; padding: 10px; text-align: center; }
+            .id-header h3 { margin: 0; font-size: 16px; }
+            .id-header p { margin: 2px 0 0 0; font-size: 12px; opacity: 0.9; }
+            .id-body { padding: 15px; text-align: center; }
+            .profile-pic { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #002147; margin-bottom: 10px; }
+            .student-name { font-size: 20px; font-weight: 600; margin: 0 0 5px 0; color: #002147; }
+            .student-class { font-size: 16px; font-weight: 500; margin: 0 0 15px 0; color: #333; }
+            .details-grid { text-align: left; font-size: 13px; }
+            .detail-item { display: flex; margin-bottom: 6px; }
+            .detail-item label { font-weight: 600; color: #555; width: 80px; flex-shrink: 0; }
+            .detail-item span { word-break: break-all; }
+            .id-footer { background-color: #f0f2f5; padding: 8px; text-align: center; font-size: 11px; color: #555; border-top: 1px solid #ddd; }
+        </style></head><body><div class="id-card-container">
+                <div class="id-card">
+                    <div class="id-header"><h3>DAV PG College, Varanasi</h3><p>Student Identity Card</p></div>
+                    <div class="id-body">
+                        <img src="${profilePictureSrc}" alt="Profile" class="profile-pic">
+                        <h4 class="student-name">${studentData.name || 'N/A'}</h4>
+                    <p class="student-class">Class: ${formatClassNameForIdCard(courseData.branch)}</p>
+                        <div class="details-grid">
+                            <div class="detail-item"><label>Roll No:</label><span>${studentData.rollNumber || 'N/A'}</span></div>
+                            <div class="detail-item"><label>Mobile:</label><span>${studentData.mobileNumber || 'N/A'}</span></div>
+                            <div class="detail-item"><label>Email:</label><span>${studentData.email || 'N/A'}</span></div>
+                        </div>
+                    </div>
+                    <div class="id-footer"><span>Issued: ${formatDate(issueDate)}</span> | <span>Expires: ${formatDate(expiryDate)}</span></div>
+                </div>
+            </div></body></html>`;
+
+    return idCardHtmlContent;
+}
+
+async function generateIdCardPdf(studentData, courseData) {
+    const idCardHtmlContent = await generateIdCardHtml(studentData, courseData);
+
+    const launchOptions = {
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+    };
+    if (chromium.headless) {
+        launchOptions.executablePath = await chromium.executablePath();
+    }
+    const browser = await puppeteer.launch(launchOptions);
+    const page = await browser.newPage();
+    await page.setContent(idCardHtmlContent, { waitUntil: 'load' });
+    const pdfBuffer = await page.pdf({ width: '360px', height: '580px' }); // Custom dimensions for ID card
     await browser.close();
     return pdfBuffer;
 }
@@ -467,13 +593,16 @@ async function sendPaymentReceiptEmail(studentData, courseData, orderId) {
 
     // --- 2. Generate PDF and Send Email ---
     try {
-        const browser = await puppeteer.launch({
+        const launchOptions = {
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(),
             headless: chromium.headless,
             ignoreHTTPSErrors: true,
-        });
+        };
+        if (chromium.headless) {
+            launchOptions.executablePath = await chromium.executablePath();
+        }
+        const browser = await puppeteer.launch(launchOptions);
         const page = await browser.newPage();
 
         await page.setContent(receiptHtmlContent, { waitUntil: 'networkidle0' });
@@ -550,13 +679,16 @@ async function generatePaymentHistoryPdf(studentName, rollNumber, history) {
             </div>
         </body></html>`;
 
-    const browser = await puppeteer.launch({
+    const launchOptions = {
         args: chromium.args,
         defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
         headless: chromium.headless,
         ignoreHTTPSErrors: true,
-    });
+    };
+    if (chromium.headless) {
+        launchOptions.executablePath = await chromium.executablePath();
+    }
+    const browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
     await page.setContent(historyHtmlContent, { waitUntil: 'networkidle0' });
     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } });
@@ -1279,6 +1411,75 @@ app.get('/download-payment-history/:rollNumber', async (req, res) => {
     }
 });
 
+// New endpoint to download the student ID card
+app.get('/api/student/id-card/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Received request to download ID card for roll number: ${rollNumber}`);
+
+    try {
+        const { rows } = await pool.query('SELECT * FROM students WHERE rollnumber = $1', [rollNumber]);
+        if (rows.length === 0) {
+            return res.status(404).send('Student not found.');
+        }
+
+        const student = rows[0];
+        if (!student.selectedcourse || !student.selectedcourse.trim().startsWith('{')) {
+            return res.status(400).send('Admission details not found for this student.');
+        }
+
+        const studentData = mapDbToCamelCase(student);
+        const courseData = JSON.parse(student.selectedcourse);
+
+        const pdfBuffer = await generateIdCardPdf(studentData, courseData);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="ID_Card_${rollNumber}.pdf"`);
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error('Error generating ID card PDF:', error);
+        res.status(500).send('Could not generate ID card. Please try again later.');
+    }
+});
+
+// New endpoint for a printable ID card
+app.get('/api/student/printable-id-card/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Received request for printable ID card for roll number: ${rollNumber}`);
+
+    try {
+        const { rows } = await pool.query('SELECT * FROM students WHERE rollnumber = $1', [rollNumber]);
+        if (rows.length === 0) {
+            return res.status(404).send('<h1>Student not found.</h1>');
+        }
+
+        const student = rows[0];
+        if (!student.selectedcourse || !student.selectedcourse.trim().startsWith('{')) {
+            return res.status(400).send('<h1>Admission details not found for this student.</h1>');
+        }
+
+        const studentData = mapDbToCamelCase(student);
+        const courseData = JSON.parse(student.selectedcourse);
+
+        let htmlContent = await generateIdCardHtml(studentData, courseData);
+
+        // Inject a script to automatically trigger the print dialog
+        const printScript = `
+            <script>
+                window.onload = () => { window.print(); };
+                window.onafterprint = () => { window.close(); };
+            </script>
+        `;
+        htmlContent = htmlContent.replace('</body>', `${printScript}</body>`);
+
+        res.setHeader('Content-Type', 'text/html');
+        res.send(htmlContent);
+    } catch (error) {
+        console.error('Error generating printable ID card:', error);
+        res.status(500).send('<h1>Could not generate ID card. Please try again later.</h1>');
+    }
+});
+
 app.get('/student-data/:rollNumber', async (req, res) => {
     const { rollNumber } = req.params;
     console.log(`Fetching latest data for roll number: ${rollNumber}`);
@@ -1494,6 +1695,80 @@ app.put('/api/timetable/update', jsonParser, async (req, res) => {
         console.error('Error updating timetable:', error);
         res.status(500).json({ message: 'Server error while updating timetable.' });
     }
+});
+
+/**
+ * =============================================================================
+ * ATTENDANCE ENDPOINTS
+ * =============================================================================
+ */
+
+// Mock endpoint to get student attendance
+app.get('/api/student/attendance/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Fetching attendance for roll number: ${rollNumber}`);
+
+    try {
+        // 1. Get the student's class from their profile
+        const studentRes = await pool.query('SELECT selectedcourse FROM students WHERE rollnumber = $1', [rollNumber]);
+        if (studentRes.rows.length === 0 || !studentRes.rows[0].selectedcourse || !studentRes.rows[0].selectedcourse.trim().startsWith('{')) {
+            return res.json([]); // No class found, so no attendance data
+        }
+
+        const courseData = JSON.parse(studentRes.rows[0].selectedcourse);
+        const className = courseData.branch;
+
+        if (!className) {
+            return res.json([]); // No class name in the course data, so no attendance
+        }
+
+        // 2. Get all unique subjects for that class from the timetable
+        const subjectsQuery = `
+            SELECT DISTINCT s.subject_name
+            FROM timetables t
+            JOIN subjects s ON t.subject_id = s.id
+            WHERE t.class_name = $1 AND s.subject_name IS NOT NULL
+            ORDER BY s.subject_name;
+        `;
+        const subjectsRes = await pool.query(subjectsQuery, [className]);
+
+        // 3. Generate mock attendance data for each subject
+        const attendanceData = subjectsRes.rows.map(row => {
+            const total = Math.floor(Math.random() * 10) + 45; // Random total between 45-54
+            const present = Math.floor(Math.random() * (total - 35)) + 35; // Random present, ensuring at least 35
+            const absent = total - present;
+            return { course: row.subject_name, total, present, absent };
+        });
+
+        res.json(attendanceData);
+    } catch (error) {
+        console.error('Error fetching dynamic attendance data:', error);
+        res.status(500).json({ message: 'Server error while fetching attendance data.' });
+    }
+});
+
+// Multer setup for attendance correction file uploads
+const correctionFileStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/corrections/';
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `${req.body.rollNumber}-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+});
+const correctionUpload = multer({ storage: correctionFileStorage });
+
+// Endpoint to handle attendance correction requests
+app.post('/api/student/request-attendance-correction', correctionUpload.single('supportingFile'), (req, res) => {
+    const { rollNumber, course, comment } = req.body;
+    console.log(`Received attendance correction request for Roll No: ${rollNumber}, Course: ${course}`);
+    console.log(`Comment: ${comment}`);
+    if (req.file) console.log(`Supporting File: ${req.file.path}`);
+
+    res.status(200).json({ message: 'Your attendance correction request has been submitted successfully.' });
 });
 
 /**

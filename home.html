@@ -51,6 +51,81 @@
             background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0 0.5rem;
         }
 
+        /* --- Modern Dropdown Styles --- */
+        .custom-select-wrapper {
+            position: relative;
+            width: auto;
+            min-width: 200px;
+        }
+        .custom-select-wrapper select {
+            -webkit-appearance: none; /* Remove default arrow on Chrome/Safari */
+            -moz-appearance: none; /* Remove default arrow on Firefox */
+            appearance: none;
+            width: 100%;
+            background-color: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            padding: 0.6rem 2.5rem 0.6rem 1rem; /* Right padding for custom arrow */
+            font-size: 0.95rem;
+            color: var(--text-color);
+            cursor: pointer;
+            transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+        }
+        .custom-select-wrapper::after {
+            content: '▾'; /* Custom arrow character */
+            position: absolute;
+            top: 50%;
+            right: 1rem;
+            transform: translateY(-50%);
+            pointer-events: none; /* So it doesn't block clicks on the select */
+        }
+        /* --- Attendance Graph Styles --- */
+        .attendance-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 180px; /* Max width for donut */
+            height: 180px; /* Fixed height for donut */
+        }
+        .chart-container .percentage-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+        /* --- Attendance Modal Styles --- */
+        #attendance-summary-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .attendance-box {
+            background-color: var(--bg-body);
+            border: 1px solid var(--input-border);
+            border-radius: 8px;            min-width: 220px;
+            padding: 1rem;
+        }
+        .attendance-box h5 { margin: 0 0 1rem 0; color: var(--btn-bg); border-bottom: 1px solid var(--input-border); padding-bottom: 0.5rem; }
+        .attendance-box p { margin: 0.5rem 0; display: flex; justify-content: space-between; }
+        .attendance-box p span:first-child { font-weight: 600; }
+        .correction-request-section {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--input-border);
+        }
+        .correction-request-section textarea { width: 100%; resize: vertical; }
+        }
+
         /* --- Animated Border Keyframes --- */
         @keyframes rotate {
             100% {
@@ -485,7 +560,7 @@
             <li><a href="#" id="sideNavMyCoursesBtn"><span class="nav-icon">📚</span> My Courses</a></li>
             <li><a href="#" id="sideNavTimetableLink"><span class="nav-icon">📅</span> Timetable</a></li>
             <li><a href="#" id="sideNavFeeStructureBtn"><span class="nav-icon">💰</span> Fee Structure</a></li>
-            <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
+            <li><a href="#" id="sideNavAttendanceLink"><span class="nav-icon">✅</span> Attendance</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Assignments</a></li>
             <li><a href="#"><span class="nav-icon">🎓</span> Results</a></li>
             <li><a href="#"><span class="nav-icon">🏛️</span> Library</a></li>
@@ -757,6 +832,49 @@
             </div>
         </div>
     </div>
+    <!-- Attendance Modal -->
+    <div id="attendanceModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 800px;">
+            <button id="closeAttendanceModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--input-border); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+                    <h4 style="margin: 0;">My Attendance</h4>
+                    <div class="custom-select-wrapper">
+                        <select id="attendanceSubjectFilter">
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="attendance-summary-container">
+                    <!-- Attendance boxes will be populated here -->
+                </div>
+
+                <div class="correction-request-section">
+                    <h4>Request Attendance Correction</h4>
+                    <form id="attendanceCorrectionForm">
+                        <div class="form-group">
+                            <label for="correctionCourseSelect">Select Course</label>
+                            <select id="correctionCourseSelect" name="course" required>
+                                <!-- Options will be populated by JS -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="correctionComment">Reason for Correction</label>
+                            <textarea id="correctionComment" name="comment" rows="3" placeholder="e.g., 'I was present on DD/MM/YYYY but marked absent due to a technical issue.'" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="correctionFile">Supporting Document (Optional)</label>
+                            <input type="file" id="correctionFile" name="supportingFile" accept="image/jpeg, image/png, application/pdf">
+                            <small>e.g., Medical certificate, event participation proof.</small>
+                        </div>
+                        <button type="submit" class="submit-btn" style="width: auto;">Submit Request</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="home.js"></script>
 </body>
 </html>

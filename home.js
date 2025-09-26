@@ -218,6 +218,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const studentTimetableTitle = document.getElementById('studentTimetableTitle');
         const studentTimetableBody = document.getElementById('studentTimetableBody');
 
+        // --- Attendance Modal ---
+        const attendanceModalOverlay = document.getElementById('attendanceModalOverlay');
+        const closeAttendanceModalBtn = document.getElementById('closeAttendanceModalBtn');
+        const attendanceSummaryContainer = document.getElementById('attendance-summary-container');
+        const attendanceCorrectionForm = document.getElementById('attendanceCorrectionForm');
+        const correctionCourseSelect = document.getElementById('correctionCourseSelect');
+        const attendanceSubjectFilter = document.getElementById('attendanceSubjectFilter');
+
 
         // Helper function to generate HTML for each application step
         function createStepHTML(title, description, link, isDone, isEnabled) {
@@ -296,6 +304,140 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (closeProfileModalBtn) closeProfileModalBtn.addEventListener('click', () => closeModal(profileModalOverlay));
         if (profileModalOverlay) profileModalOverlay.addEventListener('click', (event) => { if (event.target === profileModalOverlay) closeModal(profileModalOverlay); });
+
+        // --- Attendance Modal Logic ---
+        let fullAttendanceData = []; // Cache for the fetched attendance data
+        let attendanceChartInstance = null; // To hold the Chart.js instance
+
+        const displayAttendanceDetails = (subject) => {
+            let dataToShow;
+            let title;
+
+            if (attendanceChartInstance) {
+                attendanceChartInstance.destroy();
+            }
+            attendanceSummaryContainer.innerHTML = ''; // Clear previous content
+
+            if (fullAttendanceData.length === 0) {
+                attendanceSummaryContainer.innerHTML = '<p>No attendance data available.</p>';
+                return;
+            }
+
+            if (subject === 'Overall') {
+                const totalClasses = fullAttendanceData.reduce((sum, s) => sum + s.total, 0);
+                const totalPresent = fullAttendanceData.reduce((sum, s) => sum + s.present, 0);
+                const totalAbsent = totalClasses - totalPresent; // More reliable calculation
+                dataToShow = { total: totalClasses, present: totalPresent, absent: totalAbsent };
+                title = 'Overall Attendance';
+            } else {
+                dataToShow = fullAttendanceData.find(s => s.course === subject);
+                title = `${subject} Attendance`;
+            }
+            
+            if (!dataToShow) {
+                attendanceSummaryContainer.innerHTML = '<p>No data available for this selection.</p>';
+                return;
+            }
+            
+            const percentage = dataToShow.total > 0 ? ((dataToShow.present / dataToShow.total) * 100) : 0;
+            const formattedPercentage = percentage.toFixed(1);
+
+            // Render the container for the chart and stats
+            attendanceSummaryContainer.innerHTML = `
+                <div class="attendance-display">
+                    <div class="chart-container">
+                        <canvas id="attendanceChart"></canvas>
+                        <div class="percentage-text">${formattedPercentage}%</div>
+                    </div>
+                    <div class="attendance-box">
+                        <h5>${title}</h5>
+                        <p><span>Total Classes:</span> <span>${dataToShow.total}</span></p>
+                        <p><span>Present:</span> <span>${dataToShow.present}</span></p>
+                        <p><span>Absent:</span> <span>${dataToShow.absent}</span></p>
+                    </div>
+                </div>
+            `;
+
+            // Create the new donut chart
+            const chartData = {
+                labels: ['Present', 'Absent'],
+                datasets: [{
+                    data: [dataToShow.present, dataToShow.absent],
+                    backgroundColor: ['#28a745', '#dc3545'],
+                    borderColor: 'var(--bg-main)',
+                    borderWidth: 4,
+                    hoverOffset: 4
+                }]
+            };
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: { legend: { display: false }, tooltip: { enabled: true } }
+            };
+            const ctx = document.getElementById('attendanceChart').getContext('2d');
+            attendanceChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: chartData,
+                options: chartOptions
+            });
+        };
+
+        const openAttendanceModal = async () => {
+            if (!attendanceModalOverlay) return;
+
+            attendanceSummaryContainer.innerHTML = '<p>Loading attendance...</p>';
+            correctionCourseSelect.innerHTML = '<option value="" disabled selected>Select a course</option>';
+            attendanceSubjectFilter.innerHTML = '<option>Loading...</option>';
+            openModal(attendanceModalOverlay);
+            closeNav();
+
+            try {
+                const response = await fetch(`/api/student/attendance/${studentData.rollNumber}`);
+                if (!response.ok) throw new Error('Could not fetch attendance data.');
+                fullAttendanceData = await response.json();
+
+                if (fullAttendanceData.length === 0) {
+                    attendanceSummaryContainer.innerHTML = '<p>No attendance records found.</p>';
+                    attendanceSubjectFilter.innerHTML = '<option>No Subjects</option>';
+                    return;
+                }
+
+                // Populate dropdowns
+                attendanceSubjectFilter.innerHTML = '<option value="Overall">Overall</option>';
+                fullAttendanceData.forEach(subject => {
+                    attendanceSubjectFilter.innerHTML += `<option value="${subject.course}">${subject.course}</option>`;
+                    correctionCourseSelect.innerHTML += `<option value="${subject.course}">${subject.course}</option>`;
+                });
+
+                // Display initial "Overall" view
+                displayAttendanceDetails('Overall');
+
+            } catch (error) {
+                console.error('Error fetching attendance:', error);
+                attendanceSummaryContainer.innerHTML = `<p style="color: red;">${error.message}</p>`;
+            }
+        };
+
+        if (attendanceSubjectFilter) {
+            attendanceSubjectFilter.addEventListener('change', (e) => {
+                const selectedSubject = e.target.value;
+                displayAttendanceDetails(selectedSubject);
+            });
+        }
+
+        if (attendanceCorrectionForm) {
+            attendanceCorrectionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(attendanceCorrectionForm);
+                formData.append('rollNumber', studentData.rollNumber);
+                
+                const response = await fetch('/api/student/request-attendance-correction', { method: 'POST', body: formData });
+                const result = await response.json();
+                alert(result.message);
+                if (response.ok) attendanceCorrectionForm.reset();
+            });
+        }
 
         // --- Timetable Logic ---
         const fetchFullSchoolTimetable = async () => {
@@ -674,6 +816,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeNotificationDetailModalBtn) closeNotificationDetailModalBtn.addEventListener('click', () => closeModal(notificationDetailModalOverlay));
         if (notificationDetailModalOverlay) notificationDetailModalOverlay.addEventListener('click', (event) => { if (event.target === notificationDetailModalOverlay) closeModal(notificationDetailModalOverlay); });
 
+        // --- Attendance Modal Listeners ---
+        if (closeAttendanceModalBtn) closeAttendanceModalBtn.addEventListener('click', () => closeModal(attendanceModalOverlay));
+        if (attendanceModalOverlay) attendanceModalOverlay.addEventListener('click', (e) => {
+            if (e.target === attendanceModalOverlay) closeModal(attendanceModalOverlay);
+        });
+
         // --- Student Timetable Modal Listeners ---
         if (closeStudentTimetableModalBtn) {
             closeStudentTimetableModalBtn.addEventListener('click', () => closeModal(studentTimetableModalOverlay));
@@ -896,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { title: 'Dashboard', keywords: 'home main', action: { type: 'function', func: () => { closeModal(searchModalOverlay); } } },
                 { title: 'My Courses', keywords: 'my courses subjects enrolled', action: { type: 'function', func: openMyCoursesModal } },
                 { title: 'Admission Summary', keywords: 'form details receipt', action: { type: 'link', href: 'payment-summary.html' } },
-                { title: 'Attendance Details', keywords: 'present absent', action: { type: 'link', href: '#' } },
+                { title: 'Attendance Details', keywords: 'present absent', action: { type: 'function', func: openAttendanceModal } },
                 { title: 'Time Table', keywords: 'schedule class routine', action: { type: 'function', func: openStudentTimetableModal } },
                 { title: 'Check Results', keywords: 'grades marks', action: { type: 'link', href: '#' } },
                 { title: 'Library Portal', keywords: 'books issue', action: { type: 'link', href: '#' } },
@@ -925,10 +1073,11 @@ document.addEventListener('DOMContentLoaded', () => {
                          <div class="quick-links-grid">
                             <a href="#" id="quickLinkMyCourses" class="quick-link-item">My Courses</a>
                             <a href="payment-summary.html" class="quick-link-item">Admission Summary</a>
-                            <a href="#" class="quick-link-item">Attendance Details</a>
+                            <a href="#" id="quickLinkAttendance" class="quick-link-item">Attendance</a>
                             <a href="#" id="quickLinkTimetable" class="quick-link-item">Time Table</a>
                             <a href="#" id="quickLinkPaymentHistory" class="quick-link-item">Payment Details</a>
                             <a href="#" class="quick-link-item">Check Results</a>
+                            <a href="/api/student/id-card/${studentData.rollNumber}" class="quick-link-item" download>Download ID Card</a>
                             <a href="#" class="quick-link-item">Library</a>
                         </div>
                     </div>
@@ -1213,6 +1362,14 @@ document.addEventListener('DOMContentLoaded', () => {
             sideNavTimetableLink.addEventListener('click', (e) => {
                 e.preventDefault();
                 openStudentTimetableModal();
+            });
+        }
+
+        // Attach listener for attendance link in side nav (only works if student is paid)
+        if (isPaid && sideNavAttendanceLink) {
+            sideNavAttendanceLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                openAttendanceModal();
             });
         }
 
