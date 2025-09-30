@@ -863,104 +863,143 @@ document.addEventListener('DOMContentLoaded', () => {
             // This can be enhanced later if needed.
         });
     }
-});
 
-if (submitAttendanceBtn) {
-    submitAttendanceBtn.addEventListener('click', async () => {
-        const className = submitAttendanceBtn.dataset.class;
-        const subject = facultyData.subject;
-        const facultyUsername = facultyData.username;
-        const errorEl = document.getElementById('attendance-error');
-        const studentItems = document.querySelectorAll('.attendance-student-item');
+    // --- Attendance Modal: Present/Absent Button Click Logic ---
+    if (attendanceStudentList) {
+        attendanceStudentList.addEventListener('click', (e) => {
+            const target = e.target;
+            if (target.classList.contains('attendance-btn')) {
+                const studentItem = target.closest('.attendance-student-item');
+                if (!studentItem) return;
 
-        if (!className || !subject || !facultyUsername) {
-            errorEl.textContent = 'Could not submit. Missing class, subject, or faculty information.';
-            errorEl.style.display = 'block';
-            return;
-        }
+                // Remove 'selected' from both buttons in the same row
+                studentItem.querySelectorAll('.attendance-btn').forEach(btn => btn.classList.remove('selected'));
 
-        const attendanceData = {};
-        studentItems.forEach(item => {
-            const rollNumber = item.dataset.roll;
-            const selectedStatus = item.querySelector(`input[name="attendance-${rollNumber}"]:checked`);
-            if (rollNumber && selectedStatus) {
-                attendanceData[rollNumber] = selectedStatus.value;
+                // Add 'selected' to the clicked button
+                target.classList.add('selected');
+
+                // Update the data-status on the parent item
+                if (target.classList.contains('present-btn')) {
+                    studentItem.dataset.status = 'present';
+                } else {
+                    studentItem.dataset.status = 'absent';
+                }
             }
         });
-
-        submitAttendanceBtn.disabled = true;
-        submitAttendanceBtn.textContent = 'Submitting...';
-        errorEl.style.display = 'none';
-
-        try {
-            const response = await fetch('/api/faculty/mark-attendance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ className, subject, attendanceData, facultyUsername })
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.message);
-
-            alert(result.message);
-            closeModal(markAttendanceModalOverlay);
-        } catch (error) {
-            errorEl.textContent = `Submission failed: ${error.message}`;
-            errorEl.style.display = 'block';
-        } finally {
-            submitAttendanceBtn.disabled = false;
-            submitAttendanceBtn.textContent = 'Confirm & Submit';
-        }
-    });
-}
-
-const openMarkAttendanceModal = async (className) => {
-    const modalOverlay = document.getElementById('markAttendanceModalOverlay');
-    const titleEl = document.getElementById('markAttendanceTitle');
-    const studentListEl = document.getElementById('attendanceStudentList');
-    const errorEl = document.getElementById('attendance-error');
-    const submitBtn = document.getElementById('submitAttendanceBtn');
-
-    if (!modalOverlay || !titleEl || !studentListEl || !errorEl || !submitBtn) {
-        console.error("One or more attendance modal elements are missing from the DOM.");
-        return;
     }
 
-    titleEl.textContent = `Mark Attendance for ${className}`;
-    studentListEl.innerHTML = '<p style="text-align: center; padding: 2rem;">Loading students...</p>';
-    errorEl.style.display = 'none';
-    submitBtn.dataset.class = className; // Store class name for submission
-
-    modalOverlay.classList.add('active');
-
-    try {
-        const response = await fetch(`/api/students-by-class/${className}`);
-        const students = await response.json();
-
-        if (!response.ok) {
-            throw new Error(students.message || 'Failed to fetch student list.');
-        }
-
-        if (students.length === 0) {
-            studentListEl.innerHTML = `<p style="text-align: center; padding: 2rem;">No students are enrolled in ${className}.</p>`;
-            submitBtn.disabled = true; // Disable submission if no students
+    if (submitAttendanceBtn) {
+        submitAttendanceBtn.addEventListener('click', async () => {
+            const className = submitAttendanceBtn.dataset.class;
+            const subject = facultyData.subject;
+            const facultyUsername = facultyData.username;
+            const errorEl = document.getElementById('attendance-error');
+            const studentItems = document.querySelectorAll('.attendance-student-item');
+    
+            if (!className || !subject || !facultyUsername) {
+                errorEl.textContent = 'Could not submit. Missing class, subject, or faculty information.';
+                errorEl.style.display = 'block';
+                return;
+            }
+    
+            const attendanceData = {};
+            studentItems.forEach(item => {
+                const rollNumber = item.dataset.roll;
+                if (rollNumber && item.dataset.status) {
+                    attendanceData[rollNumber] = item.dataset.status;
+                }
+            });
+    
+            submitAttendanceBtn.disabled = true;
+            submitAttendanceBtn.textContent = 'Submitting...';
+            errorEl.style.display = 'none';
+    
+            try {
+                const response = await fetch('/api/faculty/mark-attendance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ className, subject, attendanceData, facultyUsername })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+    
+                alert(result.message);
+                closeModal(markAttendanceModalOverlay);
+            } catch (error) {
+                errorEl.textContent = `Submission failed: ${error.message}`;
+                errorEl.style.display = 'block';
+            } finally {
+                submitAttendanceBtn.disabled = false;
+                submitAttendanceBtn.textContent = 'Confirm & Submit';
+            }
+        });
+    }
+    
+    const openMarkAttendanceModal = async (className) => {
+        const modalOverlay = document.getElementById('markAttendanceModalOverlay');
+        const titleEl = document.getElementById('markAttendanceTitle');
+        const studentListEl = document.getElementById('attendanceStudentList');
+        const errorEl = document.getElementById('attendance-error');
+        const submitBtn = document.getElementById('submitAttendanceBtn');
+    
+        if (!modalOverlay || !titleEl || !studentListEl || !errorEl || !submitBtn) {
+            console.error("One or more attendance modal elements are missing from the DOM.");
             return;
         }
+    
+        titleEl.textContent = `Mark Attendance for ${className}`;
+        studentListEl.innerHTML = '<p style="text-align: center; padding: 2rem;">Loading students...</p>';
+        errorEl.style.display = 'none';
+        submitBtn.dataset.class = className; // Store class name for submission
+    
+        modalOverlay.classList.add('active');
+    
+        try {
+            const response = await fetch(`/api/students-by-class/${className}`);
+            const students = await response.json();
+    
+            if (!response.ok) {
+                throw new Error(students.message || 'Failed to fetch student list.');
+            }
+    
+            if (students.length === 0) {
+                studentListEl.innerHTML = `<p style="text-align: center; padding: 2rem;">No students are enrolled in ${className}.</p>`;
+                submitBtn.disabled = true; // Disable submission if no students
+                return;
+            }
+    
+            // Fetch existing attendance for the class and date
+            const attendanceResponse = await fetch(`/api/attendance/class-date?className=${className}&date=${new Date().toISOString().slice(0, 10)}`);
+            let attendanceData = [];
+            if (attendanceResponse.ok) {
+                attendanceData = await attendanceResponse.json();
+            }
 
-        submitBtn.disabled = false;
-        studentListEl.innerHTML = students.map(student => `
-            <div class="attendance-student-item" data-roll="${student.rollNumber}">
-                <img src="${student.profilePicture || 'default-avatar.png'}" alt="Avatar" class="attendance-student-avatar" onerror="this.onerror=null;this.src='default-avatar.png';">
-                <span class="attendance-student-name">${student.name}</span>
-                <div class="attendance-controls">
-                    <label><input type="radio" name="attendance-${student.rollNumber}" value="present" checked> Present</label>
-                    <label><input type="radio" name="attendance-${student.rollNumber}" value="absent"> Absent</label>
+            // Create a map of student roll numbers to attendance status
+            const attendanceMap = new Map(attendanceData.map(a => [a.studentRollnumber, a.status]));
+
+             submitBtn.disabled = false;
+            studentListEl.innerHTML = students.map(student => `
+                <div class="attendance-student-item" data-roll="${student.rollNumber}" data-status="${attendanceMap.get(student.rollNumber) || 'present'}">
+                    <img src="${student.profilePicture || 'default-avatar.png'}" alt="Avatar" class="attendance-student-avatar" onerror="this.onerror=null;this.src='default-avatar.png';">
+                    <span class="attendance-student-name">${student.name}</span>
+                    <div class="attendance-controls">
+                        ${attendanceMap.has(student.rollNumber) ? 
+                            `<span class="attendance-status">Attendance Marked: ${attendanceMap.get(student.rollNumber)}</span>` : 
+                            `
+                            <button class="attendance-btn present-btn ${attendanceMap.has(student.rollNumber) ? '' : 'selected'}">Present</button>
+                        <button class="attendance-btn absent-btn">Absent</button>
+                            `
+        }
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `).join('');
 
-    } catch (error) {
-        console.error("Error in openMarkAttendanceModal:", error);
-        studentListEl.innerHTML = `<p class="error-message" style="text-align: center; padding: 2rem;">${error.message}</p>`;
-        submitBtn.disabled = true;
-    }
-};
+    
+        } catch (error) {
+            console.error("Error in openMarkAttendanceModal:", error);
+            studentListEl.innerHTML = `<p class="error-message" style="text-align: center; padding: 2rem;">${error.message}</p>`;
+            submitBtn.disabled = true;
+        }
+    };
+});

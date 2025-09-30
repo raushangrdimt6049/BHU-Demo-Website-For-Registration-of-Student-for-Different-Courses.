@@ -342,6 +342,28 @@
             gap: 0.3rem;
             font-weight: 600;
         }
+        .attendance-controls .attendance-btn {
+            padding: 0.3rem 0.8rem;
+            border: 1px solid var(--input-border);
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            background-color: var(--bg-body);
+            color: var(--text-color);
+            transition: all 0.2s ease;
+        }
+        .attendance-controls .attendance-btn.present-btn.selected {
+            background-color: var(--btn-success-bg);
+            color: white;
+            border-color: var(--btn-success-bg);
+        }
+        .attendance-controls .attendance-btn.absent-btn.selected {
+            background-color: var(--btn-danger-bg);
+            color: white;
+            border-color: var(--btn-danger-bg);
+        }
+
 
         /* Timetable styles from admin.html */
         .timetable-container { margin-bottom: 2rem; }

@@ -136,6 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sideNavFeeStructureBtn = document.getElementById('sideNavFeeStructureBtn');
         const sideNavSettingsBtn = document.getElementById('sideNavSettingsBtn');
         const sideNavTimetableLink = document.getElementById('sideNavTimetableLink');
+        const sideNavAttendanceLink = document.getElementById('sideNavAttendanceLink');
         const sideNavLogoutBtn = document.getElementById('sideNavLogoutBtn');
         const sideNavAvatar = document.getElementById('sideNavAvatar');
         const sideNavName = document.getElementById('sideNavName');
@@ -309,7 +310,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let fullAttendanceData = []; // Cache for the fetched attendance data
         let attendanceChartInstance = null; // To hold the Chart.js instance
 
-        const displayAttendanceDetails = (subject) => {
+        const displayAttendanceDetails = async (subject) => {
             let dataToShow;
             let title;
 
@@ -323,6 +324,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            const displayDetailsHTML = (attendanceDetails) => {
+                let detailsHTML = '<ul>';
+                if (Array.isArray(attendanceDetails)) {
+                    attendanceDetails.forEach(detail => {
+                        const formattedDate = new Date(detail.attendanceDate).toLocaleDateString('en-IN');
+                        detailsHTML += `
+                            <li>
+                                ${detail.subject} - ${formattedDate} - ${detail.status}
+                            </li>
+                        `;
+                    });
+                } else {
+                    detailsHTML += `<li>${attendanceDetails}</li>`;
+                }
+                detailsHTML += '</ul>';
+                return detailsHTML;
+            }
+            //--- Display Detailed attendance Record---
+            let attendanceDetails = await fetch(`/api/student/attendance-details/${studentData.rollNumber}`);
+            attendanceDetails = await attendanceDetails.json();
+            if(attendanceDetails.length == 0){
+                attendanceDetails = "No Attendance Found.";
+            }
             if (subject === 'Overall') {
                 const totalClasses = fullAttendanceData.reduce((sum, s) => sum + s.total, 0);
                 const totalPresent = fullAttendanceData.reduce((sum, s) => sum + s.present, 0);
@@ -338,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 attendanceSummaryContainer.innerHTML = '<p>No data available for this selection.</p>';
                 return;
             }
+
             
             const percentage = dataToShow.total > 0 ? ((dataToShow.present / dataToShow.total) * 100) : 0;
             const formattedPercentage = percentage.toFixed(1);
@@ -354,6 +379,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p><span>Total Classes:</span> <span>${dataToShow.total}</span></p>
                         <p><span>Present:</span> <span>${dataToShow.present}</span></p>
                         <p><span>Absent:</span> <span>${dataToShow.absent}</span></p>
+                    </div>
+                </div>
+                <div class="detailed-attendance-log">
+                    <h4>Detailed Log</h4>
+                    <div class="log-list">
+                        ${displayDetailsHTML(attendanceDetails)}
                     </div>
                 </div>
             `;
@@ -1041,6 +1072,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // --- POST-PAYMENT VIEW (LOCKED) ---
             // --- Define Searchable Items for POST-PAYMENT view ---
             searchableItems = [
+                // Re-parse the course data from the latest student object to ensure it's up-to-date.
+                // This is crucial for the dashboard to render correctly after payment.
+                (function() {
+                    try {
+                        if (studentData.selectedCourse && studentData.selectedCourse.trim().startsWith('{')) {
+                            parsedCourse = JSON.parse(studentData.selectedCourse);
+                        }
+                    } catch (e) { console.error("Could not re-parse course data for dashboard rendering.", e); }
+                })(),
                 { title: 'Dashboard', keywords: 'home main', action: { type: 'function', func: () => { closeModal(searchModalOverlay); } } },
                 { title: 'My Courses', keywords: 'my courses subjects enrolled', action: { type: 'function', func: openMyCoursesModal } },
                 { title: 'Admission Summary', keywords: 'form details receipt', action: { type: 'link', href: 'payment-summary.html' } },
@@ -1105,6 +1145,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 quickLinkMyCourses.addEventListener('click', (e) => {
                     e.preventDefault();
                     openMyCoursesModal();
+                });
+            }
+
+            const quickLinkAttendance = document.getElementById('quickLinkAttendance');
+            if (quickLinkAttendance) {
+                quickLinkAttendance.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openAttendanceModal();
                 });
             }
 

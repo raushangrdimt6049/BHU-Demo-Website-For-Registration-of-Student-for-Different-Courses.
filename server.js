@@ -322,6 +322,33 @@ async function sendRegistrationSms(toMobileNumber, rollNumber, enrollmentNumber)
     }
 }
 
+// --- New SMS Sending Function for Attendance ---
+async function sendAttendanceSms(toMobileNumber, messageBody) {
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+        console.warn('Twilio credentials not found in .env file. Skipping attendance SMS.');
+        return;
+    }
+
+    // Initialize Twilio client
+    const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+    // Ensure mobile number is in E.164 format
+    const formattedMobileNumber = `+91${toMobileNumber}`;
+
+    try {
+        await twilioClient.messages.create({
+            body: messageBody,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: formattedMobileNumber
+        });
+        console.log(`Attendance SMS sent to ${formattedMobileNumber}`);
+    } catch (error) {
+        // Log the error but don't fail the entire process if SMS fails.
+        console.error(`Error sending attendance SMS to ${formattedMobileNumber}:`, error.message);
+    }
+}
+
+
 // --- PDF Generation Helper for Admission Summary ---
 async function generateAdmissionSummaryPdf(studentData, courseData, orderId) {
     // --- 1. Generate HTML for the Admission Summary PDF ---
@@ -1703,46 +1730,54 @@ app.put('/api/timetable/update', jsonParser, async (req, res) => {
  * =============================================================================
  */
 
-// Mock endpoint to get student attendance
+// Endpoint to get real student attendance data, ensuring all enrolled subjects are included.
 app.get('/api/student/attendance/:rollNumber', async (req, res) => {
     const { rollNumber } = req.params;
     console.log(`Fetching attendance for roll number: ${rollNumber}`);
 
     try {
-        // 1. Get the student's class from their profile
+        // Step 1: Get the student's class from their profile
         const studentRes = await pool.query('SELECT selectedcourse FROM students WHERE rollnumber = $1', [rollNumber]);
         if (studentRes.rows.length === 0 || !studentRes.rows[0].selectedcourse || !studentRes.rows[0].selectedcourse.trim().startsWith('{')) {
             return res.json([]); // No class found, so no attendance data
         }
-
         const courseData = JSON.parse(studentRes.rows[0].selectedcourse);
         const className = courseData.branch;
-
         if (!className) {
-            return res.json([]); // No class name in the course data, so no attendance
+            return res.json([]); // No class name in the course data
         }
 
-        // 2. Get all unique subjects for that class from the timetable
+        // Step 2: Get all unique subjects for that class from the timetable
         const subjectsQuery = `
             SELECT DISTINCT s.subject_name
             FROM timetables t
             JOIN subjects s ON t.subject_id = s.id
-            WHERE t.class_name = $1 AND s.subject_name IS NOT NULL
-            ORDER BY s.subject_name;
+            WHERE t.class_name = $1 AND s.subject_name IS NOT NULL;
         `;
         const subjectsRes = await pool.query(subjectsQuery, [className]);
+        const allEnrolledSubjects = subjectsRes.rows.map(row => row.subject_name);
 
-        // 3. Generate mock attendance data for each subject
-        const attendanceData = subjectsRes.rows.map(row => {
-            const total = Math.floor(Math.random() * 10) + 45; // Random total between 45-54
-            const present = Math.floor(Math.random() * (total - 35)) + 35; // Random present, ensuring at least 35
-            const absent = total - present;
-            return { course: row.subject_name, total, present, absent };
-        });
+        // Step 3: Get the actual marked attendance from the attendance table
+        const attendanceQuery = `
+            SELECT
+                subject AS course,
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE status = 'present') AS present,
+                COUNT(*) FILTER (WHERE status = 'absent') AS absent
+            FROM attendance
+            WHERE student_rollnumber = $1 GROUP BY subject;
+        `;
+        const attendanceRes = await pool.query(attendanceQuery, [rollNumber]);
+        const markedAttendanceMap = new Map(attendanceRes.rows.map(row => [row.course, row]));
 
-        res.json(attendanceData);
+        // Step 4: Merge the two lists
+        const finalAttendanceData = allEnrolledSubjects.map(subjectName => {
+            return markedAttendanceMap.get(subjectName) || { course: subjectName, total: 0, present: 0, absent: 0 };
+        }).sort((a, b) => a.course.localeCompare(b.course)); // Sort alphabetically
+
+        res.json(finalAttendanceData);
     } catch (error) {
-        console.error('Error fetching dynamic attendance data:', error);
+        console.error('Error fetching real attendance data:', error);
         res.status(500).json({ message: 'Server error while fetching attendance data.' });
     }
 });
@@ -1756,7 +1791,9 @@ const correctionFileStorage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, `${req.body.rollNumber}-${uniqueSuffix}${path.extname(file.originalname)}`);
+        // Ensure req.body is available for the filename
+        const rollNumber = req.body.rollNumber || 'unknown';
+        cb(null, `${rollNumber}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
 });
 const correctionUpload = multer({ storage: correctionFileStorage });
@@ -1818,38 +1855,32 @@ app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
             await client.query(insertQuery, [facultyUsername, rollNumber, className, subject, attendanceDate, status]);
         }
 
-        await client.query('COMMIT');
-        res.status(200).json({ message: `Attendance for ${className} - ${subject} has been submitted successfully.` });
-    } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error saving attendance data:', error);
-        res.status(500).json({ message: 'Failed to save attendance data to the server.' });
-    } finally {
-       client.release();
-    }
-});
+        // Fetch student details for notification
+        const studentDetailsQuery = 'SELECT name, mobilenumber FROM students WHERE rollnumber = ANY($1::text[])';
+        const rollNumbersArray = Object.keys(attendanceData);
+        const studentDetailsResult = await client.query(studentDetailsQuery, [rollNumbersArray]);
+        const studentDetailsMap = studentDetailsResult.rows.reduce((acc, student) => {
+            acc[student.rollnumber] = student;
+            return acc;
+        }, {});
 
-app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
-    const { className, subject, attendanceData, facultyUsername } = req.body;
-    console.log(`Received attendance for ${className} - ${subject} from ${facultyUsername}`);
-
-    if (!className || !subject || !attendanceData || !facultyUsername) {
-        return res.status(400).json({ message: 'Missing required attendance information.' });
-    }
-
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const attendanceDate = new Date(); // Use server time for consistency
-
-         const insertQuery = `
-            INSERT INTO attendance (faculty_username, student_rollnumber, class_name, subject, attendance_date, status)
-            VALUES ($1, $2, $3, $4, $5, $6);
-        `;
-
+        // Send notifications and SMS messages
         for (const rollNumber in attendanceData) {
             const status = attendanceData[rollNumber];
-            await client.query(insertQuery, [facultyUsername, rollNumber, className, subject, attendanceDate, status]);
+            const student = studentDetailsMap[rollNumber];
+
+            if (student) {
+                const formattedDate = attendanceDate.toLocaleDateString('en-IN');
+                const notificationMessage = `Attendance marked for ${subject} on ${formattedDate} as ${status}.`;
+                const insertNotificationQuery = `
+                    INSERT INTO notifications (studentrollnumber, type, message)
+                    VALUES ($1, 'attendance', $2)
+                `;
+                await client.query(insertNotificationQuery, [rollNumber, notificationMessage]);
+
+                // Use the new, correct SMS function
+                sendAttendanceSms(student.mobilenumber, `Attendance marked for ${subject} on ${formattedDate} as ${status}.`);
+            }
         }
 
         await client.query('COMMIT');
@@ -1886,6 +1917,24 @@ app.get('/api/faculty/view-attendance/:facultyUsername', async (req, res) => {
     } catch (error) {
         console.error(`Error fetching attendance records for ${facultyUsername}:`, error);
         res.status(500).json({ message: 'Server error while fetching attendance records.' });
+    }
+});
+
+// New endpoint to fetch attendance records for a specific class and date
+app.get('/api/attendance/class-date', async (req, res) => {
+    const { className, date } = req.query;
+    console.log(`Fetching attendance for class: ${className} and date: ${date}`);
+
+    try {
+        const query = `
+            SELECT student_rollnumber, status FROM attendance
+            WHERE class_name = $1 AND attendance_date = $2;
+        `;
+        const { rows } = await pool.query(query, [className, date]);
+        res.json(rows.map(row => mapDbToCamelCase(row)));
+    } catch (error) {
+        console.error('Error fetching attendance:', error);
+        res.status(500).json({ message: 'Server error while fetching attendance.' });
     }
 });
 
