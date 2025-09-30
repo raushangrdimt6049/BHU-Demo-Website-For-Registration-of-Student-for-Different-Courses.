@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Attendance - Faculty Portal</title>
+    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <script>
+        // Immediate theme application
+        (function() {
+            try {
+                if (localStorage.getItem('theme') === 'dark') {
+                    document.documentElement.classList.add('dark-mode');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <script>
+        // Security check
+        (function() {
+            if (!sessionStorage.getItem('currentFaculty')) {
+                window.location.replace('faculty-login.html');
+            }
+        })();
+    </script>
+    <style>
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-branding {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .back-link {
+            font-size: 1.5rem;
+            color: var(--text-color);
+            text-decoration: none;
+            margin-right: 1rem;
+            font-weight: bold;
+        }
+        .attendance-view-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background-color: var(--bg-body);
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .filter-group label {
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+            color: var(--text-color-light);
+        }
+        .filter-group input, .filter-group select {
+            padding: 0.6rem;
+            border-radius: 6px;
+            border: 1px solid var(--input-border);
+            background-color: var(--input-bg);
+            color: var(--text-color);
+        }
+        .attendance-table-container {
+            overflow-x: auto;
+        }
+        .attendance-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        .attendance-table th, .attendance-table td {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid var(--input-border);
+        }
+        .attendance-table th {
+            background-color: var(--bg-body);
+        }
+        .no-records-message {
+            text-align: center;
+            padding: 2rem;
+            background-color: var(--bg-body);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="header-branding">
+            <a href="faculty.html" class="back-link" title="Back to Dashboard">←</a>
+            <div class="logo-container">
+                <img src="LMS Logo.png" alt="LMS Logo" class="logo">
+            </div>
+        </div>
+    </header>
+
+    <main class="login-main">
+        <div class="attendance-view-container">
+            <h2 style="text-align: center; margin-bottom: 2rem;">My Submitted Attendance Records</h2>
+            <div id="attendance-records-container">
+                <!-- Content will be populated by JS -->
+            </div>
+        </div>
+    </main>
+
+    <script src="theme.js"></script>
+    <script src="faculty-view-attendance.js"></script>
+</body>
+</html>

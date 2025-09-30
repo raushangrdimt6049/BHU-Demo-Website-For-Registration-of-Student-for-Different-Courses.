@@ -200,6 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sideNavSettingsLink = document.getElementById('sideNavSettingsLink');
     const quickActionScheduleLink = document.getElementById('quickActionScheduleLink');
     const sideNavScheduleLink = document.getElementById('sideNavScheduleLink');
+    const sideNavViewAttendanceLink = document.getElementById('sideNavViewAttendanceLink');
     const facultyDashboard = document.querySelector('.faculty-dashboard');
 
     // Profile Completion Modal
@@ -248,7 +249,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const markAttendanceModalOverlay = document.getElementById('markAttendanceModalOverlay');
     const closeMarkAttendanceModalBtn = document.getElementById('closeMarkAttendanceModalBtn');
     const markAttendanceTitle = document.getElementById('markAttendanceTitle');
+    const submitAttendanceBtn = document.getElementById('submitAttendanceBtn');
     const attendanceStudentList = document.getElementById('attendanceStudentList');
+    const markAllPresentBtn = document.getElementById('markAllPresentBtn');
+    const attendanceSearchInput = document.getElementById('attendanceSearchInput');
+    const markAllAbsentBtn = document.getElementById('markAllAbsentBtn');
 
 
     // --- Side Navigation Logic ---
@@ -329,6 +334,14 @@ document.addEventListener('DOMContentLoaded', () => {
             sideNavScheduleLink.addEventListener('click', (e) => {
                 e.preventDefault();
                 openScheduleModal();
+            });
+        }
+      
+        if (sideNavViewAttendanceLink) {
+            sideNavViewAttendanceLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                // Navigate to the new view attendance page
+                window.location.href = 'faculty-view-attendance.html';
             });
         }
 
@@ -802,4 +815,152 @@ document.addEventListener('DOMContentLoaded', () => {
             openMarkAttendanceModal(className);
         }
     });
+
+    if (closeMarkAttendanceModalBtn) {
+        closeMarkAttendanceModalBtn.addEventListener('click', () => closeModal(markAttendanceModalOverlay));
+    }
+    if (markAttendanceModalOverlay) {
+        markAttendanceModalOverlay.addEventListener('click', (e) => { if (e.target === markAttendanceModalOverlay) closeModal(markAttendanceModalOverlay); });
+    }
+
+    // --- Mark All Present Button Logic ---
+    if (markAllPresentBtn) {
+        markAllPresentBtn.addEventListener('click', () => {
+            const studentListEl = document.getElementById('attendanceStudentList');
+            if (studentListEl) {
+                const presentRadioButtons = studentListEl.querySelectorAll('input[type="radio"][value="present"]');
+                presentRadioButtons.forEach(radio => radio.checked = true);
+            }
+        });
+    }
+
+    // --- Mark All Absent Button Logic ---
+    if (markAllAbsentBtn) {
+        markAllAbsentBtn.addEventListener('click', () => {
+            const studentListEl = document.getElementById('attendanceStudentList');
+            if (studentListEl) {
+                const absentRadioButtons = studentListEl.querySelectorAll('input[type="radio"][value="absent"]');
+                absentRadioButtons.forEach(radio => radio.checked = true);
+            }
+        });
+    }
+    // --- Attendance Modal: Search/Filter Logic ---
+    if (attendanceSearchInput) {
+        attendanceSearchInput.addEventListener('input', () => {
+            const searchTerm = attendanceSearchInput.value.toLowerCase().trim();
+            const studentItems = document.querySelectorAll('.attendance-student-item');
+            let visibleCount = 0;
+
+            studentItems.forEach(item => {
+                const studentName = item.querySelector('.attendance-student-name').textContent.toLowerCase();
+                const studentRoll = item.dataset.roll.toLowerCase();
+                const isVisible = studentName.includes(searchTerm) || studentRoll.includes(searchTerm);
+                item.style.display = isVisible ? 'flex' : 'none';
+                if (isVisible) visibleCount++;
+            });
+
+            // Optional: Show a message if no students match the search
+            // This can be enhanced later if needed.
+        });
+    }
 });
+
+if (submitAttendanceBtn) {
+    submitAttendanceBtn.addEventListener('click', async () => {
+        const className = submitAttendanceBtn.dataset.class;
+        const subject = facultyData.subject;
+        const facultyUsername = facultyData.username;
+        const errorEl = document.getElementById('attendance-error');
+        const studentItems = document.querySelectorAll('.attendance-student-item');
+
+        if (!className || !subject || !facultyUsername) {
+            errorEl.textContent = 'Could not submit. Missing class, subject, or faculty information.';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        const attendanceData = {};
+        studentItems.forEach(item => {
+            const rollNumber = item.dataset.roll;
+            const selectedStatus = item.querySelector(`input[name="attendance-${rollNumber}"]:checked`);
+            if (rollNumber && selectedStatus) {
+                attendanceData[rollNumber] = selectedStatus.value;
+            }
+        });
+
+        submitAttendanceBtn.disabled = true;
+        submitAttendanceBtn.textContent = 'Submitting...';
+        errorEl.style.display = 'none';
+
+        try {
+            const response = await fetch('/api/faculty/mark-attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ className, subject, attendanceData, facultyUsername })
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message);
+
+            alert(result.message);
+            closeModal(markAttendanceModalOverlay);
+        } catch (error) {
+            errorEl.textContent = `Submission failed: ${error.message}`;
+            errorEl.style.display = 'block';
+        } finally {
+            submitAttendanceBtn.disabled = false;
+            submitAttendanceBtn.textContent = 'Confirm & Submit';
+        }
+    });
+}
+
+const openMarkAttendanceModal = async (className) => {
+    const modalOverlay = document.getElementById('markAttendanceModalOverlay');
+    const titleEl = document.getElementById('markAttendanceTitle');
+    const studentListEl = document.getElementById('attendanceStudentList');
+    const errorEl = document.getElementById('attendance-error');
+    const submitBtn = document.getElementById('submitAttendanceBtn');
+
+    if (!modalOverlay || !titleEl || !studentListEl || !errorEl || !submitBtn) {
+        console.error("One or more attendance modal elements are missing from the DOM.");
+        return;
+    }
+
+    titleEl.textContent = `Mark Attendance for ${className}`;
+    studentListEl.innerHTML = '<p style="text-align: center; padding: 2rem;">Loading students...</p>';
+    errorEl.style.display = 'none';
+    submitBtn.dataset.class = className; // Store class name for submission
+
+    modalOverlay.classList.add('active');
+
+    try {
+        const response = await fetch(`/api/students-by-class/${className}`);
+        const students = await response.json();
+
+        if (!response.ok) {
+            throw new Error(students.message || 'Failed to fetch student list.');
+        }
+
+        if (students.length === 0) {
+            studentListEl.innerHTML = `<p style="text-align: center; padding: 2rem;">No students are enrolled in ${className}.</p>`;
+            submitBtn.disabled = true; // Disable submission if no students
+            return;
+        }
+
+        submitBtn.disabled = false;
+        studentListEl.innerHTML = students.map(student => `
+            <div class="attendance-student-item" data-roll="${student.rollNumber}">
+                <img src="${student.profilePicture || 'default-avatar.png'}" alt="Avatar" class="attendance-student-avatar" onerror="this.onerror=null;this.src='default-avatar.png';">
+                <span class="attendance-student-name">${student.name}</span>
+                <div class="attendance-controls">
+                    <label><input type="radio" name="attendance-${student.rollNumber}" value="present" checked> Present</label>
+                    <label><input type="radio" name="attendance-${student.rollNumber}" value="absent"> Absent</label>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error("Error in openMarkAttendanceModal:", error);
+        studentListEl.innerHTML = `<p class="error-message" style="text-align: center; padding: 2rem;">${error.message}</p>`;
+        submitBtn.disabled = true;
+    }
+};

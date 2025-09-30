@@ -310,6 +310,39 @@
             }
         }
 
+        /* Mark Attendance Modal Styles */
+        .attendance-student-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--input-border);
+        }
+        .attendance-student-item:last-child {
+            border-bottom: none;
+        }
+        .attendance-student-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 1rem;
+        }
+        .attendance-student-name {
+            flex-grow: 1;
+            font-weight: 500;
+        }
+        .attendance-controls {
+            display: flex;
+            gap: 1rem;
+        }
+        .attendance-controls label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-weight: 600;
+        }
+
         /* Timetable styles from admin.html */
         .timetable-container { margin-bottom: 2rem; }
         .timetable-container h5 { font-size: 1.2rem; margin-bottom: 0.5rem; color: var(--text-color); text-align: center; }
@@ -370,8 +403,8 @@
         </div>
         <ul>
             <li><a href="#"><span class="nav-icon">📚</span> My Courses</a></li>
-            <li><a href="#" id="sideNavScheduleLink"><span class="nav-icon">📅</span> Class Schedule</a></li>
-            <li><a href="#"><span class="nav-icon">✅</span> Mark Attendance</a></li>
+            <li><a href="#" id="sideNavScheduleLink"><span class="nav-icon">📅</span> My Class Schedule</a></li>
+            <li><a href="faculty-view-attendance.html" id="sideNavViewAttendanceLink"><span class="nav-icon">✅</span> View Attendance Records</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Assignments</a></li>
             <li><a href="#"><span class="nav-icon">💯</span> Exam & Marks</a></li>
             <li><a href="#"><span class="nav-icon">🧑‍🎓</span> Student Profile</a></li>
@@ -594,7 +627,16 @@
         <div class="profile-modal-content" style="max-width: 700px;">
             <button id="closeMarkAttendanceModalBtn" class="close-modal-btn">&times;</button>
             <div class="settings-view">
-                <h4 id="markAttendanceTitle" style="text-align: center; margin-bottom: 1.5rem;">Mark Attendance</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; --btn-danger-bg: #dc3545;">
+                    <h4 id="markAttendanceTitle" style="margin: 0;">Mark Attendance</h4>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="markAllPresentBtn" class="submit-btn" style="width: auto; background-color: var(--btn-success-bg); padding: 0.5rem 1rem;">Mark All Present</button>
+                        <button id="markAllAbsentBtn" class="submit-btn" style="width: auto; background-color: var(--btn-danger-bg); padding: 0.5rem 1rem;">Mark All Absent</button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <input type="text" id="attendanceSearchInput" placeholder="Search for a student by name or roll number..." autocomplete="off">
+                </div>
                 <div id="attendanceStudentList" style="max-height: 60vh; overflow-y: auto; padding: 0.5rem; border: 1px solid var(--input-border); border-radius: 6px;">
                     <!-- Student list will be populated here -->
                 </div>
@@ -609,4 +651,5 @@
     <script src="theme.js"></script>
     <script src="faculty.js"></script>
 </body>
+
 </html>

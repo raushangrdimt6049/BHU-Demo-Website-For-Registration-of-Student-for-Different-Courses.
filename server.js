@@ -1771,15 +1771,20 @@ app.post('/api/student/request-attendance-correction', correctionUpload.single('
     res.status(200).json({ message: 'Your attendance correction request has been submitted successfully.' });
 });
 
+// New endpoint to get students by class name for attendance marking
 app.get('/api/students-by-class/:className', async (req, res) => {
     const { className } = req.params;
     console.log(`Fetching students for class: ${className}`);
+
     try {
-        // We need to query based on the 'branch' inside the 'selectedcourse' JSONB column
+        // This query now correctly checks both the main admission course ('selectedcourse' JSON)
+        // and any additional hobby courses ('hobbycourses' JSON array) to find all students
+        // belonging to a specific class.
         const query = `
             SELECT name, rollnumber, profilepicture 
             FROM students 
-            WHERE selectedcourse->>'branch' = $1
+            WHERE selectedcourse::jsonb->>'branch' = $1 
+               OR hobbycourses @> jsonb_build_array(jsonb_build_object('name', $1))
             ORDER BY name;
         `;
         const { rows } = await pool.query(query, [className]);
@@ -1798,16 +1803,90 @@ app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
         return res.status(400).json({ message: 'Missing required attendance information.' });
     }
 
-    // In a real application, you would loop through attendanceData and save each record to a dedicated 'attendance' table.
-    // For this demo, we will just log the received data.
-    console.log('--- Attendance Data ---');
-    for (const rollNumber in attendanceData) {
-        console.log(`  Roll No: ${rollNumber}, Status: ${attendanceData[rollNumber]}`);
-    }
-    console.log('-----------------------');
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const attendanceDate = new Date(); // Use server time for consistency
 
-    // Simulate a successful save.
-    res.status(200).json({ message: `Attendance for ${className} - ${subject} has been submitted successfully.` });
+         const insertQuery = `
+            INSERT INTO attendance (faculty_username, student_rollnumber, class_name, subject, attendance_date, status)
+            VALUES ($1, $2, $3, $4, $5, $6);
+        `;
+
+        for (const rollNumber in attendanceData) {
+            const status = attendanceData[rollNumber];
+            await client.query(insertQuery, [facultyUsername, rollNumber, className, subject, attendanceDate, status]);
+        }
+
+        await client.query('COMMIT');
+        res.status(200).json({ message: `Attendance for ${className} - ${subject} has been submitted successfully.` });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error saving attendance data:', error);
+        res.status(500).json({ message: 'Failed to save attendance data to the server.' });
+    } finally {
+       client.release();
+    }
+});
+
+app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
+    const { className, subject, attendanceData, facultyUsername } = req.body;
+    console.log(`Received attendance for ${className} - ${subject} from ${facultyUsername}`);
+
+    if (!className || !subject || !attendanceData || !facultyUsername) {
+        return res.status(400).json({ message: 'Missing required attendance information.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const attendanceDate = new Date(); // Use server time for consistency
+
+         const insertQuery = `
+            INSERT INTO attendance (faculty_username, student_rollnumber, class_name, subject, attendance_date, status)
+            VALUES ($1, $2, $3, $4, $5, $6);
+        `;
+
+        for (const rollNumber in attendanceData) {
+            const status = attendanceData[rollNumber];
+            await client.query(insertQuery, [facultyUsername, rollNumber, className, subject, attendanceDate, status]);
+        }
+
+        await client.query('COMMIT');
+        res.status(200).json({ message: `Attendance for ${className} - ${subject} has been submitted successfully.` });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error saving attendance data:', error);
+        res.status(500).json({ message: 'Failed to save attendance data to the server.' });
+    } finally {
+       client.release();
+    }
+});
+
+// New endpoint for faculty to view their submitted attendance records
+app.get('/api/faculty/view-attendance/:facultyUsername', async (req, res) => {
+    const { facultyUsername } = req.params;
+    console.log(`Fetching attendance records for faculty: ${facultyUsername}`);
+    try {
+        const query = `
+            SELECT
+                class_name,
+                subject,
+                attendance_date,
+                COUNT(*) AS total_students,
+                COUNT(*) FILTER (WHERE status = 'present') AS present_count,
+                COUNT(*) FILTER (WHERE status = 'absent') AS absent_count
+            FROM attendance
+            WHERE faculty_username = $1
+            GROUP BY class_name, subject, attendance_date
+            ORDER BY attendance_date DESC, class_name;
+        `;
+        const { rows } = await pool.query(query, [facultyUsername]);
+        res.json(rows.map(row => mapDbToCamelCase(row)));
+    } catch (error) {
+        console.error(`Error fetching attendance records for ${facultyUsername}:`, error);
+        res.status(500).json({ message: 'Server error while fetching attendance records.' });
+    }
 });
 
 /**
