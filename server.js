@@ -31,7 +31,28 @@ const jsonParser = express.json();
 // On Render, DATABASE_URL is automatically set for your web service.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Required for Render's internal connections
+  ssl: { rejectUnauthorized: false },
+  // --- Recommended settings for robust, long-running applications ---
+    // Maximum number of clients in the pool
+    max: 20,
+  // How long a client is allowed to remain idle before being closed
+  idleTimeoutMillis: 30000, // 30 seconds
+  // How long to wait for a client from the pool before timing out
+  connectionTimeoutMillis: 20000, // 20 seconds
+    // --- Additional settings to handle connection issues ---
+    // Check connection health periodically
+    validationQuery: 'SELECT 1',
+    // Number of milliseconds to wait before considering a connection invalid
+    // Should be less than server's timeout
+    statement_timeout: 60000, // 60 seconds
+    // Frequency to check and prune idle clients
+    reapIntervalMillis: 60000, // 60 seconds
+  // --- Recommended settings for long-running applications ---
+    // Test the connection before using it
+    // Detects broken connections early
+    test: function (client) {
+        return client.query('SELECT 1');
+    }
 });
 
 // --- Razorpay Instance ---
@@ -1782,6 +1803,36 @@ app.get('/api/student/attendance/:rollNumber', async (req, res) => {
     }
 });
 
+// New endpoint to get detailed attendance records for a student
+app.get('/api/student/attendance-details/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Fetching detailed attendance for roll number: ${rollNumber}`);
+
+    try {
+        const query = `
+            SELECT 
+                subject, 
+                attendance_date, 
+                status 
+            FROM attendance 
+            WHERE student_rollnumber = $1
+            ORDER BY attendance_date DESC;
+        `;
+        const { rows } = await pool.query(query, [rollNumber]);
+
+        // Map to camelCase for consistency
+        const attendanceDetails = rows.map(row => ({
+            subject: row.subject,
+            attendanceDate: row.attendance_date,
+            status: row.status
+        }));
+
+        res.json(attendanceDetails);
+    } catch (error) {
+        console.error('Error fetching detailed attendance:', error);
+        res.status(500).json({ message: 'Server error while fetching detailed attendance.' });
+    }
+});
 // Multer setup for attendance correction file uploads
 const correctionFileStorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -1913,7 +1964,14 @@ app.get('/api/faculty/view-attendance/:facultyUsername', async (req, res) => {
             ORDER BY attendance_date DESC, class_name;
         `;
         const { rows } = await pool.query(query, [facultyUsername]);
-        res.json(rows.map(row => mapDbToCamelCase(row)));
+        // Manually map and convert types for this specific query
+        const mappedRows = rows.map(row => ({
+            ...mapDbToCamelCase(row), // Apply general mapping
+            totalStudents: parseInt(row.total_students, 10) || 0,
+            presentCount: parseInt(row.present_count, 10) || 0,
+            absentCount: parseInt(row.absent_count, 10) || 0,
+        }));
+        res.json(mappedRows);
     } catch (error) {
         console.error(`Error fetching attendance records for ${facultyUsername}:`, error);
         res.status(500).json({ message: 'Server error while fetching attendance records.' });
@@ -1927,8 +1985,8 @@ app.get('/api/attendance/class-date', async (req, res) => {
 
     try {
         const query = `
-            SELECT student_rollnumber, status FROM attendance
-            WHERE class_name = $1 AND attendance_date = $2;
+            SELECT student_rollnumber, status FROM attendance 
+            WHERE class_name = $1 AND attendance_date::date = $2;
         `;
         const { rows } = await pool.query(query, [className, date]);
         res.json(rows.map(row => mapDbToCamelCase(row)));
@@ -2835,7 +2893,13 @@ function mapDbToCamelCase(dbObject) {
             subject: 'subject',
             isread: 'isRead',
             createdat: 'createdAt',
-            updatedat: 'updatedAt'
+            updatedat: 'updatedAt',
+            // Keys for faculty attendance view
+            class_name: 'className',
+            attendance_date: 'attendanceDate',
+            total_students: 'totalStudents',
+            present_count: 'presentCount',
+            absent_count: 'absentCount'
         };
         camelCaseObject[keyMap[key] || key] = dbObject[key];
     }

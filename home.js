@@ -228,6 +228,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const attendanceSubjectFilter = document.getElementById('attendanceSubjectFilter');
 
 
+        // --- Attendance History Modal ---
+        const attendanceHistoryModalOverlay = document.getElementById('attendanceHistoryModalOverlay');
+        const closeAttendanceHistoryModalBtn = document.getElementById('closeAttendanceHistoryModalBtn');
+        const attendanceHistoryTableBody = document.getElementById('attendanceHistoryTableBody');
+
         // Helper function to generate HTML for each application step
         function createStepHTML(title, description, link, isDone, isEnabled) {
             const statusText = isDone ? '✓ Completed' : 'Pending';
@@ -324,32 +329,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const displayDetailsHTML = (attendanceDetails) => {
-                let detailsHTML = '<ul>';
-                if (Array.isArray(attendanceDetails)) {
-                    attendanceDetails.forEach(detail => {
-                        const formattedDate = new Date(detail.attendanceDate).toLocaleDateString('en-IN');
-                        detailsHTML += `
-                            <li>
-                                ${detail.subject} - ${formattedDate} - ${detail.status}
-                            </li>
-                        `;
-                    });
-                } else {
-                    detailsHTML += `<li>${attendanceDetails}</li>`;
-                }
-                detailsHTML += '</ul>';
-                return detailsHTML;
-            }
-            //--- Display Detailed attendance Record---
-            let attendanceDetails = await fetch(`/api/student/attendance-details/${studentData.rollNumber}`);
-            attendanceDetails = await attendanceDetails.json();
-            if(attendanceDetails.length == 0){
-                attendanceDetails = "No Attendance Found.";
-            }
             if (subject === 'Overall') {
-                const totalClasses = fullAttendanceData.reduce((sum, s) => sum + s.total, 0);
-                const totalPresent = fullAttendanceData.reduce((sum, s) => sum + s.present, 0);
+                const totalClasses = fullAttendanceData.reduce((sum, s) => sum + parseInt(s.total || 0, 10), 0);
+                const totalPresent = fullAttendanceData.reduce((sum, s) => sum + parseInt(s.present || 0, 10), 0);
                 const totalAbsent = totalClasses - totalPresent; // More reliable calculation
                 dataToShow = { total: totalClasses, present: totalPresent, absent: totalAbsent };
                 title = 'Overall Attendance';
@@ -379,12 +361,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p><span>Total Classes:</span> <span>${dataToShow.total}</span></p>
                         <p><span>Present:</span> <span>${dataToShow.present}</span></p>
                         <p><span>Absent:</span> <span>${dataToShow.absent}</span></p>
-                    </div>
-                </div>
-                <div class="detailed-attendance-log">
-                    <h4>Detailed Log</h4>
-                    <div class="log-list">
-                        ${displayDetailsHTML(attendanceDetails)}
+                        <div style="margin-top: 1.5rem; text-align: center;">
+                            <button id="viewAttendanceHistoryBtn" class="submit-btn" style="width: auto;">View Attendance History</button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -412,6 +391,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 data: chartData,
                 options: chartOptions
             });
+
+            // Add event listener for the new history button
+            const viewHistoryBtn = document.getElementById('viewAttendanceHistoryBtn');
+            if (viewHistoryBtn) {
+                viewHistoryBtn.addEventListener('click', openAttendanceHistoryModal);
+            }
         };
 
         const openAttendanceModal = async () => {
@@ -447,6 +432,46 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (error) {
                 console.error('Error fetching attendance:', error);
                 attendanceSummaryContainer.innerHTML = `<p style="color: red;">${error.message}</p>`;
+            }
+        };
+
+        const openAttendanceHistoryModal = async () => {
+            if (!attendanceHistoryModalOverlay || !attendanceHistoryTableBody) return;
+
+            openModal(attendanceHistoryModalOverlay);
+            attendanceHistoryTableBody.innerHTML = '<tr><td colspan="3">Loading history...</td></tr>';
+
+            try {
+                const response = await fetch(`/api/student/attendance-details/${studentData.rollNumber}`);
+                const details = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(details.message || 'Failed to fetch attendance history.');
+                }
+
+                if (details.length === 0) {
+                    attendanceHistoryTableBody.innerHTML = '<tr><td colspan="3">No detailed attendance records found.</td></tr>';
+                    return;
+                }
+
+                let tableHTML = '';
+                details.forEach(record => {
+                    const formattedDate = new Date(record.attendanceDate).toLocaleDateString('en-IN', {
+                        day: '2-digit', month: 'short', year: 'numeric'
+                    });
+                    const statusClass = record.status === 'present' ? 'status-success' : 'status-failure';
+                    tableHTML += `
+                        <tr>
+                            <td>${formattedDate}</td>
+                            <td>${record.subject}</td>
+                            <td><span class="status-badge ${statusClass}">${record.status}</span></td>
+                        </tr>
+                    `;
+                });
+                attendanceHistoryTableBody.innerHTML = tableHTML;
+            } catch (error) {
+                console.error('Error fetching attendance history:', error);
+                attendanceHistoryTableBody.innerHTML = `<tr><td colspan="3" style="color: red;">${error.message}</td></tr>`;
             }
         };
 
@@ -853,6 +878,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target === attendanceModalOverlay) closeModal(attendanceModalOverlay);
         });
 
+        // --- Attendance History Modal Listeners ---
+        if (closeAttendanceHistoryModalBtn) {
+            closeAttendanceHistoryModalBtn.addEventListener('click', () => closeModal(attendanceHistoryModalOverlay));
+        }
+        if (attendanceHistoryModalOverlay) {
+            attendanceHistoryModalOverlay.addEventListener('click', (e) => { if (e.target === attendanceHistoryModalOverlay) closeModal(attendanceHistoryModalOverlay); });
+        }
+
         // --- Student Timetable Modal Listeners ---
         if (closeStudentTimetableModalBtn) {
             closeStudentTimetableModalBtn.addEventListener('click', () => closeModal(studentTimetableModalOverlay));
@@ -964,6 +997,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'new_course': iconClass = 'result'; icon = '🎓'; break;
                 case 'fee_reminder': iconClass = 'fee'; icon = '💰'; break;
                 case 'admin_notice': iconClass = 'notice'; icon = '📢'; break;
+                case 'attendance': iconClass = 'attendance'; icon = '✅'; break;
             }
 
             return `

@@ -180,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
                 facultyDashboard.insertAdjacentHTML('afterbegin', headerHTML);
-                displayTodaysSchedule(); // This will now use the fresh data
             }
         } catch (error) {
             console.error("Failed to initialize dashboard:", error);
@@ -321,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         // Profile is complete, initialize the dashboard with fresh data
         initializeDashboard();
+        displayTodaysSchedule(); // Call this here to ensure it always runs for complete profiles
 
         // Only attach settings listener if profile is complete
         if (sideNavSettingsLink) {
@@ -828,8 +828,15 @@ document.addEventListener('DOMContentLoaded', () => {
         markAllPresentBtn.addEventListener('click', () => {
             const studentListEl = document.getElementById('attendanceStudentList');
             if (studentListEl) {
-                const presentRadioButtons = studentListEl.querySelectorAll('input[type="radio"][value="present"]');
-                presentRadioButtons.forEach(radio => radio.checked = true);
+                // Find all student items that have attendance buttons (i.e., not already marked)
+                const studentItems = studentListEl.querySelectorAll('.attendance-student-item');
+                studentItems.forEach(item => {
+                    if (item.querySelector('.attendance-btn')) { // Check if buttons exist
+                        item.dataset.status = 'present';
+                        item.querySelector('.absent-btn')?.classList.remove('selected');
+                        item.querySelector('.present-btn')?.classList.add('selected');
+                    }
+                });
             }
         });
     }
@@ -839,8 +846,15 @@ document.addEventListener('DOMContentLoaded', () => {
         markAllAbsentBtn.addEventListener('click', () => {
             const studentListEl = document.getElementById('attendanceStudentList');
             if (studentListEl) {
-                const absentRadioButtons = studentListEl.querySelectorAll('input[type="radio"][value="absent"]');
-                absentRadioButtons.forEach(radio => radio.checked = true);
+                // Find all student items that have attendance buttons
+                const studentItems = studentListEl.querySelectorAll('.attendance-student-item');
+                studentItems.forEach(item => {
+                    if (item.querySelector('.attendance-btn')) { // Check if buttons exist
+                        item.dataset.status = 'absent';
+                        item.querySelector('.present-btn')?.classList.remove('selected');
+                        item.querySelector('.absent-btn')?.classList.add('selected');
+                    }
+                });
             }
         });
     }
@@ -904,8 +918,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
             const attendanceData = {};
             studentItems.forEach(item => {
+                // Only collect data from items that have buttons (i.e., were not already marked)
+                const hasButtons = item.querySelector('.attendance-btn');
                 const rollNumber = item.dataset.roll;
-                if (rollNumber && item.dataset.status) {
+                if (hasButtons && rollNumber && item.dataset.status) {
                     attendanceData[rollNumber] = item.dataset.status;
                 }
             });
@@ -969,31 +985,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
     
             // Fetch existing attendance for the class and date
-            const attendanceResponse = await fetch(`/api/attendance/class-date?className=${className}&date=${new Date().toISOString().slice(0, 10)}`);
-            let attendanceData = [];
+            const attendanceDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const attendanceResponse = await fetch(`/api/attendance/class-date?className=${className}&date=${attendanceDate}`);
+            let attendanceRecords = [];
             if (attendanceResponse.ok) {
-                attendanceData = await attendanceResponse.json();
+                attendanceRecords = await attendanceResponse.json();
             }
 
             // Create a map of student roll numbers to attendance status
-            const attendanceMap = new Map(attendanceData.map(a => [a.studentRollnumber, a.status]));
+            const attendanceMap = new Map(attendanceRecords.map(a => [a.studentRollnumber, a.status]));
 
              submitBtn.disabled = false;
-            studentListEl.innerHTML = students.map(student => `
-                <div class="attendance-student-item" data-roll="${student.rollNumber}" data-status="${attendanceMap.get(student.rollNumber) || 'present'}">
-                    <img src="${student.profilePicture || 'default-avatar.png'}" alt="Avatar" class="attendance-student-avatar" onerror="this.onerror=null;this.src='default-avatar.png';">
-                    <span class="attendance-student-name">${student.name}</span>
-                    <div class="attendance-controls">
-                        ${attendanceMap.has(student.rollNumber) ? 
-                            `<span class="attendance-status">Attendance Marked: ${attendanceMap.get(student.rollNumber)}</span>` : 
-                            `
-                            <button class="attendance-btn present-btn ${attendanceMap.has(student.rollNumber) ? '' : 'selected'}">Present</button>
-                        <button class="attendance-btn absent-btn">Absent</button>
-                            `
-        }
+            studentListEl.innerHTML = students.map(student => {
+                const status = attendanceMap.get(student.rollNumber);
+                const isMarked = attendanceMap.has(student.rollNumber);
+
+                return `
+                    <div class="attendance-student-item" data-roll="${student.rollNumber}" data-status="${status || 'present'}">
+                        <img src="${student.profilePicture || 'default-avatar.png'}" alt="Avatar" class="attendance-student-avatar" onerror="this.onerror=null;this.src='default-avatar.png';">
+                        <span class="attendance-student-name">${student.name}</span>
+                        <div class="attendance-controls" style="--btn-danger-bg: #dc3545;">
+                            ${isMarked
+                                ? `<span class="attendance-status">Marked: <strong>${status}</strong></span>`
+                                : `<button class="attendance-btn present-btn selected">Present</button><button class="attendance-btn absent-btn">Absent</button>`
+                            }
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
 
     
         } catch (error) {

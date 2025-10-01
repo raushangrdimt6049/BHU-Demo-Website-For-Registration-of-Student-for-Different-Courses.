@@ -874,6 +874,29 @@
             </div>
         </div>
     </div>
+    <!-- Attendance History Modal -->
+    <div id="attendanceHistoryModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 800px;">
+            <button id="closeAttendanceHistoryModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view">
+                <h4 style="margin-top: 0;">Detailed Attendance History</h4>
+                <div class="history-table-container">
+                    <table id="attendanceHistoryTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceHistoryTableBody">
+                            <!-- History will be populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="home.js"></script>
 </body>

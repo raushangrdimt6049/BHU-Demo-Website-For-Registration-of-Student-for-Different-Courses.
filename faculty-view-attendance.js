@@ -48,7 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             records.forEach(record => {
-                const attendanceDate = new Date(record.attendanceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                let attendanceDate = 'N/A'; // Default value
+                if (record.attendanceDate) {
+                    attendanceDate = new Date(record.attendanceDate).toLocaleDateString('en-IN', {
+                        day: '2-digit', month: 'short', year: 'numeric'
+                    });
+                }
+
                 tableHTML += `
                     <tr>
                         <td>${attendanceDate}</td>
