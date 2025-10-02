@@ -1906,6 +1906,11 @@ app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
             await client.query(insertQuery, [facultyUsername, rollNumber, className, subject, attendanceDate, status]);
         }
 
+        // Fetch faculty name for a more detailed notification message
+        const facultyResult = await client.query('SELECT name FROM faculty WHERE username = $1', [facultyUsername]);
+        const facultyName = facultyResult.rows.length > 0 ? facultyResult.rows[0].name : facultyUsername;
+
+
         // Fetch student details for notification
         const studentDetailsQuery = 'SELECT name, mobilenumber FROM students WHERE rollnumber = ANY($1::text[])';
         const rollNumbersArray = Object.keys(attendanceData);
@@ -1921,8 +1926,8 @@ app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
             const student = studentDetailsMap[rollNumber];
 
             if (student) {
-                const formattedDate = attendanceDate.toLocaleDateString('en-IN');
-                const notificationMessage = `Attendance marked for ${subject} on ${formattedDate} as ${status}.`;
+                const formattedDate = attendanceDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, ' ');
+                const notificationMessage = `Your attendance for ${subject} in ${className} on ${formattedDate} was marked as '${status}' by ${facultyName}.`;
                 const insertNotificationQuery = `
                     INSERT INTO notifications (studentrollnumber, type, message)
                     VALUES ($1, 'attendance', $2)
@@ -1930,7 +1935,7 @@ app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
                 await client.query(insertNotificationQuery, [rollNumber, notificationMessage]);
 
                 // Use the new, correct SMS function
-                sendAttendanceSms(student.mobilenumber, `Attendance marked for ${subject} on ${formattedDate} as ${status}.`);
+                sendAttendanceSms(student.mobilenumber, notificationMessage);
             }
         }
 

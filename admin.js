@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const usersManagementView = document.getElementById('users-management-view');
     const allTimetablesView = document.getElementById('all-timetables-view');
     const backToUsersFromStudentsBtn = document.getElementById('backToUsersFromStudentsBtn');
-    const backToUsersFromFacultyBtn = document.getElementById('backToUsersFromFacultyBtn');
+    const backToUsersFromFacultyBtn = document.getElementById('backToUsersFromFacultyBtn'); // This ID is now in the HTML
     const backToUsersFromAdminsBtn = document.getElementById('backToUsersFromAdminsBtn');
     const backToDashboardFromUsersBtn = document.getElementById('backToDashboardFromUsersBtn');
     const backToDashboardFromTimetablesBtn = document.getElementById('backToDashboardFromTimetablesBtn');
@@ -683,7 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (backToUsersFromStudentsBtn) {
         backToUsersFromStudentsBtn.addEventListener('click', () => showView('users-management'));
     }
-    if (backToUsersFromFacultyBtn) {
+    if (backToUsersFromFacultyBtn) { // This will now find the button
         backToUsersFromFacultyBtn.addEventListener('click', () => showView('users-management'));
     }
     if (backToUsersFromAdminsBtn) {

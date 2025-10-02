@@ -993,11 +993,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let iconClass = '';
             let icon = '🔔'; // Default icon
 
+            let messageText = notification.message; // Use the full message by default
+
             switch (notification.type) {
                 case 'new_course': iconClass = 'result'; icon = '🎓'; break;
                 case 'fee_reminder': iconClass = 'fee'; icon = '💰'; break;
                 case 'admin_notice': iconClass = 'notice'; icon = '📢'; break;
-                case 'attendance': iconClass = 'attendance'; icon = '✅'; break;
+                case 'attendance':
+                    iconClass = 'attendance';
+                    icon = '✅';
+                    break;
             }
 
             return `
@@ -1005,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <a href="#" class="notification-item ${isReadClass}" data-id="${notification.id}" data-type="${notification.type}">
                         <div class="notification-icon ${iconClass}">${icon}</div>
                         <div class="notification-content">
-                            <p>${notification.message}</p>
+                            <p>${messageText}</p>
                             <small>${timeAgo}</small>
                         </div>
                     </a>
