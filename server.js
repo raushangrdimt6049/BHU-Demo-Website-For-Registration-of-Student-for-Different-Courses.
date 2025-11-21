@@ -31,7 +31,28 @@ const jsonParser = express.json();
 // On Render, DATABASE_URL is automatically set for your web service.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false } // Required for Render's internal connections
+  ssl: { rejectUnauthorized: false },
+  // --- Recommended settings for robust, long-running applications ---
+    // Maximum number of clients in the pool
+    max: 20,
+  // How long a client is allowed to remain idle before being closed
+  idleTimeoutMillis: 30000, // 30 seconds
+  // How long to wait for a client from the pool before timing out
+  connectionTimeoutMillis: 20000, // 20 seconds
+    // --- Additional settings to handle connection issues ---
+    // Check connection health periodically
+    validationQuery: 'SELECT 1',
+    // Number of milliseconds to wait before considering a connection invalid
+    // Should be less than server's timeout
+    statement_timeout: 60000, // 60 seconds
+    // Frequency to check and prune idle clients
+    reapIntervalMillis: 60000, // 60 seconds
+  // --- Recommended settings for long-running applications ---
+    // Test the connection before using it
+    // Detects broken connections early
+    test: function (client) {
+        return client.query('SELECT 1');
+    }
 });
 
 // --- Razorpay Instance ---
@@ -92,6 +113,25 @@ const docStorage = multer.diskStorage({
 });
 const docUpload = multer({ storage: docStorage });
 
+// New Multer setup for faculty profile pictures
+const facultyPicStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = 'uploads/faculty-pics/';
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        // Generate a temporary name. We will rename it in the route handler
+        // where req.body is guaranteed to be populated.
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const extension = path.extname(file.originalname);
+        cb(null, `temp-faculty-${uniqueSuffix}${extension}`);
+    }
+});
+const facultyPicUpload = multer({ storage: facultyPicStorage });
+
 // New Multer setup for admin profile pictures
 const adminPicStorage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -102,10 +142,10 @@ const adminPicStorage = multer.diskStorage({
         cb(null, dir);
     },
     filename: function (req, file, cb) {
-        const username = req.body.username.replace(/[^a-zA-Z0-9]/g, '_'); // Sanitize username
-        const uniqueSuffix = Date.now();
+        // Generate a temporary name. We will rename it in the route handler.
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         const extension = path.extname(file.originalname);
-        cb(null, `${username}-${uniqueSuffix}${extension}`);
+        cb(null, `temp-admin-${uniqueSuffix}${extension}`);
     }
 });
 const adminPicUpload = multer({ storage: adminPicStorage });
@@ -303,6 +343,33 @@ async function sendRegistrationSms(toMobileNumber, rollNumber, enrollmentNumber)
     }
 }
 
+// --- New SMS Sending Function for Attendance ---
+async function sendAttendanceSms(toMobileNumber, messageBody) {
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+        console.warn('Twilio credentials not found in .env file. Skipping attendance SMS.');
+        return;
+    }
+
+    // Initialize Twilio client
+    const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+    // Ensure mobile number is in E.164 format
+    const formattedMobileNumber = `+91${toMobileNumber}`;
+
+    try {
+        await twilioClient.messages.create({
+            body: messageBody,
+            from: process.env.TWILIO_PHONE_NUMBER,
+            to: formattedMobileNumber
+        });
+        console.log(`Attendance SMS sent to ${formattedMobileNumber}`);
+    } catch (error) {
+        // Log the error but don't fail the entire process if SMS fails.
+        console.error(`Error sending attendance SMS to ${formattedMobileNumber}:`, error.message);
+    }
+}
+
+
 // --- PDF Generation Helper for Admission Summary ---
 async function generateAdmissionSummaryPdf(studentData, courseData, orderId) {
     // --- 1. Generate HTML for the Admission Summary PDF ---
@@ -368,18 +435,144 @@ async function generateAdmissionSummaryPdf(studentData, courseData, orderId) {
             <div class="footer"><p>This is a computer-generated document and does not require a signature.</p></div></div></main></body></html>`;
 
     // --- 2. Generate PDF ---
-    const browser = await puppeteer.launch({
+    const launchOptions = {
         args: chromium.args,
         defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
         headless: chromium.headless,
         ignoreHTTPSErrors: true,
-    });
+    };
+    // For local development, puppeteer can find a local chrome install.
+    // For production (like on Render), we must use the path from @sparticuz/chromium.
+    if (chromium.headless) {
+        launchOptions.executablePath = await chromium.executablePath();
+    }
+    const browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
 
     await page.setContent(summaryHtmlContent, { waitUntil: 'networkidle0' });
     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } });
 
+    await browser.close();
+    return pdfBuffer;
+}
+
+// --- PDF Generation Helper for Student ID Card ---
+// Helper function to format class names with ordinal suffixes
+const formatClassNameForIdCard = (className) => {
+    if (!className) return 'N/A';
+    if (className.toLowerCase().includes('nursery')) return 'Nursery';
+    if (className.toLowerCase().includes('lkg')) return 'LKG';
+    if (className.toLowerCase().includes('ukg')) return 'UKG';
+
+    const numberMatch = className.match(/\d+/);
+    if (!numberMatch) return className; // Return as is if no number found
+
+    const number = parseInt(numberMatch[0], 10);
+    if (isNaN(number)) return className;
+
+    // Special case for 11, 12, 13
+    if (number >= 11 && number <= 13) {
+        return `${number}th`;
+    }
+
+    const lastDigit = number % 10;
+    switch (lastDigit) {
+        case 1: return `${number}st`;
+        case 2: return `${number}nd`;
+        case 3: return `${number}rd`;
+        default: return `${number}th`;
+    }
+};
+
+async function generateIdCardHtml(studentData, courseData) {
+    const formatDate = (date) => {
+        if (!date) return 'N/A';
+        const d = new Date(date);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+    };
+
+    // Determine Issue and Expiry Date
+    // Use the student's creation date as the 'joining date'
+    const issueDate = new Date(studentData.createdAt);
+    const expiryDate = new Date(issueDate);
+    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+
+    let profilePictureSrc = 'https://www.clipartmax.com/png/middle/323-3235972_banaras-hindu-university.png'; // Fallback
+    if (studentData.profilePicture) {
+        const picPath = path.join(__dirname, studentData.profilePicture);
+        if (fs.existsSync(picPath)) {
+            // Convert to base64 to embed directly in HTML, avoiding file path issues in Puppeteer
+            const imageBuffer = fs.readFileSync(picPath);
+            const imageType = path.extname(picPath).substring(1);
+            profilePictureSrc = `data:image/${imageType};base64,${imageBuffer.toString('base64')}`;
+        }
+    }
+
+    const idCardHtmlContent = `
+        <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Student ID Card</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f2f5; margin: 0; }
+            .id-card {
+                width: 320px;
+                border-radius: 15px;
+                box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+                background: #fff;
+                overflow: hidden;
+                border: 4px solid transparent; /* Border thickness */
+                background-clip: padding-box; /* Important: keeps background from showing under the border */
+                border-image: linear-gradient(45deg, #4f46e5, #7c3aed, #db2777, #f472b6) 1;
+            }
+            .id-header { background-color: #002147; color: white; padding: 10px; text-align: center; }
+            .id-header h3 { margin: 0; font-size: 16px; }
+            .id-header p { margin: 2px 0 0 0; font-size: 12px; opacity: 0.9; }
+            .id-body { padding: 15px; text-align: center; }
+            .profile-pic { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #002147; margin-bottom: 10px; }
+            .student-name { font-size: 20px; font-weight: 600; margin: 0 0 5px 0; color: #002147; }
+            .student-class { font-size: 16px; font-weight: 500; margin: 0 0 15px 0; color: #333; }
+            .details-grid { text-align: left; font-size: 13px; }
+            .detail-item { display: flex; margin-bottom: 6px; }
+            .detail-item label { font-weight: 600; color: #555; width: 80px; flex-shrink: 0; }
+            .detail-item span { word-break: break-all; }
+            .id-footer { background-color: #f0f2f5; padding: 8px; text-align: center; font-size: 11px; color: #555; border-top: 1px solid #ddd; }
+        </style></head><body><div class="id-card-container">
+                <div class="id-card">
+                    <div class="id-header"><h3>DAV PG College, Varanasi</h3><p>Student Identity Card</p></div>
+                    <div class="id-body">
+                        <img src="${profilePictureSrc}" alt="Profile" class="profile-pic">
+                        <h4 class="student-name">${studentData.name || 'N/A'}</h4>
+                    <p class="student-class">Class: ${formatClassNameForIdCard(courseData.branch)}</p>
+                        <div class="details-grid">
+                            <div class="detail-item"><label>Roll No:</label><span>${studentData.rollNumber || 'N/A'}</span></div>
+                            <div class="detail-item"><label>Mobile:</label><span>${studentData.mobileNumber || 'N/A'}</span></div>
+                            <div class="detail-item"><label>Email:</label><span>${studentData.email || 'N/A'}</span></div>
+                        </div>
+                    </div>
+                    <div class="id-footer"><span>Issued: ${formatDate(issueDate)}</span> | <span>Expires: ${formatDate(expiryDate)}</span></div>
+                </div>
+            </div></body></html>`;
+
+    return idCardHtmlContent;
+}
+
+async function generateIdCardPdf(studentData, courseData) {
+    const idCardHtmlContent = await generateIdCardHtml(studentData, courseData);
+
+    const launchOptions = {
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true,
+    };
+    if (chromium.headless) {
+        launchOptions.executablePath = await chromium.executablePath();
+    }
+    const browser = await puppeteer.launch(launchOptions);
+    const page = await browser.newPage();
+    await page.setContent(idCardHtmlContent, { waitUntil: 'load' });
+    const pdfBuffer = await page.pdf({ width: '360px', height: '580px' }); // Custom dimensions for ID card
     await browser.close();
     return pdfBuffer;
 }
@@ -448,13 +641,16 @@ async function sendPaymentReceiptEmail(studentData, courseData, orderId) {
 
     // --- 2. Generate PDF and Send Email ---
     try {
-        const browser = await puppeteer.launch({
+        const launchOptions = {
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
-            executablePath: await chromium.executablePath(),
             headless: chromium.headless,
             ignoreHTTPSErrors: true,
-        });
+        };
+        if (chromium.headless) {
+            launchOptions.executablePath = await chromium.executablePath();
+        }
+        const browser = await puppeteer.launch(launchOptions);
         const page = await browser.newPage();
 
         await page.setContent(receiptHtmlContent, { waitUntil: 'networkidle0' });
@@ -531,13 +727,16 @@ async function generatePaymentHistoryPdf(studentName, rollNumber, history) {
             </div>
         </body></html>`;
 
-    const browser = await puppeteer.launch({
+    const launchOptions = {
         args: chromium.args,
         defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
         headless: chromium.headless,
         ignoreHTTPSErrors: true,
-    });
+    };
+    if (chromium.headless) {
+        launchOptions.executablePath = await chromium.executablePath();
+    }
+    const browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
     await page.setContent(historyHtmlContent, { waitUntil: 'networkidle0' });
     const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' } });
@@ -617,8 +816,8 @@ app.post('/update', upload.single('profilePicture'), async (req, res) => {
 app.post('/upload-documents', docUpload.fields([
     { name: 'profilePicture', maxCount: 1 },
     { name: 'signature', maxCount: 1 },
-    { name: 'marksheet10', maxCount: 1 },
-    { name: 'marksheet12', maxCount: 1 }
+    { name: 'migrationCertificate', maxCount: 1 },
+    { name: 'tcCertificate', maxCount: 1 }
 ]), async (req, res) => {
     console.log("Received a request at /upload-documents endpoint.");
     const { rollNumber } = req.body;
@@ -665,7 +864,7 @@ app.post('/upload-documents', docUpload.fields([
 
         // --- Fetch existing paths and merge with new ones ---
         const existingPathsResult = await pool.query(
-            'SELECT profilepicture, signature, marksheet10, marksheet12 FROM students WHERE rollnumber = $1',
+            'SELECT profilepicture, signature, marksheet10, marksheet12 FROM students WHERE rollnumber = $1', // DB columns remain the same
             [rollNumber]
         );
 
@@ -674,21 +873,21 @@ app.post('/upload-documents', docUpload.fields([
         }
         const existingPaths = existingPathsResult.rows[0];
 
-        // Merge new paths over existing ones. If a new path is undefined, the existing one is used.
+        // Merge new paths over existing ones. If a new path is undefined, the existing one from the DB is used.
         const finalFilePaths = {
             profilePicture: filePaths.profilePicture || existingPaths.profilepicture,
             signature: filePaths.signature || existingPaths.signature,
-            marksheet10: filePaths.marksheet10 || existingPaths.marksheet10,
-            marksheet12: filePaths.marksheet12 || existingPaths.marksheet12
+            migrationCertificate: filePaths.migrationCertificate || existingPaths.marksheet10,
+            tcCertificate: filePaths.tcCertificate || existingPaths.marksheet12
         };
 
         const query = `
             UPDATE students 
-            SET profilepicture=$1, signature=$2, marksheet10=$3, marksheet12=$4, updatedat=CURRENT_TIMESTAMP
+            SET profilepicture=$1, signature=$2, marksheet10=$3, marksheet12=$4, updatedat=CURRENT_TIMESTAMP /* DB columns remain marksheet10/12 */
             WHERE rollnumber = $5
             RETURNING *;
         `;
-        const values = [finalFilePaths.profilePicture, finalFilePaths.signature, finalFilePaths.marksheet10, finalFilePaths.marksheet12, rollNumber];
+        const values = [finalFilePaths.profilePicture, finalFilePaths.signature, finalFilePaths.migrationCertificate, finalFilePaths.tcCertificate, rollNumber];
         const { rows } = await pool.query(query, values);
 
         if (rows.length === 0) {
@@ -1158,6 +1357,21 @@ app.get('/api/notifications/:rollNumber', async (req, res) => {
     }
 });
 
+// New GET endpoint to fetch all notifications for a faculty member
+app.get('/api/faculty/notifications/:username', async (req, res) => {
+    const { username } = req.params;
+    console.log(`Fetching notifications for faculty: ${username}`);
+    try {
+        // The current implementation correctly inserts a row for each faculty member, so we just need to query by username.
+        const query = "SELECT * FROM notifications WHERE LOWER(faculty_username) = LOWER($1) ORDER BY createdat DESC";
+        const { rows } = await pool.query(query, [username]);
+        res.json(rows.map(n => mapDbToCamelCase(n)));
+    } catch (error) {
+        console.error(`Error fetching notifications for faculty ${username}:`, error);
+        res.status(500).json({ message: 'Server error while fetching notifications.' });
+    }
+});
+
 // POST endpoint to mark notifications as read
 app.post('/api/notifications/mark-as-read', jsonParser, async (req, res) => {
     const { notificationIds } = req.body; // Expect an array of IDs
@@ -1245,6 +1459,75 @@ app.get('/download-payment-history/:rollNumber', async (req, res) => {
     }
 });
 
+// New endpoint to download the student ID card
+app.get('/api/student/id-card/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Received request to download ID card for roll number: ${rollNumber}`);
+
+    try {
+        const { rows } = await pool.query('SELECT * FROM students WHERE rollnumber = $1', [rollNumber]);
+        if (rows.length === 0) {
+            return res.status(404).send('Student not found.');
+        }
+
+        const student = rows[0];
+        if (!student.selectedcourse || !student.selectedcourse.trim().startsWith('{')) {
+            return res.status(400).send('Admission details not found for this student.');
+        }
+
+        const studentData = mapDbToCamelCase(student);
+        const courseData = JSON.parse(student.selectedcourse);
+
+        const pdfBuffer = await generateIdCardPdf(studentData, courseData);
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="ID_Card_${rollNumber}.pdf"`);
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error('Error generating ID card PDF:', error);
+        res.status(500).send('Could not generate ID card. Please try again later.');
+    }
+});
+
+// New endpoint for a printable ID card
+app.get('/api/student/printable-id-card/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Received request for printable ID card for roll number: ${rollNumber}`);
+
+    try {
+        const { rows } = await pool.query('SELECT * FROM students WHERE rollnumber = $1', [rollNumber]);
+        if (rows.length === 0) {
+            return res.status(404).send('<h1>Student not found.</h1>');
+        }
+
+        const student = rows[0];
+        if (!student.selectedcourse || !student.selectedcourse.trim().startsWith('{')) {
+            return res.status(400).send('<h1>Admission details not found for this student.</h1>');
+        }
+
+        const studentData = mapDbToCamelCase(student);
+        const courseData = JSON.parse(student.selectedcourse);
+
+        let htmlContent = await generateIdCardHtml(studentData, courseData);
+
+        // Inject a script to automatically trigger the print dialog
+        const printScript = `
+            <script>
+                window.onload = () => { window.print(); };
+                window.onafterprint = () => { window.close(); };
+            </script>
+        `;
+        htmlContent = htmlContent.replace('</body>', `${printScript}</body>`);
+
+        res.setHeader('Content-Type', 'text/html');
+        res.send(htmlContent);
+    } catch (error) {
+        console.error('Error generating printable ID card:', error);
+        res.status(500).send('<h1>Could not generate ID card. Please try again later.</h1>');
+    }
+});
+
 app.get('/student-data/:rollNumber', async (req, res) => {
     const { rollNumber } = req.params;
     console.log(`Fetching latest data for roll number: ${rollNumber}`);
@@ -1268,25 +1551,470 @@ app.get('/student-data/:rollNumber', async (req, res) => {
 
 /**
  * =============================================================================
+ * TIMETABLE ENDPOINTS
+ * =============================================================================
+ */
+
+// Helper function to get subjects for a class (moved from admin.js)
+const getSubjectsForClass = (className) => {
+    const prePrimary = ['Nursery', 'LKG', 'UKG'];
+    const primary = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'];
+    const middle = ['Class 6', 'Class 7', 'Class 8'];
+    const secondary = ['Class 9', 'Class 10'];
+    const seniorSecondary = ['Class 11', 'Class 12'];
+
+    if (prePrimary.includes(className)) {
+        return ['English (Alphabet)', 'Hindi (Basics)', 'Numbers (Maths)', 'General Knowledge', 'Drawing & Coloring', 'Rhymes / Stories', 'Games / P.E.'];
+    }
+    if (primary.includes(className)) {
+        return ['English', 'Hindi', 'Mathematics', 'E.V.S.', 'Computer Basics', 'Moral Science', 'Art & Craft', 'P.E. / Music'];
+    }
+    if (middle.includes(className)) {
+        return ['English', 'Hindi', 'Sanskrit', 'Mathematics', 'Science', 'Social Science', 'Computer Science', 'Moral Science', 'Art/Craft', 'P.E./Music'];
+    }
+    if (secondary.includes(className)) {
+        return ['English', 'Hindi', 'Mathematics', 'Physics', 'Chemistry', 'Biology', 'History', 'Geography', 'Economics', 'Computer Apps', 'P.E.'];
+    }
+    if (seniorSecondary.includes(className)) {
+        return ['English', 'Physics', 'Chemistry', 'Mathematics', 'Biology', 'Accountancy', 'Business Studies', 'Economics', 'History', 'Pol. Science', 'Computer Sci.', 'P.E.'];
+    }
+    return ['English', 'Maths', 'Science', 'History', 'Geography', 'Hindi', 'Art', 'Music', 'P.E.'];
+};
+
+// Helper function to generate the timetable data structure (moved from admin.js)
+const generateFullSchoolTimetableData = async () => {
+    const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const periods = [1, 2, 3, 4, 5, 6];
+
+    // 1. Fetch all subjects and create a name-to-ID map
+    const subjectsResult = await pool.query('SELECT id, subject_name FROM subjects');
+    const subjectNameToIdMap = subjectsResult.rows.reduce((acc, subject) => {
+        acc[subject.subject_name] = subject.id;
+        return acc;
+    }, {});
+
+    let generatedTimetable = {};
+    allClasses.forEach(c => { generatedTimetable[c] = {}; days.forEach(d => { generatedTimetable[c][d] = {}; }); });
+    let periodBookings = {};
+    days.forEach(d => { periodBookings[d] = {}; periods.forEach(p => { periodBookings[d][p] = new Set(); }); }); // This will store subject IDs
+    const shuffleArray = (array) => { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[array[i], array[j]] = [array[j], array[i]]; } return array; };
+    
+    allClasses.forEach(className => {
+        const subjectsForClass = getSubjectsForClass(className);
+        days.forEach(day => {
+            let subjectsUsedToday = new Set();
+            periods.forEach(period => {
+                // Filter based on subject name, but check bookings using subject ID
+                let availableSubjects = shuffleArray(subjectsForClass.filter(s => {
+                    const subjectId = subjectNameToIdMap[s];
+                    return !periodBookings[day][period].has(subjectId);
+                }));
+                let preferredSubjects = availableSubjects.filter(s => !subjectsUsedToday.has(s));
+                let subjectNameToAssign = preferredSubjects.length > 0 ? preferredSubjects[0] : (availableSubjects.length > 0 ? availableSubjects[0] : null);
+
+                if (subjectNameToAssign) {
+                    const subjectIdToAssign = subjectNameToIdMap[subjectNameToAssign];
+                    generatedTimetable[className][day][period] = subjectIdToAssign;
+                    periodBookings[day][period].add(subjectIdToAssign);
+                    subjectsUsedToday.add(subjectNameToAssign); // Track by name for today's class
+                } else {
+                    generatedTimetable[className][day][period] = null; // Represents a free period
+                }
+            });
+        });
+    });
+
+    return generatedTimetable;
+};
+
+// New endpoint to get the entire timetable from the database
+app.get('/api/timetable/all', async (req, res) => {
+    console.log('Fetching entire school timetable from DB.');
+    try {
+        const query = `
+            SELECT 
+                t.class_name, t.day_of_week, t.period, s.subject_name 
+            FROM timetables t
+            LEFT JOIN subjects s ON t.subject_id = s.id
+            ORDER BY t.class_name, t.day_of_week, t.period;
+        `;
+        const { rows } = await pool.query(query);
+        
+        // If no records, it means it hasn't been generated yet.
+        if (rows.length === 0) {
+            return res.json({ exists: false, data: {} });
+        }
+
+        // Reconstruct the nested object structure for the frontend
+        const timetable = {};
+        rows.forEach(row => {
+            if (!timetable[row.class_name]) {
+                timetable[row.class_name] = {};
+            }
+            if (!timetable[row.class_name][row.day_of_week]) {
+                timetable[row.class_name][row.day_of_week] = {};
+            }
+            timetable[row.class_name][row.day_of_week][row.period] = row.subject_name || '---';
+        });
+
+        res.json({ exists: true, data: timetable });
+    } catch (error) {
+        console.error('Error fetching timetable:', error);
+        res.status(500).json({ message: 'Server error while fetching timetable.' });
+    }
+});
+
+// New endpoint to generate and save the timetable if it doesn't exist
+app.post('/api/timetable/generate', async (req, res) => {
+    console.log('Request to generate and save timetable.');
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Check if data already exists to prevent accidental overwrite
+        const checkResult = await client.query('SELECT id FROM timetables LIMIT 1');
+        if (checkResult.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Timetable already exists in the database.' });
+        }
+
+        const timetableData = await generateFullSchoolTimetableData();
+        const insertQuery = 'INSERT INTO timetables (class_name, day_of_week, period, subject_id) VALUES ($1, $2, $3, $4)';
+
+        // Flatten the object and insert into the database
+        for (const className in timetableData) {
+            for (const day in timetableData[className]) {
+                for (const period in timetableData[className][day]) {
+                    const subjectId = timetableData[className][day][period]; // This is now an ID or null
+                    await client.query(insertQuery, [className, day, period, subjectId]);
+                }
+            }
+        }
+
+        await client.query('COMMIT');
+        console.log('Timetable generated and saved to database successfully.');
+        res.status(201).json({ message: 'Timetable generated and saved successfully.' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error generating/saving timetable:', error);
+        res.status(500).json({ message: 'Server error while generating timetable.' });
+    } finally {
+        client.release();
+    }
+});
+
+// New endpoint to update a timetable entry
+app.put('/api/timetable/update', jsonParser, async (req, res) => {
+    const { className, day, period, subject } = req.body;
+    console.log(`Updating timetable for ${className}, ${day}, Period ${period} to ${subject}`);
+
+    if (!className || !day || !period || subject === undefined) {
+        return res.status(400).json({ message: 'Class name, day, period, and subject are required.' });
+    }
+
+    try {
+        let subjectId = null;
+        // Find the subject_id for the given subject name.
+        // If the subject is "---" or an empty string, we'll treat it as a free period (null ID).
+        if (subject && subject !== '---') {
+            const subjectRes = await pool.query('SELECT id FROM subjects WHERE subject_name = $1', [subject]);
+            if (subjectRes.rows.length === 0) {
+                // If an admin types a subject that doesn't exist, we can't save it.
+                return res.status(400).json({ message: `Subject "${subject}" not found in the database.` });
+            }
+            subjectId = subjectRes.rows[0].id;
+        }
+
+        const query = `
+            UPDATE timetables 
+            SET subject_id = $1, updated_at = NOW()
+            WHERE class_name = $2 AND day_of_week = $3 AND period = $4
+            RETURNING *;
+        `;
+        const { rows } = await pool.query(query, [subjectId, className, day, period]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Timetable entry not found.' });
+        }
+
+        res.status(200).json({ message: 'Timetable updated successfully.' });
+    } catch (error) {
+        console.error('Error updating timetable:', error);
+        res.status(500).json({ message: 'Server error while updating timetable.' });
+    }
+});
+
+/**
+ * =============================================================================
+ * ATTENDANCE ENDPOINTS
+ * =============================================================================
+ */
+
+// Endpoint to get real student attendance data, ensuring all enrolled subjects are included.
+app.get('/api/student/attendance/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Fetching attendance for roll number: ${rollNumber}`);
+
+    try {
+        // Step 1: Get the student's class from their profile
+        const studentRes = await pool.query('SELECT selectedcourse FROM students WHERE rollnumber = $1', [rollNumber]);
+        if (studentRes.rows.length === 0 || !studentRes.rows[0].selectedcourse || !studentRes.rows[0].selectedcourse.trim().startsWith('{')) {
+            return res.json([]); // No class found, so no attendance data
+        }
+        const courseData = JSON.parse(studentRes.rows[0].selectedcourse);
+        const className = courseData.branch;
+        if (!className) {
+            return res.json([]); // No class name in the course data
+        }
+
+        // Step 2: Get all unique subjects for that class from the timetable
+        const subjectsQuery = `
+            SELECT DISTINCT s.subject_name
+            FROM timetables t
+            JOIN subjects s ON t.subject_id = s.id
+            WHERE t.class_name = $1 AND s.subject_name IS NOT NULL;
+        `;
+        const subjectsRes = await pool.query(subjectsQuery, [className]);
+        const allEnrolledSubjects = subjectsRes.rows.map(row => row.subject_name);
+
+        // Step 3: Get the actual marked attendance from the attendance table
+        const attendanceQuery = `
+            SELECT
+                subject AS course,
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE status = 'present') AS present,
+                COUNT(*) FILTER (WHERE status = 'absent') AS absent
+            FROM attendance
+            WHERE student_rollnumber = $1 GROUP BY subject;
+        `;
+        const attendanceRes = await pool.query(attendanceQuery, [rollNumber]);
+        const markedAttendanceMap = new Map(attendanceRes.rows.map(row => [row.course, row]));
+
+        // Step 4: Merge the two lists
+        const finalAttendanceData = allEnrolledSubjects.map(subjectName => {
+            return markedAttendanceMap.get(subjectName) || { course: subjectName, total: 0, present: 0, absent: 0 };
+        }).sort((a, b) => a.course.localeCompare(b.course)); // Sort alphabetically
+
+        res.json(finalAttendanceData);
+    } catch (error) {
+        console.error('Error fetching real attendance data:', error);
+        res.status(500).json({ message: 'Server error while fetching attendance data.' });
+    }
+});
+
+// New endpoint to get detailed attendance records for a student
+app.get('/api/student/attendance-details/:rollNumber', async (req, res) => {
+    const { rollNumber } = req.params;
+    console.log(`Fetching detailed attendance for roll number: ${rollNumber}`);
+
+    try {
+        const query = `
+            SELECT 
+                subject, 
+                attendance_date, 
+                status 
+            FROM attendance 
+            WHERE student_rollnumber = $1
+            ORDER BY attendance_date DESC;
+        `;
+        const { rows } = await pool.query(query, [rollNumber]);
+
+        // Map to camelCase for consistency
+        const attendanceDetails = rows.map(row => ({
+            subject: row.subject,
+            attendanceDate: row.attendance_date,
+            status: row.status
+        }));
+
+        res.json(attendanceDetails);
+    } catch (error) {
+        console.error('Error fetching detailed attendance:', error);
+        res.status(500).json({ message: 'Server error while fetching detailed attendance.' });
+    }
+});
+// Multer setup for attendance correction file uploads
+const correctionFileStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = 'uploads/corrections/';
+        fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        // Ensure req.body is available for the filename
+        const rollNumber = req.body.rollNumber || 'unknown';
+        cb(null, `${rollNumber}-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+});
+const correctionUpload = multer({ storage: correctionFileStorage });
+
+// Endpoint to handle attendance correction requests
+app.post('/api/student/request-attendance-correction', correctionUpload.single('supportingFile'), (req, res) => {
+    const { rollNumber, course, comment } = req.body;
+    console.log(`Received attendance correction request for Roll No: ${rollNumber}, Course: ${course}`);
+    console.log(`Comment: ${comment}`);
+    if (req.file) console.log(`Supporting File: ${req.file.path}`);
+
+    res.status(200).json({ message: 'Your attendance correction request has been submitted successfully.' });
+});
+
+// New endpoint to get students by class name for attendance marking
+app.get('/api/students-by-class/:className', async (req, res) => {
+    const { className } = req.params;
+    console.log(`Fetching students for class: ${className}`);
+
+    try {
+        // This query now correctly checks both the main admission course ('selectedcourse' JSON)
+        // and any additional hobby courses ('hobbycourses' JSON array) to find all students
+        // belonging to a specific class.
+        const query = `
+            SELECT name, rollnumber, profilepicture 
+            FROM students 
+            WHERE selectedcourse::jsonb->>'branch' = $1 
+               OR hobbycourses @> jsonb_build_array(jsonb_build_object('name', $1))
+            ORDER BY name;
+        `;
+        const { rows } = await pool.query(query, [className]);
+        res.json(rows.map(student => mapDbToCamelCase(student)));
+    } catch (error) {
+        console.error(`Error fetching students for class ${className}:`, error);
+        res.status(500).json({ message: 'Server error while fetching students.' });
+    }
+});
+
+app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
+    const { className, subject, attendanceData, facultyUsername } = req.body;
+    console.log(`Received attendance for ${className} - ${subject} from ${facultyUsername}`);
+
+    if (!className || !subject || !attendanceData || !facultyUsername) {
+        return res.status(400).json({ message: 'Missing required attendance information.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const attendanceDate = new Date(); // Use server time for consistency
+
+         const insertQuery = `
+            INSERT INTO attendance (faculty_username, student_rollnumber, class_name, subject, attendance_date, status)
+            VALUES ($1, $2, $3, $4, $5, $6);
+        `;
+
+        for (const rollNumber in attendanceData) {
+            const status = attendanceData[rollNumber];
+            await client.query(insertQuery, [facultyUsername, rollNumber, className, subject, attendanceDate, status]);
+        }
+
+        // Fetch faculty name for a more detailed notification message
+        const facultyResult = await client.query('SELECT name FROM faculty WHERE username = $1', [facultyUsername]);
+        const facultyName = facultyResult.rows.length > 0 ? facultyResult.rows[0].name : facultyUsername;
+
+
+        // Fetch student details for notification
+        const studentDetailsQuery = 'SELECT name, mobilenumber FROM students WHERE rollnumber = ANY($1::text[])';
+        const rollNumbersArray = Object.keys(attendanceData);
+        const studentDetailsResult = await client.query(studentDetailsQuery, [rollNumbersArray]);
+        const studentDetailsMap = studentDetailsResult.rows.reduce((acc, student) => {
+            acc[student.rollnumber] = student;
+            return acc;
+        }, {});
+
+        // Send notifications and SMS messages
+        for (const rollNumber in attendanceData) {
+            const status = attendanceData[rollNumber];
+            const student = studentDetailsMap[rollNumber];
+
+            if (student) {
+                const formattedDate = attendanceDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, ' ');
+                const notificationMessage = `Your attendance for ${subject} in ${className} on ${formattedDate} was marked as '${status}' by ${facultyName}.`;
+                const insertNotificationQuery = `
+                    INSERT INTO notifications (studentrollnumber, type, message)
+                    VALUES ($1, 'attendance', $2)
+                `;
+                await client.query(insertNotificationQuery, [rollNumber, notificationMessage]);
+
+                // Use the new, correct SMS function
+                sendAttendanceSms(student.mobilenumber, notificationMessage);
+            }
+        }
+
+        await client.query('COMMIT');
+        res.status(200).json({ message: `Attendance for ${className} - ${subject} has been submitted successfully.` });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error saving attendance data:', error);
+        res.status(500).json({ message: 'Failed to save attendance data to the server.' });
+    } finally {
+       client.release();
+    }
+});
+
+// New endpoint for faculty to view their submitted attendance records
+app.get('/api/faculty/view-attendance/:facultyUsername', async (req, res) => {
+    const { facultyUsername } = req.params;
+    console.log(`Fetching attendance records for faculty: ${facultyUsername}`);
+    try {
+        const query = `
+            SELECT
+                class_name,
+                subject,
+                attendance_date,
+                COUNT(*) AS total_students,
+                COUNT(*) FILTER (WHERE status = 'present') AS present_count,
+                COUNT(*) FILTER (WHERE status = 'absent') AS absent_count
+            FROM attendance
+            WHERE faculty_username = $1
+            GROUP BY class_name, subject, attendance_date
+            ORDER BY attendance_date DESC, class_name;
+        `;
+        const { rows } = await pool.query(query, [facultyUsername]);
+        // Manually map and convert types for this specific query
+        const mappedRows = rows.map(row => ({
+            ...mapDbToCamelCase(row), // Apply general mapping
+            totalStudents: parseInt(row.total_students, 10) || 0,
+            presentCount: parseInt(row.present_count, 10) || 0,
+            absentCount: parseInt(row.absent_count, 10) || 0,
+        }));
+        res.json(mappedRows);
+    } catch (error) {
+        console.error(`Error fetching attendance records for ${facultyUsername}:`, error);
+        res.status(500).json({ message: 'Server error while fetching attendance records.' });
+    }
+});
+
+// New endpoint to fetch attendance records for a specific class and date
+app.get('/api/attendance/class-date', async (req, res) => {
+    const { className, date } = req.query;
+    console.log(`Fetching attendance for class: ${className} and date: ${date}`);
+
+    try {
+        const query = `
+            SELECT student_rollnumber, status FROM attendance 
+            WHERE class_name = $1 AND attendance_date::date = $2;
+        `;
+        const { rows } = await pool.query(query, [className, date]);
+        res.json(rows.map(row => mapDbToCamelCase(row)));
+    } catch (error) {
+        console.error('Error fetching attendance:', error);
+        res.status(500).json({ message: 'Server error while fetching attendance.' });
+    }
+});
+
+/**
+ * =============================================================================
  * ADMIN-FACING ENDPOINTS
  * =============================================================================
  */
 
 // New endpoint to get history of admin notices
+// This now reads from the dedicated notice_history table for a more accurate log.
 app.get('/api/admin/notices', async (req, res) => {
     console.log('Fetching history of admin notices.');
     try {
-        // Group by message and get the most recent creation date for each unique message.
-        const query = `
-            SELECT message, MAX(createdat) as createdat
-            FROM notifications
-            WHERE type = 'admin_notice'
-            GROUP BY message
-            ORDER BY MAX(createdat) DESC;
-        `;
+        const query = `SELECT * FROM notice_history ORDER BY createdat DESC;`;
         const { rows } = await pool.query(query);
-        // The mapDbToCamelCase function will correctly handle 'createdat'
-        res.json(rows.map(notice => mapDbToCamelCase(notice)));
+        res.json(rows.map(historyItem => mapDbToCamelCase(historyItem)));
     } catch (error) {
         console.error('Error fetching admin notice history:', error);
         res.status(500).json({ message: 'Server error while fetching notice history.' });
@@ -1322,6 +2050,22 @@ app.get('/api/admin/search-users', async (req, res) => {
     } catch (error) {
         console.error('Error during user search:', error);
         res.status(500).json({ message: 'Server error during search.' });
+    }
+});
+
+// New endpoint to get details for the logged-in faculty member
+app.get('/api/faculty/me', async (req, res) => {
+    const { username } = req.query;
+    if (!username) return res.status(400).json({ message: 'Username is required.' });
+
+    try {
+        const query = 'SELECT id, name, username, email, mobilenumber, teacherchoice, subject, profilepicture, isprofilecomplete, assigned_classes FROM faculty WHERE LOWER(username) = LOWER($1)';
+        const { rows } = await pool.query(query, [username]);
+        if (rows.length === 0) return res.status(404).json({ message: 'Faculty not found.' });
+        res.status(200).json(mapDbToCamelCase(rows[0]));
+    } catch (error) {
+        console.error('Error fetching faculty details:', error);
+        res.status(500).json({ message: 'Server error while fetching faculty details.' });
     }
 });
 
@@ -1364,40 +2108,65 @@ app.get('/api/all-faculty', async (req, res) => {
     }
 });
 
-// New endpoint for admin to send a notification to all students
-app.post('/api/admin/send-notification', jsonParser, async (req, res) => {
-    const { message } = req.body;
-    console.log(`Received request to send notice to all students: "${message}"`);
+// New, unified endpoint for sending notices
+app.post('/api/admin/send-notice', jsonParser, async (req, res) => {
+    const { message, audience, recipients, adminUsername } = req.body;
+    console.log(`Received notice request for audience: ${audience}`);
 
-    if (!message || message.trim() === '') {
-        return res.status(400).json({ message: 'Notification message cannot be empty.' });
+    if (!message || !audience || !adminUsername) {
+        return res.status(400).json({ message: 'Message, audience, and admin username are required.' });
+    }
+    if (audience.startsWith('SELECTED') && (!recipients || recipients.length === 0)) {
+        return res.status(400).json({ message: 'Recipients are required for selected audience.' });
     }
 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        // 1. Get all student roll numbers to ensure there are students to notify
-        const { rows: students } = await client.query('SELECT rollnumber FROM students');
-        if (students.length === 0) {
-            return res.status(404).json({ message: 'No students found to send notifications to.' });
+        let notificationResult;
+        let recipientCount = 0;
+
+        if (audience === 'ALL_STUDENTS') {
+            const query = `INSERT INTO notifications (studentrollnumber, type, message, link) SELECT rollnumber, 'admin_notice', $1, '#' FROM students;`;
+            notificationResult = await client.query(query, [message]);
+            recipientCount = notificationResult.rowCount;
+        } else if (audience === 'ALL_FACULTY') {
+            const query = `INSERT INTO notifications (faculty_username, type, message, link) SELECT username, 'admin_notice', $1, '#' FROM faculty;`;
+            notificationResult = await client.query(query, [message]);
+            recipientCount = notificationResult.rowCount;
+        } else if (audience === 'SELECTED_STUDENTS') {
+            const query = `INSERT INTO notifications (studentrollnumber, type, message, link) SELECT unnest($1::text[]), 'admin_notice', $2, '#';`;
+            notificationResult = await client.query(query, [recipients, message]);
+            recipientCount = notificationResult.rowCount;
+        } else if (audience === 'SELECTED_FACULTY') {
+            const query = `INSERT INTO notifications (faculty_username, type, message, link) SELECT unnest($1::text[]), 'admin_notice', $2, '#';`;
+            notificationResult = await client.query(query, [recipients, message]);
+            recipientCount = notificationResult.rowCount;
+        } else {
+            throw new Error('Invalid audience specified.');
         }
 
-        // 2. Prepare a single, efficient query to insert notifications for all students
-        const notificationQuery = `
-            INSERT INTO notifications (studentrollnumber, type, message, link)
-            SELECT rollnumber, 'admin_notice', $1, '#'
-            FROM students;
+        if (recipientCount === 0) {
+            // Don't throw an error, just inform the admin. No need to rollback or log history.
+            await client.query('COMMIT'); // Commit the empty transaction
+            return res.status(200).json({ message: 'Notice sent, but no matching recipients were found.' });
+        }
+
+        // Log the action in the new history table
+        const historyQuery = `
+            INSERT INTO notice_history (sent_by_admin, message, target_audience, recipient_count)
+            VALUES ($1, $2, $3, $4);
         `;
-        const result = await client.query(notificationQuery, [message.trim()]);
+        await client.query(historyQuery, [adminUsername, message, audience, recipientCount]);
 
         await client.query('COMMIT');
 
-        console.log(`Successfully created ${result.rowCount} notifications for all students.`);
-        res.status(200).json({ message: `Notice successfully sent to ${result.rowCount} students.` });
+        console.log(`Successfully sent notice to ${recipientCount} recipients for audience ${audience}.`);
+        res.status(200).json({ message: `Notice successfully sent to ${recipientCount} recipients.` });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error sending notification to all students:', error);
+        console.error(`Error sending notice for audience ${audience}:`, error);
         res.status(500).json({ message: 'Server error while sending notifications.' });
     } finally {
         client.release();
@@ -1616,8 +2385,8 @@ app.get('/api/admin/me', async (req, res) => {
 });
 
 // New endpoint to update admin settings
-app.post('/api/admin/update-settings', jsonParser, async (req, res) => {
-    const { username, name, email, mobileNumber, currentPassword, newPassword } = req.body;
+app.post('/api/admin/update-settings', adminPicUpload.single('profilePicture'), async (req, res) => {
+    const { username, name, email, mobileNumber, currentPassword, newPassword } = req.body; // Multer makes body available
     console.log(`Updating settings for admin: ${username}`);
 
     if (!username || !currentPassword) {
@@ -1650,6 +2419,24 @@ app.post('/api/admin/update-settings', jsonParser, async (req, res) => {
         if (name) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
         if (email) { updateFields.push(`email = $${paramIndex++}`); values.push(email); }
         if (mobileNumber) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
+        if (req.file) {
+            // Rename the temporary file to a permanent one
+            const sanitizedUsername = username.replace(/[^a-zA-Z0-9_.-]/g, '_');
+            const newFileName = `${sanitizedUsername}-${Date.now()}${path.extname(req.file.originalname)}`;
+            const newPath = path.join(path.dirname(req.file.path), newFileName);
+
+            try {
+                fs.renameSync(req.file.path, newPath);
+                const profilePictureUrl = newPath.replace(/\\/g, "/");
+                updateFields.push(`profilepicture = $${paramIndex++}`);
+                values.push(profilePictureUrl);
+                console.log(`Admin profile picture for ${username} saved to: ${profilePictureUrl}`);
+            } catch (renameError) {
+                console.error('Error renaming admin profile picture:', renameError);
+                // Clean up the temp file if renaming fails
+                fs.unlinkSync(req.file.path);
+            }
+        }
         if (newPassword) {
             const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
             updateFields.push(`passwordhash = $${paramIndex++}`);
@@ -1657,7 +2444,9 @@ app.post('/api/admin/update-settings', jsonParser, async (req, res) => {
         }
 
         if (updateFields.length === 0) {
-            return res.status(200).json({ message: 'No changes were made.', adminData: admin });
+            delete admin.passwordhash;
+            // Even if no fields changed, if a file was uploaded, it was an error.
+            return res.status(200).json({ message: 'No changes were made.', adminData: mapDbToCamelCase(admin) });
         }
 
         values.push(username);
@@ -1740,23 +2529,22 @@ app.delete('/api/admin/delete/:username', async (req, res) => {
 
 // New endpoint for admin to add a faculty user
 app.post('/api/admin/add-user', jsonParser, async (req, res) => {
-    const { name, username, email, password } = req.body;
+    const { name, username, email, password, teacherChoice, subject, assignedClasses } = req.body;
     console.log(`Admin request to add new faculty user: ${username}`);
 
-    if (!name || !username || !email || !password) {
-        return res.status(400).json({ message: 'Name, username, email, and password are required.' });
+    if (!name || !username || !email || !password || !teacherChoice || !subject || !assignedClasses) {
+        return res.status(400).json({ message: 'Name, username, email, password, teacher type, subject, and assigned classes are required.' });
     }
 
     try {
         const passwordHash = await bcrypt.hash(password, saltRounds);
         // We set isprofilecomplete to false, so the faculty member is forced to update details on first login.
-        // We leave security question/answer as null.
         const query = `
-            INSERT INTO faculty (name, username, email, passwordhash, isprofilecomplete)
-            VALUES ($1, $2, $3, $4, FALSE)
+            INSERT INTO faculty (name, username, email, passwordhash, isprofilecomplete, teacherchoice, subject, assigned_classes)
+            VALUES ($1, $2, $3, $4, FALSE, $5, $6, $7)
             RETURNING id, name, username, email;
         `;
-        const values = [name, username.toLowerCase(), email.toLowerCase(), passwordHash];
+        const values = [name, username.toLowerCase(), email.toLowerCase(), passwordHash, teacherChoice, subject, assignedClasses];
         const { rows } = await pool.query(query, values);
         
         console.log(`Faculty member ${username} created successfully by admin.`);
@@ -1771,14 +2559,14 @@ app.post('/api/admin/add-user', jsonParser, async (req, res) => {
 });
 
 // New endpoint for faculty to complete their profile
-app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
+app.post('/api/faculty/complete-profile', facultyPicUpload.single('photo'), async (req, res) => {
     const { 
         username, currentPassword, newPassword, 
-        email, mobileNumber, dob, teacherChoice, subject 
+        mobileNumber, dob 
     } = req.body;
     console.log(`Profile completion attempt for faculty: ${username}`);
 
-    if (!username || !currentPassword || !newPassword || !email || !mobileNumber || !dob || !teacherChoice || !subject) {
+    if (!username || !currentPassword || !newPassword || !mobileNumber || !dob) {
         return res.status(400).json({ message: 'All fields are required to complete your profile.' });
     }
 
@@ -1787,25 +2575,45 @@ app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
         await client.query('BEGIN');
 
         const facultyRes = await client.query('SELECT * FROM faculty WHERE username = $1', [username]);
-        if (facultyRes.rows.length === 0) {
-            throw new Error('Faculty member not found.');
-        }
+        if (facultyRes.rows.length === 0) throw new Error('Faculty member not found.');
+        
         const faculty = facultyRes.rows[0];
 
         const isPasswordMatch = await bcrypt.compare(currentPassword, faculty.passwordhash);
-        if (!isPasswordMatch) {
-            return res.status(401).json({ message: 'Incorrect current password.' });
-        }
+        if (!isPasswordMatch) throw new Error('Incorrect current password.');
 
         const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+        const updateFields = [
+            'mobilenumber = $1', 'dob = $2', 'passwordhash = $3', 
+            'isprofilecomplete = TRUE', 'updatedat = CURRENT_TIMESTAMP'
+        ];
+        const values = [mobileNumber, dob, newPasswordHash];
+        let paramIndex = 4;
+
+        if (req.file) {
+            const sanitizedUsername = username.replace(/[^a-zA-Z0-9_.-]/g, '_');
+            const newFileName = `${sanitizedUsername}-${Date.now()}${path.extname(req.file.originalname)}`;
+            const newPath = path.join(path.dirname(req.file.path), newFileName);
+
+            try {
+                fs.renameSync(req.file.path, newPath);
+                const profilePictureUrl = newPath.replace(/\\/g, "/");
+                updateFields.push(`profilepicture = $${paramIndex++}`);
+                values.push(profilePictureUrl);
+            } catch (renameError) {
+                console.error('Error renaming faculty profile picture on completion:', renameError);
+                fs.unlinkSync(req.file.path); // Clean up temp file
+            }
+        }
+
+        values.push(username);
         const updateQuery = `
             UPDATE faculty 
-            SET email = $1, mobilenumber = $2, dob = $3, teacherchoice = $4, subject = $5, 
-                passwordhash = $6, isprofilecomplete = TRUE, updatedat = CURRENT_TIMESTAMP
-            WHERE username = $7
+            SET ${updateFields.join(', ')}
+            WHERE username = $${paramIndex}
             RETURNING *;
         `;
-        const values = [email.toLowerCase(), mobileNumber, dob, teacherChoice, subject, newPasswordHash, username];
         const updatedResult = await client.query(updateQuery, values);
 
         await client.query('COMMIT');
@@ -1815,10 +2623,111 @@ app.post('/api/faculty/complete-profile', jsonParser, async (req, res) => {
         res.status(200).json({ message: 'Profile updated successfully!', facultyData: mapDbToCamelCase(updatedFaculty) });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error completing faculty profile:', error);
-        res.status(500).json({ message: 'Server error during profile update.' });
+        console.error('Error completing faculty profile:', error.message);
+        res.status(500).json({ message: error.message || 'Server error during profile update.' });
     } finally {
         client.release();
+    }
+});
+
+// New endpoint to update faculty settings
+app.post('/api/faculty/update-settings', facultyPicUpload.single('profilePicture'), async (req, res) => {
+    const { 
+        username, name, email, mobileNumber, 
+        currentPassword, newPassword 
+    } = req.body;
+    console.log(`Updating settings for faculty: ${username}`);
+
+    // Any change requires the current password for verification.
+    if (!username || !currentPassword) {
+        return res.status(400).json({ message: 'Username and Current Password are required to save changes.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const facultyRes = await client.query('SELECT * FROM faculty WHERE LOWER(username) = LOWER($1)', [username]);
+        if (facultyRes.rows.length === 0) throw new Error('Faculty user not found.');
+
+        const faculty = facultyRes.rows[0];
+        const isPasswordMatch = await bcrypt.compare(currentPassword, faculty.passwordhash);
+        if (!isPasswordMatch) throw new Error('Incorrect current password.');
+
+        const updateFields = [];
+        const values = [];
+        let paramIndex = 1;
+
+        if (name !== undefined) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
+        if (email !== undefined) { updateFields.push(`email = $${paramIndex++}`); values.push(email.toLowerCase()); }
+        if (mobileNumber !== undefined) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
+        if (req.file) {
+            // Rename the temporary file to a permanent one
+            const sanitizedUsername = username.replace(/[^a-zA-Z0-9_.-]/g, '_');
+            const newFileName = `${sanitizedUsername}-${Date.now()}${path.extname(req.file.originalname)}`;
+            const newPath = path.join(path.dirname(req.file.path), newFileName);
+
+            try {
+                fs.renameSync(req.file.path, newPath);
+                const profilePictureUrl = newPath.replace(/\\/g, "/");
+                updateFields.push(`profilepicture = $${paramIndex++}`);
+                values.push(profilePictureUrl);
+                console.log(`Faculty profile picture for ${username} saved to: ${profilePictureUrl}`);
+            } catch (renameError) {
+                // If renaming fails, log it but don't fail the whole transaction.
+                // The other profile details might still be important to save.
+                // Clean up the temp file.
+                console.error('Error renaming faculty profile picture:', renameError);
+                fs.unlinkSync(req.file.path);
+            }
+        }
+        if (newPassword) {
+            const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+            updateFields.push(`passwordhash = $${paramIndex++}`);
+            values.push(newPasswordHash);
+        }
+
+        if (updateFields.length === 0) {
+            delete faculty.passwordhash;
+            return res.status(200).json({ message: 'No changes were made.', facultyData: mapDbToCamelCase(faculty) });
+        }
+
+        values.push(username);
+        const query = `UPDATE faculty SET ${updateFields.join(', ')}, updatedat = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER($${paramIndex}) RETURNING *;`;
+        const { rows } = await client.query(query, values);
+
+        await client.query('COMMIT');
+        const updatedFaculty = rows[0];
+        delete updatedFaculty.passwordhash;
+        res.status(200).json({ message: 'Settings updated successfully!', facultyData: mapDbToCamelCase(updatedFaculty) });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error updating faculty settings:', error);
+        res.status(500).json({ message: error.message || 'Server error during update.' });
+    } finally {
+        client.release();
+    }
+});
+
+// New endpoint for admin dashboard stats
+app.get('/api/admin/stats', async (req, res) => {
+    console.log('Fetching admin dashboard stats.');
+    try {
+        const studentCountQuery = pool.query('SELECT COUNT(*) AS count FROM students;');
+        const facultyCountQuery = pool.query('SELECT COUNT(*) AS count FROM faculty;');
+
+        const [studentResult, facultyResult] = await Promise.all([
+            studentCountQuery,
+            facultyCountQuery
+        ]);
+
+        const stats = {
+            totalStudents: parseInt(studentResult.rows[0].count, 10),
+            totalFaculty: parseInt(facultyResult.rows[0].count, 10)
+        };
+        res.status(200).json(stats);
+    } catch (error) {
+        console.error('Error fetching admin stats:', error);
+        res.status(500).json({ message: 'Server error while fetching dashboard stats.' });
     }
 });
 
@@ -1854,8 +2763,12 @@ app.post('/api/faculty/login', jsonParser, async (req, res) => {
     console.log(`Faculty login attempt for identifier: ${loginIdentifier}`);
 
     try {
-        const query = 'SELECT * FROM faculty WHERE username = $1 OR email = $1';
-        const { rows } = await pool.query(query, [loginIdentifier]);
+        // Explicitly select columns to ensure all necessary data is fetched and to avoid sending sensitive data.
+        const query = `
+            SELECT id, name, username, email, mobilenumber, dob, teacherchoice, subject, profilepicture, isprofilecomplete, assigned_classes, passwordhash 
+            FROM faculty WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)
+        `;
+        const { rows } = await pool.query(query, [loginIdentifier.toLowerCase()]);
 
         if (rows.length === 0) {
             return res.status(401).json({ message: 'Username or email not found.' });
@@ -1880,27 +2793,34 @@ app.post('/api/faculty/login', jsonParser, async (req, res) => {
 
 // Endpoint for faculty password reset
 app.post('/api/faculty/reset-password', jsonParser, async (req, res) => {
-    const { identifier, securityQuestion, securityAnswer, newPassword } = req.body;
-    console.log(`Faculty password reset attempt for identifier: ${identifier}`);
+    const { username, mobileNumber, newPassword } = req.body;
+    console.log(`Faculty password reset attempt for username: ${username}`);
+
+    if (!username || !mobileNumber || !newPassword) {
+        return res.status(400).json({ message: 'Username, mobile number, and new password are required.' });
+    }
 
     try {
-        const query = 'SELECT * FROM faculty WHERE (username = $1 OR email = $1) AND securityquestion = $2';
-        const { rows } = await pool.query(query, [identifier, securityQuestion]);
+        // Find user by username. Username should be unique.
+        const query = 'SELECT * FROM faculty WHERE LOWER(username) = LOWER($1)';
+        const { rows } = await pool.query(query, [username]);
 
         if (rows.length === 0) {
-            return res.status(401).json({ message: 'Invalid identifier or security question.' });
+            // Generic error to prevent leaking info on which field was wrong
+            return res.status(401).json({ message: 'Invalid username or mobile number.' });
         }
 
         const faculty = rows[0];
-        if (faculty.securityanswer.toLowerCase() !== securityAnswer.toLowerCase()) {
-            return res.status(401).json({ message: 'Incorrect security answer.' });
+        // Check if the provided mobile number matches the one in the database.
+        if (faculty.mobilenumber !== mobileNumber) {
+            return res.status(401).json({ message: 'Invalid username or mobile number.' });
         }
 
         const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
         await pool.query('UPDATE faculty SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE id = $2', [newPasswordHash, faculty.id]);
 
         console.log(`Password successfully reset for faculty: ${faculty.username}`);
-        res.status(200).json({ message: 'Password reset successful' });
+        res.status(200).json({ message: 'Password reset successful! Please log in with your new password.' });
     } catch (error) {
         console.error('Error during faculty password reset:', error);
         res.status(500).json({ message: 'Server error during password reset.' });
@@ -1957,27 +2877,65 @@ function mapDbToCamelCase(dbObject) {
             mothername: 'motherName',
             motheroccupation: 'motherOccupation',
             parentmobile: 'parentMobile',
-            board10: 'board10',
+            board10: 'board10', // DB column name: JS object key
             marks10: 'marks10',
+            marksheet10: 'migrationCertificate', // DB: marksheet10 -> JS: migrationCertificate
             totalmarks10: 'totalMarks10',
             percentage10: 'percentage10',
             year10: 'year10',
             board12: 'board12',
             marks12: 'marks12',
+            marksheet12: 'tcCertificate', // DB: marksheet12 -> JS: tcCertificate
             totalmarks12: 'totalMarks12',
             percentage12: 'percentage12',
             year12: 'year12',
             selectedcourse: 'selectedCourse',
             hobbycourses: 'hobbyCourses',
             isprofilecomplete: 'isProfileComplete',
+            teacherchoice: 'teacherChoice', // This was correct, but adding a check below for safety
+            assigned_classes: 'assignedClasses',
+            gender: 'gender',
+            subject: 'subject',
             isread: 'isRead',
             createdat: 'createdAt',
-            updatedat: 'updatedAt'
+            updatedat: 'updatedAt',
+            // Keys for faculty attendance view
+            class_name: 'className',
+            attendance_date: 'attendanceDate',
+            total_students: 'totalStudents',
+            present_count: 'presentCount',
+            absent_count: 'absentCount'
         };
         camelCaseObject[keyMap[key] || key] = dbObject[key];
     }
     return camelCaseObject;
 }
+
+/**
+ * =============================================================================
+ * GLOBAL ERROR HANDLER
+ * =============================================================================
+ * This middleware must be the LAST `app.use()` call. It catches errors from
+ * any route, including async errors and errors from middleware like Multer.
+ * This ensures that the client always receives a JSON error response instead
+ * of a default HTML error page.
+ */
+app.use((err, req, res, next) => {
+    console.error("An unhandled error occurred:", err);
+
+    // Handle Multer-specific errors (e.g., file size limits, etc.)
+    if (err instanceof multer.MulterError) {
+        return res.status(422).json({ message: `File Upload Error: ${err.message}` });
+    }
+
+    // If headers have already been sent, delegate to the default Express handler.
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    // For all other errors, send a generic 500 server error response.
+    res.status(500).json({ message: err.message || 'An unexpected server error occurred.' });
+});
 
 app.listen(port, () => {
     console.log("\n✅ Backend server is running!");

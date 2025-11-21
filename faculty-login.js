@@ -69,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // --- Login Successful ---
             const facultyData = data.facultyData;
             sessionStorage.setItem('currentFaculty', JSON.stringify(facultyData));
-            sessionStorage.setItem('navigationAllowed', 'true'); // Set navigation flag for the next page
 
             alert('Login successful!');
             window.location.replace('faculty.html'); // Use replace to prevent back button issues

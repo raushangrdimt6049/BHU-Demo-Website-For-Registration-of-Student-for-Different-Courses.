@@ -10,8 +10,8 @@ window.addEventListener('pageshow', (event) => {
 document.addEventListener('DOMContentLoaded', () => {
     // Security check: Ensure user has completed the previous step
     const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
-    if (!studentData || !studentData.board10) {
-        alert('Please complete your Academic Details first.');
+    if (!studentData || !studentData.addressLine1) {
+        alert('Please complete your Address & Parents Detail first.');
         sessionStorage.setItem('navigationAllowed', 'true');
         window.location.href = 'home.html';
         return;
@@ -21,15 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputs = {
         profilePicture: form.querySelector('#profilePicture'),
         signature: form.querySelector('#signature'),
-        marksheet10: form.querySelector('#marksheet10'),
-        marksheet12: form.querySelector('#marksheet12'),
+        migrationCertificate: form.querySelector('#migrationCertificate'),
+        tcCertificate: form.querySelector('#tcCertificate'),
     };
 
     // --- Pre-fill form with existing documents ---
     const populateExistingDocuments = () => {
         Object.keys(inputs).forEach(fieldName => {
-            // The DB stores 'profilepicture', but the JS object uses 'profilePicture'.
-            // The mapDbToCamelCase function handles this on login, so studentData should have camelCase keys.
             if (studentData[fieldName]) {
                 const input = inputs[fieldName];
                 const preview = document.getElementById(`${fieldName}Preview`);
@@ -117,10 +115,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData,
             });
 
-            const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.message || 'Failed to upload documents.');
+                // Try to parse the error response as JSON, which is what our server should send.
+                const errorData = await response.json().catch(() => {
+                    // If it's not JSON, it's an unexpected server error (like an HTML page).
+                    // This is the scenario that causes the "Unexpected token <" error.
+                    throw new Error(`Server returned a non-JSON error (Status: ${response.status}). Check the server logs.`);
+                });
+                // If it was JSON, throw the message from the server.
+                throw new Error(errorData.message || 'An unknown error occurred during upload.');
             }
+
+            // If the response is OK, we can safely parse the success response.
+            const data = await response.json();
 
             alert('Documents uploaded successfully!');
             sessionStorage.setItem('currentStudent', JSON.stringify(data.studentData));

@@ -1,18 +1,21 @@
 // --- Course Data with Fees ---
 // In a real application, this would likely come from a server API call.
-const COURSES = {
-    "Physics": { name: "Physics", fee: 150000 }, // ₹1,500.00
-    "Chemistry": { name: "Chemistry", fee: 165000 }, // ₹1,650.00
-    "Mathematics": { name: "Mathematics", fee: 145000 }, // ₹1,450.00
-    "Botany": { name: "Botany", fee: 155000 }, // ₹1,550.00
-    "Zoology": { name: "Zoology", fee: 155000 }, // ₹1,550.00
-    "Computer Science": { name: "Computer Science", fee: 250000 }, // ₹2,500.00
-    "Commerce": { name: "Commerce", fee: 120000 }, // ₹1,200.00
-    "History": { name: "History", fee: 110000 }, // ₹1,100.00
-    "Political Science": { name: "Political Science", fee: 110000 }, // ₹1,100.00
-    "Economics": { name: "Economics", fee: 135000 }, // ₹1,350.00
-    "English": { name: "English", fee: 115000 }, // ₹1,150.00
-    "Hindi": { name: "Hindi", fee: 105000 }  // ₹1,050.00
+const CLASSES = {
+    "Nursery": { name: "Nursery", fee: 500000 },
+    "LKG": { name: "LKG", fee: 550000 },
+    "UKG": { name: "UKG", fee: 600000 },
+    "Class 1": { name: "Class 1", fee: 700000 },
+    "Class 2": { name: "Class 2", fee: 750000 },
+    "Class 3": { name: "Class 3", fee: 800000 },
+    "Class 4": { name: "Class 4", fee: 850000 },
+    "Class 5": { name: "Class 5", fee: 900000 },
+    "Class 6": { name: "Class 6", fee: 1000000 },
+    "Class 7": { name: "Class 7", fee: 1050000 },
+    "Class 8": { name: "Class 8", fee: 1100000 },
+    "Class 9": { name: "Class 9", fee: 1250000 },
+    "Class 10": { name: "Class 10", fee: 1300000 },
+    "Class 11": { name: "Class 11", fee: 1500000 },
+    "Class 12": { name: "Class 12", fee: 1550000 }
 };
 
 // This listener handles scenarios where a page is restored from the browser's
@@ -53,37 +56,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const initializePage = () => {
         // Also check if previous steps have been filled first
         const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
-        if (!studentData || !studentData.board10) {
-            alert('Please complete your Academic Details first.');
+        if (!studentData || !studentData.profilePicture || !studentData.signature || !studentData.migrationCertificate || !studentData.tcCertificate) {
+            alert('Please complete the Document Upload step first.');
+            sessionStorage.setItem('navigationAllowed', 'true');
             window.location.href = 'home.html';
             return; // Stop execution if prerequisites are not met
         }
 
         const courseForm = document.getElementById('courseSelectionForm');
-        const honsSubjectContainer = document.getElementById('honsSubjectContainer');
+        const classSelectionContainer = document.getElementById('classSelectionContainer');
         const submitBtn = document.getElementById('submitBtn');
         const buttonText = submitBtn.querySelector('.button-text');
         const spinner = submitBtn.querySelector('.spinner');
 
-        if (!courseForm || !honsSubjectContainer) {
+        if (!courseForm || !classSelectionContainer) {
             console.error('The required form or container element was not found.');
             return;
         }
 
-        // --- Dynamically populate the course list with checkboxes ---
-        Object.keys(COURSES).forEach(key => {
-            const course = COURSES[key];
-            const checkId = `course-${key.replace(/\s+/g, '-')}`;
+        // --- Dynamically populate the class list with radio buttons ---
+        Object.keys(CLASSES).forEach(key => {
+            const course = CLASSES[key];
+            const radioId = `class-${key.replace(/\s+/g, '-')}`;
 
             const checkWrapper = document.createElement('label');
             checkWrapper.className = 'radio-option';
-            checkWrapper.htmlFor = checkId;
+            checkWrapper.htmlFor = radioId;
 
             const checkInput = document.createElement('input');
-            checkInput.type = 'checkbox';
-            checkInput.name = 'subjects';
+            checkInput.type = 'radio';
+            checkInput.name = 'selectedClass';
             checkInput.value = key;
-            checkInput.id = checkId;
+            checkInput.id = radioId;
 
             const nameSpan = document.createElement('span');
             nameSpan.className = 'course-name';
@@ -97,59 +101,41 @@ document.addEventListener('DOMContentLoaded', () => {
             checkWrapper.appendChild(nameSpan);
             checkWrapper.appendChild(feeSpan);
 
-            honsSubjectContainer.appendChild(checkWrapper);
+            classSelectionContainer.appendChild(checkWrapper);
         });
 
         // --- Handle selection limit and highlighting ---
-        honsSubjectContainer.addEventListener('change', (event) => {
-            if (event.target.type === 'checkbox') {
-                const selectedCheckboxes = honsSubjectContainer.querySelectorAll('input[type="checkbox"]:checked');
-
-                // Enforce selection limit
-                if (selectedCheckboxes.length > 3) {
-                    alert('You can select a maximum of three subjects.');
-                    event.target.checked = false; // Revert the last selection
-                    return;
-                }
-
+        classSelectionContainer.addEventListener('change', (event) => {
+            if (event.target.type === 'radio') {
+                // Remove 'selected' from all other options
+                classSelectionContainer.querySelectorAll('.radio-option').forEach(label => {
+                    label.classList.remove('selected');
+                });
                 // Toggle 'selected' class for highlighting
                 const parentLabel = event.target.closest('.radio-option');
-                if (event.target.checked) {
-                    parentLabel.classList.add('selected');
-                } else {
-                    parentLabel.classList.remove('selected');
-                }
+                parentLabel.classList.add('selected');
             }
         });
 
         courseForm.addEventListener('submit', async (event) => {
             event.preventDefault();
-            const selectedCheckboxes = courseForm.querySelectorAll('input[name="subjects"]:checked');
-            if (selectedCheckboxes.length === 0) {
-                alert('Please select at least one subject.');
+            const selectedRadio = courseForm.querySelector('input[name="selectedClass"]:checked');
+            if (!selectedRadio) {
+                alert('Please select a class for admission.');
                 return;
             }
 
             // --- UI change for loading state ---
             submitBtn.disabled = true;
             spinner.style.display = 'inline-block';
-            buttonText.textContent = 'Saving...';
-
-            const selectedSubjects = [];
-            let totalFee = 0;
-
-            selectedCheckboxes.forEach(checkbox => {
-                const key = checkbox.value;
-                const courseData = COURSES[key];
-                selectedSubjects.push(courseData.name);
-                totalFee += courseData.fee;
-            });
+            buttonText.textContent = 'Saving...';            
+            const selectedKey = selectedRadio.value;
+            const selectedClassData = CLASSES[selectedKey];
 
             const selectionData = {
-                level: "Undergraduate",
-                branch: selectedSubjects.join(', '), // For display on preview page
-                honsSubject: selectedSubjects, // Array of subjects for potential future use
-                amount: totalFee
+                level: "School Admission",
+                branch: selectedClassData.name, // e.g., "Class 5"
+                amount: selectedClassData.fee
             };
 
             // --- Save selection to the backend to persist it across sessions ---

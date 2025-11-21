@@ -82,14 +82,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         populateField('summaryMotherOccupation', studentData.motherOccupation);
         populateField('summaryParentMobile', studentData.parentMobile);
 
-        // --- Populate Academic Details ---
-        populateField('summaryBoard10', studentData.board10);
-        populateField('summaryPercentage10', studentData.percentage10 ? `${studentData.percentage10}%` : 'N/A');
-        populateField('summaryYear10', studentData.year10);
-        populateField('summaryBoard12', studentData.board12);
-        populateField('summaryPercentage12', studentData.percentage12 ? `${studentData.percentage12}%` : 'N/A');
-        populateField('summaryYear12', studentData.year12);
-
         // --- Populate Payment & Course Details ---
         populateField('summaryCourseName', `${selectedCourse.level} - ${selectedCourse.branch}`);
         populateField('summaryPaymentAmount', `₹ ${(selectedCourse.amount / 100).toLocaleString('en-IN')}`);

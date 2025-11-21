@@ -81,12 +81,12 @@
             color: var(--btn-success-bg);
             order: 2;
         }
+        .radio-option input[type="radio"],
         .radio-option input[type="checkbox"] {
             order: 3;
             margin: 0;
             margin-left: auto;
-            /* The checkbox is now visually hidden, but remains functional. */
-            /* Selection is handled by clicking the label and indicated by the background color. */
+            /* The checkbox/radio is now visually hidden, but remains functional. */
             display: none;
         }
     </style>
@@ -103,11 +103,11 @@
     <main class="login-main">
         <div class="welcome-container">
             <form id="courseSelectionForm" class="login-form">
-                <h3>Step 3: Select Your Subjects</h3>
-                <p>Please select up to three desired subjects to proceed with the application.</p>
+                <h3>Step 3: Choose Class for Admission</h3>
+                <p>Please select the class you are applying for.</p>
                 <div class="form-group">
-                    <label>Available Subjects (Select up to 3)</label>
-                    <div id="honsSubjectContainer" class="radio-group-container"></div>
+                    <label>Available Classes (Select one)</label>
+                    <div id="classSelectionContainer" class="radio-group-container"></div>
                 </div>
                 <button type="submit" class="submit-btn" id="submitBtn">
                     <span class="button-text">Save & Continue</span>

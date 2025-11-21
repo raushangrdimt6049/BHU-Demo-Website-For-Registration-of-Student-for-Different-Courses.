@@ -43,6 +43,7 @@
         .profile-intro-pic { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid var(--btn-bg); margin-bottom: 0.5rem; }
         .student-profile-intro h3 { margin: 0.5rem 0 0.25rem 0; font-size: 1.4rem; }
         .student-profile-intro p { margin: 0; color: var(--text-color-light); }
+        .student-profile-intro p + p { margin-top: 0.25rem; } /* Add spacing between paragraphs */
 
         .quick-links-header h4 { margin: 0; border-bottom: none; padding-bottom: 0; text-align: left; font-size: 1.2rem; }
         .quick-links-panel ul { list-style: none; padding: 0; margin: 0; } /* Keep old style for compatibility if needed */
@@ -50,21 +51,131 @@
             background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color); padding: 0 0.5rem;
         }
 
+        /* --- Modern Dropdown Styles --- */
+        .custom-select-wrapper {
+            position: relative;
+            width: auto;
+            min-width: 200px;
+        }
+        .custom-select-wrapper select {
+            -webkit-appearance: none; /* Remove default arrow on Chrome/Safari */
+            -moz-appearance: none; /* Remove default arrow on Firefox */
+            appearance: none;
+            width: 100%;
+            background-color: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            padding: 0.6rem 2.5rem 0.6rem 1rem; /* Right padding for custom arrow */
+            font-size: 0.95rem;
+            color: var(--text-color);
+            cursor: pointer;
+            transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+        }
+        .custom-select-wrapper::after {
+            content: '▾'; /* Custom arrow character */
+            position: absolute;
+            top: 50%;
+            right: 1rem;
+            transform: translateY(-50%);
+            pointer-events: none; /* So it doesn't block clicks on the select */
+        }
+        /* --- Attendance Graph Styles --- */
+        .attendance-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 180px; /* Max width for donut */
+            height: 180px; /* Fixed height for donut */
+        }
+        .chart-container .percentage-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+        /* --- Attendance Modal Styles --- */
+        #attendance-summary-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .attendance-box {
+            background-color: var(--bg-body);
+            border: 1px solid var(--input-border);
+            border-radius: 8px;            min-width: 220px;
+            padding: 1rem;
+        }
+        .attendance-box h5 { margin: 0 0 1rem 0; color: var(--btn-bg); border-bottom: 1px solid var(--input-border); padding-bottom: 0.5rem; }
+        .attendance-box p { margin: 0.5rem 0; display: flex; justify-content: space-between; }
+        .attendance-box p span:first-child { font-weight: 600; }
+        .correction-request-section {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--input-border);
+        }
+        .correction-request-section textarea { width: 100%; resize: vertical; }
+        }
+
+        /* --- Animated Border Keyframes --- */
+        @keyframes rotate {
+            100% {
+                transform: rotate(-1turn);
+            }
+        }
+
         /* --- Welcome Banner Styles --- */
         .welcome-banner {
-            background-color: var(--btn-bg-light);
+            position: relative; /* Needed for pseudo-elements */
             color: var(--btn-bg);
-            padding: 1rem;
+            padding: 0.5rem;
             border-radius: 8px;
             margin-bottom: 1.5rem;
             text-align: center;
-            overflow: hidden; /* Good practice for scale transforms */
-            border: 1px solid var(--btn-bg);
+            overflow: hidden; /* This is crucial for the effect */
+            z-index: 1; /* Ensure it's on a stacking context */
+
         }
+
+        /* The animated gradient layer */
+        .welcome-banner::before {
+            content: '';
+            position: absolute;
+            z-index: -2;
+            left: -50%;
+            top: -50%;
+            width: 200%;
+            height: 200%;
+            background-image: conic-gradient(#4f46e5, #7c3aed, #db2777, #ec4899, #f472b6, #4f46e5);
+            animation: rotate 4s linear infinite;
+        }
+
+        /* The inner background to create the border effect */
+        .welcome-banner::after {
+            content: '';
+            position: absolute;
+            z-index: -1;
+            left: 2px; /* Border thickness */
+            top: 2px; /* Border thickness */
+            width: calc(100% - 4px);
+            height: calc(100% - 4px);
+            background: var(--btn-bg-light); /* Match the banner's background */
+            border-radius: 6px; /* Slightly less than the parent's border-radius */
+        }
+
 
         .welcome-banner h2 {
             margin: 0;
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             font-weight: 600;
             animation: zoomInOut 5s ease-in-out infinite;
         }
@@ -80,7 +191,12 @@
         }
         
         /* --- New Side Navigation Styles --- */
-        .main-header { justify-content: space-between; }
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
         .header-actions-left { display: flex; align-items: center; }
         .side-nav-btn {
             background: none; border: none; color: var(--text-color); font-size: 1.8rem; cursor: pointer; padding: 0 1rem;
@@ -306,7 +422,7 @@
         /* New container for the main content area */
         .main-content-container {
             background: var(--bg-main);
-            padding: 1rem 2.5rem 2.5rem;
+            padding: 0 2.5rem 2.5rem;
             border-radius: 12px;
             box-shadow: 0 5px 15px var(--header-shadow);
             width: 100%;
@@ -442,15 +558,15 @@
         <ul>
             <li><a href="home.html" class="active-nav-link"><span class="nav-icon">🏠</span> Dashboard</a></li>
             <li><a href="#" id="sideNavMyCoursesBtn"><span class="nav-icon">📚</span> My Courses</a></li>
-            <li><a href="#"><span class="nav-icon">📅</span> Timetable</a></li>
+            <li><a href="#" id="sideNavTimetableLink"><span class="nav-icon">📅</span> Timetable</a></li>
             <li><a href="#" id="sideNavFeeStructureBtn"><span class="nav-icon">💰</span> Fee Structure</a></li>
-            <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
+            <li><a href="#" id="sideNavAttendanceLink"><span class="nav-icon">✅</span> Attendance</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Assignments</a></li>
             <li><a href="#"><span class="nav-icon">🎓</span> Results</a></li>
             <li><a href="#"><span class="nav-icon">🏛️</span> Library</a></li>
             <li><a href="#"><span class="nav-icon">📢</span> Notices</a></li>
-            <li><a href="#"><span class="nav-icon">❓</span> Support / Helpdesk</a></li>
             <li style="height: 1px; background-color: var(--input-border); margin: 8px 20px;"></li>
+            <li><a href="#"><span class="nav-icon">❓</span> Support / Helpdesk</a></li>
             <li><a href="#" id="sideNavSettingsBtn"><span class="nav-icon">⚙️</span> Settings</a></li>
             <li><a href="#" id="sideNavLogoutBtn"><span class="nav-icon">🚪</span> Logout</a></li>
         </ul>
@@ -464,11 +580,11 @@
             </div>
         </div>
         <div class="header-actions-right">
-            <button id="openSearchModalBtn" class="search-icon-btn" title="Search">🔍</button>
             <div class="notification-container">
                 <button id="notificationBtn" class="notification-btn" title="Notifications">
                     🔔
                     <span id="notificationBadge" class="notification-badge">2</span>
+                    
                 </button>
                 <div id="notificationPanel" class="notification-panel">
                     <div class="notification-header">
@@ -665,21 +781,6 @@
             </div>
         </div>
     </div>
-    <!-- Search Modal -->
-    <div id="searchModalOverlay" class="profile-modal-overlay">
-        <div class="profile-modal-content search-modal-content" style="max-width: 600px;">
-            <button id="closeSearchModalBtn" class="close-modal-btn">&times;</button>
-            <div class="settings-view"> <!-- Re-using class for h4 style -->
-                <h4>Search Portal</h4>
-                <div class="search-input-wrapper">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="searchInput" placeholder="Search for courses, links, etc..." autocomplete="off">
-                </div>
-                <ul id="searchResultsList"></ul>
-                <p id="no-search-results" style="display: none;">No results found.</p>
-            </div>
-        </div>
-    </div>
     <!-- All Notifications Modal -->
     <div id="allNotificationsModalOverlay" class="profile-modal-overlay">
         <div class="profile-modal-content" style="max-width: 600px;">
@@ -705,6 +806,98 @@
             </div>
         </div>
     </div>
+    <!-- Student Timetable Modal -->
+    <div id="studentTimetableModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 900px;">
+            <button id="closeStudentTimetableModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view">
+                <h4 id="studentTimetableTitle" style="margin-top: 0;">My Class Timetable</h4>
+                <div class="history-table-container">
+                    <table id="studentTimetableTable">
+                        <thead>
+                            <tr>
+                                <th>Day</th>
+                                <th>P1 <small>(9:00-9:40)</small></th>
+                                <th>P2 <small>(9:40-10:20)</small></th>
+                                <th>P3 <small>(10:20-11:00)</small></th>
+                                <th>P4 <small>(11:00-11:40)</small></th>
+                                <th class="break-cell">Break</th>
+                                <th>P5 <small>(12:10-12:50)</small></th>
+                                <th>P6 <small>(12:50-1:30)</small></th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTimetableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Attendance Modal -->
+    <div id="attendanceModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 800px;">
+            <button id="closeAttendanceModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--input-border); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+                    <h4 style="margin: 0;">My Attendance</h4>
+                    <div class="custom-select-wrapper">
+                        <select id="attendanceSubjectFilter">
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="attendance-summary-container">
+                    <!-- Attendance boxes will be populated here -->
+                </div>
+
+                <div class="correction-request-section">
+                    <h4>Request Attendance Correction</h4>
+                    <form id="attendanceCorrectionForm">
+                        <div class="form-group">
+                            <label for="correctionCourseSelect">Select Course</label>
+                            <select id="correctionCourseSelect" name="course" required>
+                                <!-- Options will be populated by JS -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="correctionComment">Reason for Correction</label>
+                            <textarea id="correctionComment" name="comment" rows="3" placeholder="e.g., 'I was present on DD/MM/YYYY but marked absent due to a technical issue.'" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="correctionFile">Supporting Document (Optional)</label>
+                            <input type="file" id="correctionFile" name="supportingFile" accept="image/jpeg, image/png, application/pdf">
+                            <small>e.g., Medical certificate, event participation proof.</small>
+                        </div>
+                        <button type="submit" class="submit-btn" style="width: auto;">Submit Request</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Attendance History Modal -->
+    <div id="attendanceHistoryModalOverlay" class="profile-modal-overlay">
+        <div class="profile-modal-content" style="max-width: 800px;">
+            <button id="closeAttendanceHistoryModalBtn" class="close-modal-btn">&times;</button>
+            <div class="settings-view">
+                <h4 style="margin-top: 0;">Detailed Attendance History</h4>
+                <div class="history-table-container">
+                    <table id="attendanceHistoryTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceHistoryTableBody">
+                            <!-- History will be populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="home.js"></script>
 </body>
 </html>
