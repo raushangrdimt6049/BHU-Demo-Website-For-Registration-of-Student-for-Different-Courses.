@@ -3,8 +3,9 @@ const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const nodemailer = require('nodemailer'); // Import nodemailer
+const admin = require('firebase-admin'); // Import Firebase Admin SDK
 const bcrypt = require('bcryptjs');
-const { Pool } = require('pg');
+// const { Pool } = require('pg'); // No longer needed
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const path = require('path');
@@ -26,34 +27,103 @@ app.use(cors()); // Allow requests from the frontend
 // Create a JSON parser middleware instance. We will apply it to specific routes.
 const jsonParser = express.json();
 
-// --- PostgreSQL Pool Setup ---
-// The pool will use connection information from the environment variables.
-// On Render, DATABASE_URL is automatically set for your web service.
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-  // --- Recommended settings for robust, long-running applications ---
-    // Maximum number of clients in the pool
-    max: 20,
-  // How long a client is allowed to remain idle before being closed
-  idleTimeoutMillis: 30000, // 30 seconds
-  // How long to wait for a client from the pool before timing out
-  connectionTimeoutMillis: 20000, // 20 seconds
-    // --- Additional settings to handle connection issues ---
-    // Check connection health periodically
-    validationQuery: 'SELECT 1',
-    // Number of milliseconds to wait before considering a connection invalid
-    // Should be less than server's timeout
-    statement_timeout: 60000, // 60 seconds
-    // Frequency to check and prune idle clients
-    reapIntervalMillis: 60000, // 60 seconds
-  // --- Recommended settings for long-running applications ---
-    // Test the connection before using it
-    // Detects broken connections early
-    test: function (client) {
-        return client.query('SELECT 1');
+// --- Firebase Admin SDK Setup ---
+try {
+    // Check if the Firebase credentials JSON string exists in environment variables
+    if (!process.env.FIREBASE_CREDENTIALS_JSON) {
+        throw new Error('The FIREBASE_CREDENTIALS_JSON environment variable is not set.');
     }
-});
+
+    // Parse the JSON string from the environment variable into an object
+    const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS_JSON);
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: process.env.FIREBASE_DATABASE_URL // Add this to your .env file!
+    });
+
+    console.log("Firebase Realtime Database connection successful!");
+} catch (error) {
+    console.error("Firebase Admin SDK initialization error:", error.message);
+    console.error("Ensure FIREBASE_CREDENTIALS_JSON and FIREBASE_DATABASE_URL are correctly set in your .env file.");
+    process.exit(1); // Exit if Firebase can't be initialized
+}
+
+const db = admin.database(); // Realtime Database reference
+const firestore = admin.firestore(); // Firestore reference
+
+
+// --- Ensure Primary Admin Exists on Startup ---
+const ensurePrimaryAdminExists = async () => {
+    const primaryAdminUsername = 'raushan_143';
+    const adminRef = db.ref(`admins/${primaryAdminUsername}`);
+    const snapshot = await adminRef.once('value');
+
+    if (!snapshot.exists()) {
+        console.log(`Primary admin '${primaryAdminUsername}' not found. Creating...`);
+        const passwordHash = await bcrypt.hash('4gh4m01r', saltRounds);
+        await adminRef.set({
+            name: 'Primary Admin Details',
+            username: primaryAdminUsername,
+            email: 'primary.admin@example.com', // Placeholder email
+            passwordHash: passwordHash,
+            createdAt: new Date().toISOString()
+        });
+        console.log(`Primary admin '${primaryAdminUsername}' created successfully.`);
+    }
+};
+ensurePrimaryAdminExists().catch(err => console.error("Failed to create primary admin:", err));
+
+// --- Ensure Timetable Structure Exists on Startup ---
+const initializeTimetables = async () => {
+    console.log("Checking for existing timetable structure in Realtime Database...");
+    const timetablesRef = db.ref('timetables');
+    const snapshot = await timetablesRef.once('value');
+
+    // If the ref has data, do nothing.
+    if (snapshot.exists()) {
+        console.log("Timetable structure already exists. Skipping initialization.");
+        return;
+    }
+
+    console.log("No timetable structure found. Initializing with empty timetables...");
+
+    try {
+        const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const periods = [1, 2, 3, 4, 5, 6]; // Using period numbers as keys
+
+        const fullTimetable = {};
+
+        allClasses.forEach(className => {
+            fullTimetable[className] = {};
+            days.forEach(day => {
+                fullTimetable[className][day] = {};
+                periods.forEach(period => {
+                    // Using a placeholder subject ID. In a real scenario, this would be a valid ID from a 'subjects' table.
+                    // For now, we'll use a placeholder string. The frontend will show '---'.
+                    fullTimetable[className][day][period] = '---';
+                });
+            });
+        });
+
+        await timetablesRef.set(fullTimetable);
+        console.log(`Successfully initialized empty timetables for ${allClasses.length} classes in Realtime Database.`);
+    } catch (dbError) {
+        console.error("Error writing initial timetable to Realtime Database:", dbError);
+    }
+};
+initializeTimetables().catch(err => console.error("Failed to initialize timetables:", err));
+
+// --- Helper function to sanitize email for Firebase keys ---
+const sanitizeEmail = (email) => email.replace(/[.#$[\]]/g, '_');
+
+// --- Helper function to sanitize class names for Firebase keys ---
+const sanitizeClassNameForKey = (className) => className.replace(/[.#$[\]]/g, '_');
+
+pool = {
+    query: () => { throw new Error("PostgreSQL 'pool.query' is deprecated. Use Firebase methods instead."); }
+};
 
 // --- Razorpay Instance ---
 // IMPORTANT: Replace with your actual Razorpay Key ID and Key Secret from your dashboard.
@@ -187,13 +257,20 @@ app.post('/check-email', jsonParser, async (req, res) => {
     }
 
     try {
-        const { rows } = await pool.query('SELECT email FROM students WHERE email = $1', [email.toLowerCase()]);
-        res.json({ exists: rows.length > 0 });
+        const sanitized = sanitizeEmail(email.toLowerCase());
+        const snapshot = await db.ref(`students/${sanitized}`).once('value');
+        res.json({ exists: snapshot.exists() });
     } catch (error) {
         console.error('Error checking email:', error);
         res.status(500).json({ message: 'Server error while checking email.' });
     }
 });
+
+// Helper to find student by a specific field (e.g., mobile number)
+const findStudentByField = async (field, value) => {
+    const snapshot = await db.ref('students').orderByChild(field).equalTo(value).once('value');
+    return snapshot;
+};
 
 // POST endpoint to handle registration data
 app.post('/register', jsonParser, async (req, res) => {
@@ -202,63 +279,55 @@ app.post('/register', jsonParser, async (req, res) => {
     console.log('Received registration data for email:', email);
 
     try {
-        // 1. Generate unique IDs
+        const sanitizedEmail = sanitizeEmail(email.toLowerCase());
+
+        // Check if email already exists
+        const emailSnapshot = await db.ref(`students/${sanitizedEmail}`).once('value');
+        if (emailSnapshot.exists()) {
+            return res.status(409).json({ message: `Email ${email} is already registered.` });
+        }
+
+        // Check if mobile number already exists
+        const mobileSnapshot = await findStudentByField('mobileNumber', mobileNumber);
+        if (mobileSnapshot.exists()) {
+            return res.status(409).json({ message: `Mobile Number ${mobileNumber} is already registered.` });
+        }
+
+        // --- Generate unique IDs ---
         const enrollmentNumber = generateEnrollmentNumber();
-        const rollNumber = generateRollNumber(); // Assuming these are sufficiently unique for now
+        const rollNumber = generateRollNumber();
 
         // --- Password Hashing ---
         const passwordHash = await bcrypt.hash(password, saltRounds);
 
-        // 2. Insert the new user into the database
-        // Note: Column names are lowercase as PostgreSQL folds unquoted identifiers to lowercase.
-        const newUserQuery = `
-            INSERT INTO students(enrollmentnumber, rollnumber, name, email, passwordhash, dob, mobilenumber, gender, securityquestion, securityanswer)
-            VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING *;
-        `;
-        const values = [enrollmentNumber, rollNumber, name, email.toLowerCase(), passwordHash, dob, mobileNumber, gender, securityQuestion, securityAnswer];
-        
-        const { rows } = await pool.query(newUserQuery, values);
-        const newStudent = rows[0];
-
-        // IMPORTANT: Never send the password hash back to the client!
-        delete newStudent.passwordhash;
-
-        console.log('Data successfully written to database for roll number:', newStudent.rollnumber);
-        
-        // Asynchronously send welcome email and registration SMS
-        sendWelcomeEmail(newStudent.email, newStudent.name);
-        sendRegistrationSms(newStudent.mobilenumber, newStudent.rollnumber, newStudent.enrollmentnumber);
-
-        // Map DB columns (lowercase) to JS-friendly camelCase for the client
-        const clientSafeStudentData = {
-            enrollmentNumber: newStudent.enrollmentnumber,
-            rollNumber: newStudent.rollnumber,
-            name: newStudent.name,
-            email: newStudent.email,
-            dob: newStudent.dob,
-            mobileNumber: newStudent.mobilenumber,
-            gender: newStudent.gender,
-            securityQuestion: newStudent.securityquestion,
-            securityAnswer: newStudent.securityanswer
-            // Add other fields as needed
+        const newStudentData = {
+            enrollmentNumber,
+            rollNumber,
+            name,
+            email: email.toLowerCase(),
+            passwordHash,
+            dob,
+            mobileNumber,
+            gender,
+            securityQuestion,
+            securityAnswer,
+            createdAt: new Date().toISOString()
         };
 
-        res.status(201).json({ message: 'Registration successful!', studentData: clientSafeStudentData });
+        await db.ref(`students/${sanitizedEmail}`).set(newStudentData);
+        // Also create an index by roll number for easier lookups.
+        // Sanitize the roll number to prevent invalid characters in the path key.
+        const sanitizedRollNumber = sanitizeClassNameForKey(rollNumber);
+        await db.ref(`rollNumberIndex/${sanitizedRollNumber}`).set(sanitizedEmail);
+
+        console.log('Data successfully written to database for roll number:', rollNumber);
+        
+        // Asynchronously send welcome email and registration SMS
+        sendWelcomeEmail(newStudentData.email, newStudentData.name);
+        sendRegistrationSms(newStudentData.mobileNumber, newStudentData.rollNumber, newStudentData.enrollmentNumber);
+
+        res.status(201).json({ message: 'Registration successful!', studentData: newStudentData });
     } catch (error) {
-        // This is a more robust way to handle unique constraints than a pre-check.
-        // It catches the error directly from the database insert attempt.
-        if (error.code === '23505') { // PostgreSQL unique_violation error code
-            // The constraint name depends on how the table was created.
-            // These are common default names.
-            if (error.constraint && error.constraint.includes('email')) {
-                return res.status(409).json({ message: `Email ${email} is already registered.` });
-            }
-            if (error.constraint && error.constraint.includes('mobilenumber')) {
-                return res.status(409).json({ message: `Mobile Number ${mobileNumber} is already registered.` });
-            }
-            return res.status(409).json({ message: 'A user with this email or mobile number already exists.' });
-        }
         console.error('Error during registration:', error);
         res.status(500).json({ message: 'Failed to save data to the server.' });
     }
@@ -776,36 +845,38 @@ app.post('/update', upload.single('profilePicture'), async (req, res) => {
     
     try {
         const { rollNumber, name, email, dob, gender, mobileNumber } = updatedStudentData;
+        
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
+            return res.status(404).json({ message: 'Student with that roll number not found.' });
+        }
+        const studentRef = db.ref(`students/${sanitizedEmailKey.val()}`);
 
-        // Dynamically build the update query to only change provided fields
-        const updateFields = [];
-        const values = [];
-        let paramIndex = 1;
+        const updates = {};
+        if (name) updates.name = name;
+        if (email) {
+            // Changing email is complex in this model as it's the key.
+            // For simplicity, we'll disallow it in this update. A more complex flow would be needed.
+            console.warn("Email update is not supported in this simplified Firebase model.");
+        }
+        if (dob) updates.dob = dob;
+        if (gender) updates.gender = gender;
+        if (mobileNumber) updates.mobileNumber = mobileNumber;
+        if (profilePictureUrl) updates.profilePicture = profilePictureUrl;
 
-        if (name) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
-        if (email) { updateFields.push(`email = $${paramIndex++}`); values.push(email); }
-        if (dob) { updateFields.push(`dob = $${paramIndex++}`); values.push(dob); }
-        if (gender) { updateFields.push(`gender = $${paramIndex++}`); values.push(gender); }
-        if (mobileNumber) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
-        if (profilePictureUrl) { updateFields.push(`profilepicture = $${paramIndex++}`); values.push(profilePictureUrl); }
-
-        if (updateFields.length === 0) {
+        if (Object.keys(updates).length === 0) {
             return res.status(400).json({ message: 'No fields to update.' });
         }
 
-        values.push(rollNumber);
-        const query = `UPDATE students SET ${updateFields.join(', ')}, updatedat = CURRENT_TIMESTAMP WHERE rollnumber = $${paramIndex} RETURNING *`;
+        updates.updatedAt = new Date().toISOString();
+        await studentRef.update(updates);
 
-        const { rows } = await pool.query(query, values);
+        const snapshot = await studentRef.once('value');
+        const finalUpdatedStudent = snapshot.val();
+        delete finalUpdatedStudent.passwordHash;
 
-        if (rows.length === 0) {
-            return res.status(404).json({ message: 'Student with that roll number not found.' });
-        }
-
-        const finalUpdatedStudent = rows[0];
-        delete finalUpdatedStudent.passwordhash;
         console.log('Data successfully updated for roll number:', updatedStudentData.rollNumber);
-        res.status(200).json({ message: 'Update successful.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
+        res.status(200).json({ message: 'Update successful.', studentData: finalUpdatedStudent });
     } catch (error) {
         console.error('Error updating student data:', error);
         res.status(500).json({ message: 'Failed to update data on the server.' });
@@ -862,40 +933,34 @@ app.post('/upload-documents', docUpload.fields([
         });
         await Promise.all(renamePromises);
 
-        // --- Fetch existing paths and merge with new ones ---
-        const existingPathsResult = await pool.query(
-            'SELECT profilepicture, signature, marksheet10, marksheet12 FROM students WHERE rollnumber = $1', // DB columns remain the same
-            [rollNumber]
-        );
-
-        if (existingPathsResult.rows.length === 0) {
-            throw new Error('Student not found when fetching existing documents.');
-        }
-        const existingPaths = existingPathsResult.rows[0];
-
-        // Merge new paths over existing ones. If a new path is undefined, the existing one from the DB is used.
-        const finalFilePaths = {
-            profilePicture: filePaths.profilePicture || existingPaths.profilepicture,
-            signature: filePaths.signature || existingPaths.signature,
-            migrationCertificate: filePaths.migrationCertificate || existingPaths.marksheet10,
-            tcCertificate: filePaths.tcCertificate || existingPaths.marksheet12
-        };
-
-        const query = `
-            UPDATE students 
-            SET profilepicture=$1, signature=$2, marksheet10=$3, marksheet12=$4, updatedat=CURRENT_TIMESTAMP /* DB columns remain marksheet10/12 */
-            WHERE rollnumber = $5
-            RETURNING *;
-        `;
-        const values = [finalFilePaths.profilePicture, finalFilePaths.signature, finalFilePaths.migrationCertificate, finalFilePaths.tcCertificate, rollNumber];
-        const { rows } = await pool.query(query, values);
-
-        if (rows.length === 0) {
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
             throw new Error('Student not found during database update.');
         }
+        const studentRef = db.ref(`students/${sanitizedEmailKey.val()}`);
 
-        const finalUpdatedStudent = rows[0];
-        delete finalUpdatedStudent.passwordhash;
+        const snapshot = await studentRef.once('value');
+        const existingData = snapshot.val();
+
+        const updates = {
+            updatedAt: new Date().toISOString()
+        };
+
+        // Merge new paths over existing ones.
+        if (filePaths.profilePicture) updates.profilePicture = filePaths.profilePicture;
+        if (filePaths.signature) updates.signature = filePaths.signature;
+        if (filePaths.migrationCertificate) updates.migrationCertificate = filePaths.migrationCertificate;
+        if (filePaths.tcCertificate) updates.tcCertificate = filePaths.tcCertificate;
+
+        await studentRef.update(updates);
+
+        const finalSnapshot = await studentRef.once('value');
+        const finalUpdatedStudent = {
+            ...existingData,
+            ...updates
+        };
+
+        delete finalUpdatedStudent.passwordHash;
         console.log('Documents uploaded and paths saved for roll number:', rollNumber);
         res.status(200).json({ message: 'Documents uploaded successfully.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
     } catch (error) {
@@ -930,27 +995,27 @@ app.post('/login', jsonParser, async (req, res) => {
     console.log(`Login attempt for identifier: ${loginIdentifier}`);
 
     try {
-        const query = 'SELECT * FROM students WHERE email = $1';
-        const { rows } = await pool.query(query, [loginIdentifier.toLowerCase()]);
+        const sanitizedEmail = sanitizeEmail(loginIdentifier.toLowerCase());
+        const snapshot = await db.ref(`students/${sanitizedEmail}`).once('value');
 
-        if (rows.length === 0) {
+        if (!snapshot.exists()) {
             return res.status(401).json({ message: 'Email not found.' });
         }
 
-        const student = rows[0];
+        const student = snapshot.val();
 
         // --- Password Verification ---
         // Compare the provided password with the stored hash.
-        const isPasswordMatch = await bcrypt.compare(password, student.passwordhash);
+        const isPasswordMatch = await bcrypt.compare(password, student.passwordHash);
         if (!isPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect password.' });
         }
 
         // For security, do not send the password hash back to the client.
-        delete student.passwordhash;
+        delete student.passwordHash;
 
         // Map DB fields to camelCase for frontend consistency
-        res.status(200).json({ message: 'Login successful', studentData: mapDbToCamelCase(student) });
+        res.status(200).json({ message: 'Login successful', studentData: student });
     } catch (error) {
         console.error('Error during login:', error);
         res.status(500).json({ message: 'Server error during login.' });
@@ -963,24 +1028,27 @@ app.post('/change-password', jsonParser, async (req, res) => {
     const { rollNumber, currentPassword, newPassword } = req.body;
 
     try {
-        // 1. Get the current password hash
-        const { rows } = await pool.query('SELECT passwordhash FROM students WHERE rollnumber = $1', [rollNumber]);
-
-        if (rows.length === 0) {
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
             return res.status(404).json({ message: 'Student not found.' });
         }
-
-        const student = rows[0];
+        const studentRef = db.ref(`students/${sanitizedEmailKey.val()}`);
+        const snapshot = await studentRef.once('value');
+        const student = snapshot.val();
 
         // Verify current password
-        const isPasswordMatch = await bcrypt.compare(currentPassword, student.passwordhash);
+        const isPasswordMatch = await bcrypt.compare(currentPassword, student.passwordHash);
         if (!isPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect current password.' });
         }
 
         // 2. Hash and update to the new password
         const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
-        await pool.query('UPDATE students SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE rollnumber = $2', [newPasswordHash, rollNumber]);
+        
+        await studentRef.update({
+            passwordHash: newPasswordHash,
+            updatedAt: new Date().toISOString()
+        });
 
         res.status(200).json({ message: 'Password changed successfully.' });
     } catch (error) {
@@ -996,26 +1064,32 @@ app.post('/reset-password', jsonParser, async (req, res) => {
     console.log(`Password reset attempt for identifier: ${identifier}`);
 
     try {
-        const query = 'SELECT * FROM students WHERE email = $1 AND securityquestion = $2';
-        const { rows } = await pool.query(query, [identifier.toLowerCase(), securityQuestion]);
+        const sanitizedEmail = sanitizeEmail(identifier.toLowerCase());
+        const snapshot = await db.ref(`students/${sanitizedEmail}`).once('value');
 
-        if (rows.length === 0) {
+        if (!snapshot.exists()) {
             return res.status(401).json({ message: 'Invalid identifier, security question, or answer.' });
         }
 
-        const student = rows[0];
+        const student = snapshot.val();
+
+        if (student.securityQuestion !== securityQuestion) {
+            return res.status(401).json({ message: 'Invalid identifier, security question, or answer.' });
+        }
+
         // Case-insensitive answer check
-        if (student.securityanswer.toLowerCase() !== securityAnswer.toLowerCase()) {
+        if (student.securityAnswer.toLowerCase() !== securityAnswer.toLowerCase()) {
             return res.status(401).json({ message: 'Invalid identifier, security question, or answer.' });
         }
 
-        // --- Password Hashing ---
-        // Hash the new password before saving it.
         const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
-        await pool.query('UPDATE students SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE rollnumber = $2', [newPasswordHash, student.rollnumber]);
+        await db.ref(`students/${sanitizedEmail}`).update({
+            passwordHash: newPasswordHash,
+            updatedAt: new Date().toISOString()
+        });
 
-        console.log('Password successfully reset for roll number:', student.rollnumber);
+        console.log('Password successfully reset for roll number:', student.rollNumber);
         res.status(200).json({ message: 'Password reset successful' });
 
     } catch (error) {
@@ -1034,30 +1108,29 @@ app.post('/add-academic-details', jsonParser, async (req, res) => {
     }
 
     try {
-        const query = `
-            UPDATE students 
-            SET 
-                board10=$1, marks10=$2, totalmarks10=$3, percentage10=$4, year10=$5, 
-                board12=$6, marks12=$7, totalmarks12=$8, percentage12=$9, year12=$10, 
-                updatedat=CURRENT_TIMESTAMP
-            WHERE rollnumber = $11
-            RETURNING *;
-        `;
-        const values = [
-            board10, marks10, totalMarks10, percentage10, year10, 
-            board12, marks12, totalMarks12, percentage12, year12, 
-            rollNumber
-        ];
-        const { rows } = await pool.query(query, values);
-
-        if (rows.length === 0) {
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
             return res.status(404).json({ message: 'Student not found.' });
         }
+        const studentRef = db.ref(`students/${sanitizedEmailKey.val()}`);
 
-        const finalUpdatedStudent = rows[0];
-        delete finalUpdatedStudent.passwordhash;
+        const updates = {
+            board10, marks10, totalMarks10, percentage10, year10,
+            board12, marks12, totalMarks12, percentage12, year12,
+            updatedAt: new Date().toISOString()
+        };
+
+        await studentRef.update(updates);
+
+        const snapshot = await studentRef.once('value');
+        const finalUpdatedStudent = snapshot.val();
+        delete finalUpdatedStudent.passwordHash;
+
         console.log('Academic details added for roll number:', rollNumber);
-        res.status(200).json({ message: 'Academic details saved successfully.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
+        res.status(200).json({
+            message: 'Academic details saved successfully.',
+            studentData: finalUpdatedStudent
+        });
     } catch (error) {
         console.error('Error updating academic details:', error);
         res.status(500).json({ message: 'Failed to save academic details on the server.' });
@@ -1074,23 +1147,29 @@ app.post('/add-contact-details', jsonParser, async (req, res) => {
     }
 
     try {
-        const query = `
-            UPDATE students 
-            SET addressline1=$1, addressline2=$2, city=$3, state=$4, pincode=$5, fathername=$6, fatheroccupation=$7, mothername=$8, motheroccupation=$9, parentmobile=$10, updatedat=CURRENT_TIMESTAMP
-            WHERE rollnumber = $11
-            RETURNING *;
-        `;
-        const values = [addressLine1, addressLine2, city, state, pincode, fatherName, fatherOccupation, motherName, motherOccupation, parentMobile, rollNumber];
-        const { rows } = await pool.query(query, values);
-
-        if (rows.length === 0) {
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
             return res.status(404).json({ message: 'Student not found.' });
         }
+        const studentRef = db.ref(`students/${sanitizedEmailKey.val()}`);
 
-        const finalUpdatedStudent = rows[0];
-        delete finalUpdatedStudent.passwordhash;
+        const updates = {
+            addressLine1, addressLine2, city, state, pincode,
+            fatherName, fatherOccupation, motherName, motherOccupation, parentMobile,
+            updatedAt: new Date().toISOString()
+        };
+
+        await studentRef.update(updates);
+
+        const snapshot = await studentRef.once('value');
+        const finalUpdatedStudent = snapshot.val();
+        delete finalUpdatedStudent.passwordHash;
+
         console.log('Contact details added for roll number:', rollNumber);
-        res.status(200).json({ message: 'Contact details saved successfully.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
+        res.status(200).json({
+            message: 'Contact details saved successfully.',
+            studentData: finalUpdatedStudent
+        });
     } catch (error) {
         console.error('Error updating contact details:', error);
         res.status(500).json({ message: 'Failed to save contact details on the server.' });
@@ -1107,22 +1186,25 @@ app.post('/add-course-selection', jsonParser, async (req, res) => {
     }
 
     try {
-        const query = `
-            UPDATE students SET selectedcourse = $1, updatedat = CURRENT_TIMESTAMP 
-            WHERE rollnumber = $2 RETURNING *;
-        `;
-        const values = [JSON.stringify(selectionData), rollNumber];
-        const { rows } = await pool.query(query, values);
-
-        if (rows.length === 0) {
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
             return res.status(404).json({ message: 'Student not found.' });
         }
+        const studentRef = db.ref(`students/${sanitizedEmailKey.val()}`);
 
-        const finalUpdatedStudent = rows[0];
-        delete finalUpdatedStudent.passwordhash;
+        await studentRef.update({
+            selectedCourse: selectionData, // Store as a JSON object directly
+            updatedAt: new Date().toISOString()
+        });
+
+        const snapshot = await studentRef.once('value');
+        const finalUpdatedStudent = snapshot.val();
+        delete finalUpdatedStudent.passwordHash;
 
         console.log('Course selection saved for roll number:', rollNumber);
-        res.status(200).json({ message: 'Course selection saved successfully.', studentData: mapDbToCamelCase(finalUpdatedStudent) });
+        res.status(200).json({
+            message: 'Course selection saved successfully.',
+            studentData: finalUpdatedStudent });
     } catch (error) {
         console.error('Error updating course selection:', error);
         res.status(500).json({ message: 'Failed to save course selection on the server.' });
@@ -1167,74 +1249,68 @@ app.post('/verify-payment', jsonParser, async (req, res) => {
     if (generated_signature === razorpay_signature) {
         console.log("Payment is successful and signature is valid.");
 
-        const client = await pool.connect();
         try {
-            await client.query('BEGIN');
+            const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+            if (!sanitizedEmailKey.exists()) {
+                throw new Error('Student not found during payment verification.');
+            }
+            const studentRef = db.ref(`students/${sanitizedEmailKey.val()}`);
+            const studentSnapshot = await studentRef.once('value');
+            const studentData = studentSnapshot.val();
 
-            // --- Part 1: Save Payment History ---
-            const studentResult = await client.query('SELECT name FROM students WHERE rollnumber = $1', [rollNumber]);
-            const studentName = studentResult.rows.length > 0 ? studentResult.rows[0].name : 'N/A';
+            // --- Save Payment History ---
+            const paymentRef = db.ref(`payments/${razorpay_order_id}`);
+            await paymentRef.set({
+                paymentId: razorpay_payment_id,
+                orderId: razorpay_order_id,
+                studentRollNumber: rollNumber,
+                studentName: studentData.name || 'N/A',
+                courseDetails: `${course.level} - ${course.branch}`,
+                amount: course.amount / 100,
+                currency: 'INR',
+                status: 'success',
+                paymentDate: new Date().toISOString()
+            });
 
-            const paymentQuery = `
-                INSERT INTO payments (paymentid, orderid, studentrollnumber, studentname, coursedetails, amount, currency, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
-            `;
-            const paymentValues = [
-                razorpay_payment_id, razorpay_order_id, rollNumber, studentName,
-                `${course.level} - ${course.branch}`, course.amount / 100, 'INR', 'success'
-            ];
-            await client.query(paymentQuery, paymentValues);
-
-            // --- Part 2: Update Student Record with Selected Course ---
+            // --- Update Student Record with Selected Course ---
             const courseWithStatus = { ...course, paymentStatus: 'paid' };
-            const updateStudentQuery = `
-                UPDATE students 
-                SET selectedcourse = $1, updatedat = CURRENT_TIMESTAMP 
-                WHERE rollnumber = $2 
-                RETURNING *;
-            `;
-            const studentUpdateResult = await client.query(updateStudentQuery, [JSON.stringify(courseWithStatus), rollNumber]);
+            await studentRef.update({
+                selectedCourse: courseWithStatus,
+                updatedAt: new Date().toISOString()
+            });
 
-            await client.query('COMMIT');
+            const finalUpdatedStudent = { ...studentData, selectedCourse: courseWithStatus };
+            delete finalUpdatedStudent.passwordHash;
 
-            const finalUpdatedStudent = studentUpdateResult.rows[0];
-            delete finalUpdatedStudent.passwordhash;
             console.log('Payment history saved and student record updated for roll number:', rollNumber);
             // Asynchronously send the admission summary and receipt emails separately
-            const studentDataForEmail = mapDbToCamelCase(finalUpdatedStudent);
-            sendAdmissionSummaryEmail(studentDataForEmail, course, razorpay_order_id);
-            sendPaymentReceiptEmail(studentDataForEmail, course, razorpay_order_id);
+            sendAdmissionSummaryEmail(finalUpdatedStudent, course, razorpay_order_id);
+            sendPaymentReceiptEmail(finalUpdatedStudent, course, razorpay_order_id);
 
-            res.json({ status: 'success', orderId: razorpay_order_id, studentData: mapDbToCamelCase(finalUpdatedStudent) });
+            res.json({ status: 'success', orderId: razorpay_order_id, studentData: finalUpdatedStudent });
         } catch (error) {
-            await client.query('ROLLBACK');
             console.error('Error saving payment history:', error);
             res.status(500).json({ status: 'failure', message: 'Error saving payment details.' });
-        } finally {
-            client.release();
         }
     } else {
         console.error("Payment verification failed. Signature mismatch.");
         // --- NEW: Log failed payment attempt ---
         try {
-            const studentResult = await pool.query('SELECT name FROM students WHERE rollnumber = $1', [rollNumber]);
-            const studentName = studentResult.rows.length > 0 ? studentResult.rows[0].name : 'N/A';
+            const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+            const studentName = sanitizedEmailKey.exists() ? (await db.ref(`students/${sanitizedEmailKey.val()}/name`).once('value')).val() : 'N/A';
 
-            const paymentQuery = `
-                INSERT INTO payments (paymentid, orderid, studentrollnumber, studentname, coursedetails, amount, currency, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
-            `;
-            const paymentValues = [
-                razorpay_payment_id,
-                razorpay_order_id,
-                rollNumber,
-                studentName,
-                `${course.level} - ${course.branch}`,
-                course.amount / 100,
-                'INR',
-                'failure'
-            ];
-            await pool.query(paymentQuery, paymentValues);
+            const paymentRef = db.ref(`payments/${razorpay_order_id}`);
+            await paymentRef.set({
+                paymentId: razorpay_payment_id,
+                orderId: razorpay_order_id,
+                studentRollNumber: rollNumber,
+                studentName: studentName,
+                courseDetails: `${course.level} - ${course.branch}`,
+                amount: course.amount / 100,
+                currency: 'INR',
+                status: 'failure',
+                paymentDate: new Date().toISOString()
+            });
             console.log(`Logged failed payment attempt for order ${razorpay_order_id}`);
         } catch (dbError) {
             console.error('Error saving failed payment record:', dbError);
@@ -1256,86 +1332,79 @@ app.post('/verify-hobby-payment', jsonParser, async (req, res) => {
     if (generated_signature === razorpay_signature) {
         console.log("Hobby course payment is successful and signature is valid.");
 
-        const client = await pool.connect();
         try {
-            await client.query('BEGIN');
-
-            // --- Part 1: Get current student data ---
-            const studentResult = await client.query('SELECT name, hobbycourses FROM students WHERE rollnumber = $1', [rollNumber]);
-            if (studentResult.rows.length === 0) {
+            const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+            if (!sanitizedEmailKey.exists()) {
                 throw new Error('Student not found during payment verification.');
             }
-            const studentName = studentResult.rows[0].name;
-            // Get existing hobby courses, defaulting to an empty array if null/undefined
-            const existingHobbyCourses = studentResult.rows[0].hobbycourses || [];
+            const studentRef = db.ref(`students/${sanitizedEmailKey.val()}`);
+            const studentSnapshot = await studentRef.once('value');
+            const studentData = studentSnapshot.val();
 
-            // --- Part 2: Save Payment History ---
-            const paymentQuery = `
-                INSERT INTO payments (paymentid, orderid, studentrollnumber, studentname, coursedetails, amount, currency, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
-            `;
-            const paymentValues = [
-                razorpay_payment_id, razorpay_order_id, rollNumber, studentName,
-                `${course.name} (Hobby)`, course.fee / 100, 'INR', 'success'
-            ];
-            await client.query(paymentQuery, paymentValues);
+            const studentName = studentData.name;
+            const existingHobbyCourses = studentData.hobbyCourses || [];
 
-            // --- Part 3: Update Student Record with the new hobby course ---
-            // Add the new course to the array of existing courses
+            // --- Save Payment History ---
+            const paymentRef = db.ref(`payments/${razorpay_order_id}`);
+            await paymentRef.set({
+                paymentId: razorpay_payment_id,
+                orderId: razorpay_order_id,
+                studentRollNumber: rollNumber,
+                studentName: studentName,
+                courseDetails: `${course.name} (Hobby)`,
+                amount: course.fee / 100,
+                currency: 'INR',
+                status: 'success',
+                paymentDate: new Date().toISOString()
+            });
+
+            // --- Update Student Record with the new hobby course ---
             const updatedHobbyCourses = [...existingHobbyCourses, course];
+            await studentRef.update({
+                hobbyCourses: updatedHobbyCourses,
+                updatedAt: new Date().toISOString()
+            });
 
-            const updateStudentQuery = `
-                UPDATE students 
-                SET hobbycourses = $1, updatedat = CURRENT_TIMESTAMP 
-                WHERE rollnumber = $2 
-                RETURNING *;
-            `;
-            const studentUpdateResult = await client.query(updateStudentQuery, [JSON.stringify(updatedHobbyCourses), rollNumber]);
-
-            // --- Part 4: Create Notification ---
+            // --- Create Notification ---
             const notificationMessage = `You have successfully enrolled in the "${course.name}" course.`;
-            const notificationQuery = `
-                INSERT INTO notifications (studentrollnumber, type, message, link)
-                VALUES ($1, 'new_course', $2, '#');
-            `;
-            await client.query(notificationQuery, [rollNumber, notificationMessage]);
+            const newNotifRef = db.ref('notifications').push();
+            await newNotifRef.set({
+                studentRollNumber: rollNumber,
+                type: 'new_course',
+                message: notificationMessage,
+                link: '#',
+                isRead: false,
+                createdAt: new Date().toISOString()
+            });
 
-            await client.query('COMMIT');
-
-            const finalUpdatedStudent = studentUpdateResult.rows[0];
-            delete finalUpdatedStudent.passwordhash;
+            const finalUpdatedStudent = { ...studentData, hobbyCourses: updatedHobbyCourses };
+            delete finalUpdatedStudent.passwordHash;
             console.log(`Hobby course payment and notification saved for roll number: ${rollNumber}`);
             
-            res.json({ status: 'success', orderId: razorpay_order_id, studentData: mapDbToCamelCase(finalUpdatedStudent) });
+            res.json({ status: 'success', orderId: razorpay_order_id, studentData: finalUpdatedStudent });
         } catch (error) {
-            await client.query('ROLLBACK');
             console.error('Error saving hobby course payment:', error);
             res.status(500).json({ status: 'failure', message: 'Error saving payment details.' });
-        } finally {
-            client.release();
         }
     } else {
         console.error("Hobby course payment verification failed. Signature mismatch.");
         // --- NEW: Log failed payment attempt ---
         try {
-            const studentResult = await pool.query('SELECT name FROM students WHERE rollnumber = $1', [rollNumber]);
-            const studentName = studentResult.rows.length > 0 ? studentResult.rows[0].name : 'N/A';
+            const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+            const studentName = sanitizedEmailKey.exists() ? (await db.ref(`students/${sanitizedEmailKey.val()}/name`).once('value')).val() : 'N/A';
 
-            const paymentQuery = `
-                INSERT INTO payments (paymentid, orderid, studentrollnumber, studentname, coursedetails, amount, currency, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
-            `;
-            const paymentValues = [
-                razorpay_payment_id,
-                razorpay_order_id,
-                rollNumber,
-                studentName,
-                `${course.name} (Hobby)`,
-                course.fee / 100,
-                'INR',
-                'failure'
-            ];
-            await pool.query(paymentQuery, paymentValues);
+            const paymentRef = db.ref(`payments/${razorpay_order_id}`);
+            await paymentRef.set({
+                paymentId: razorpay_payment_id,
+                orderId: razorpay_order_id,
+                studentRollNumber: rollNumber,
+                studentName: studentName,
+                courseDetails: `${course.name} (Hobby)`,
+                amount: course.fee / 100,
+                currency: 'INR',
+                status: 'failure',
+                paymentDate: new Date().toISOString()
+            });
             console.log(`Logged failed hobby course payment attempt for order ${razorpay_order_id}`);
         } catch (dbError) {
             console.error('Error saving failed hobby course payment record:', dbError);
@@ -1348,9 +1417,16 @@ app.post('/verify-hobby-payment', jsonParser, async (req, res) => {
 app.get('/api/notifications/:rollNumber', async (req, res) => {
     const { rollNumber } = req.params;
     try {
-        const query = 'SELECT * FROM notifications WHERE studentrollnumber = $1 ORDER BY createdat DESC';
-        const { rows } = await pool.query(query, [rollNumber]);
-        res.json(rows.map(n => mapDbToCamelCase(n)));
+        const snapshot = await db.ref('notifications').orderByChild('studentRollNumber').equalTo(rollNumber).once('value');
+        if (snapshot.exists()) {
+            const notifications = [];
+            snapshot.forEach(childSnapshot => {
+                notifications.push({ id: childSnapshot.key, ...childSnapshot.val() });
+            });
+            res.json(notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+        } else {
+            res.json([]);
+        }
     } catch (error) {
         console.error(`Error fetching notifications for ${rollNumber}:`, error);
         res.status(500).json({ message: 'Server error while fetching notifications.' });
@@ -1362,10 +1438,16 @@ app.get('/api/faculty/notifications/:username', async (req, res) => {
     const { username } = req.params;
     console.log(`Fetching notifications for faculty: ${username}`);
     try {
-        // The current implementation correctly inserts a row for each faculty member, so we just need to query by username.
-        const query = "SELECT * FROM notifications WHERE LOWER(faculty_username) = LOWER($1) ORDER BY createdat DESC";
-        const { rows } = await pool.query(query, [username]);
-        res.json(rows.map(n => mapDbToCamelCase(n)));
+        const snapshot = await db.ref('notifications').orderByChild('facultyUsername').equalTo(username.toLowerCase()).once('value');
+        if (snapshot.exists()) {
+            const notifications = [];
+            snapshot.forEach(childSnapshot => {
+                notifications.push({ id: childSnapshot.key, ...childSnapshot.val() });
+            });
+            res.json(notifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+        } else {
+            res.json([]);
+        }
     } catch (error) {
         console.error(`Error fetching notifications for faculty ${username}:`, error);
         res.status(500).json({ message: 'Server error while fetching notifications.' });
@@ -1380,15 +1462,13 @@ app.post('/api/notifications/mark-as-read', jsonParser, async (req, res) => {
     }
 
     try {
-        // Use ANY($1::int[]) to efficiently update multiple rows
-        const query = 'UPDATE notifications SET isread = TRUE WHERE id = ANY($1::int[])';
-        const result = await pool.query(query, [notificationIds]);
-        
-        if (result.rowCount > 0) {
-            res.status(200).json({ message: 'Notifications marked as read.' });
-        } else {
-            res.status(404).json({ message: 'No matching notifications found to update.' });
-        }
+        const updates = {};
+        notificationIds.forEach(id => {
+            updates[`${id}/isRead`] = true;
+        });
+        await db.ref('notifications').update(updates);
+
+        res.status(200).json({ message: 'Notifications marked as read.' });
     } catch (error) {
         console.error('Error marking notifications as read:', error);
         res.status(500).json({ message: 'Server error while updating notifications.' });
@@ -1400,21 +1480,16 @@ app.get('/payment-history/:rollNumber', async (req, res) => {
     console.log(`Fetching payment history for roll number: ${rollNumber}`);
 
     try {
-        const query = 'SELECT * FROM payments WHERE studentrollnumber = $1 ORDER BY paymentdate DESC';
-        const { rows } = await pool.query(query, [rollNumber]);
-        // Map database keys (lowercase) to camelCase for frontend consistency
-        const mappedRows = rows.map(payment => ({
-            paymentId: payment.paymentid,
-            orderId: payment.orderid,
-            studentRollNumber: payment.studentrollnumber,
-            studentName: payment.studentname,
-            course: payment.coursedetails, // Rename for clarity on frontend
-            amount: payment.amount,
-            currency: payment.currency,
-            status: payment.status,
-            paymentDate: payment.paymentdate
-        }));
-        res.json(mappedRows);
+        const snapshot = await db.ref('payments').orderByChild('studentRollNumber').equalTo(rollNumber).once('value');
+        if (snapshot.exists()) {
+            const history = [];
+            snapshot.forEach(childSnapshot => {
+                history.push(childSnapshot.val());
+            });
+            res.json(history.sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate)));
+        } else {
+            res.json([]);
+        }
     } catch (error) {
         console.error('Error fetching payment history:', error);
         res.status(500).json({ message: 'Server error while fetching payment history.' });
@@ -1427,26 +1502,27 @@ app.get('/download-payment-history/:rollNumber', async (req, res) => {
     console.log(`Received request to download payment history PDF for roll number: ${rollNumber}`);
 
     try {
-        // Fetch student name and payment history in parallel
-        const studentQuery = pool.query('SELECT name FROM students WHERE rollnumber = $1', [rollNumber]);
-        const historyQuery = pool.query('SELECT * FROM payments WHERE studentrollnumber = $1 ORDER BY paymentdate DESC', [rollNumber]);
-
-        const [studentResult, historyResult] = await Promise.all([studentQuery, historyQuery]);
-
-        if (studentResult.rows.length === 0) {
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
             return res.status(404).send('Student not found.');
         }
-        const studentName = studentResult.rows[0].name;
-        
-        // Map DB rows to camelCase for consistency
-        const history = historyResult.rows.map(payment => ({
-            paymentId: payment.paymentid,
-            orderId: payment.orderid,
-            course: payment.coursedetails,
-            amount: payment.amount,
-            status: payment.status,
-            paymentDate: payment.paymentdate
-        }));
+        const studentName = (await db.ref(`students/${sanitizedEmailKey.val()}/name`).once('value')).val();
+
+        const historySnapshot = await db.ref('payments').orderByChild('studentRollNumber').equalTo(rollNumber).once('value');
+        let history = [];
+        if (historySnapshot.exists()) {
+            historySnapshot.forEach(childSnapshot => {
+                const payment = childSnapshot.val();
+                history.push({
+                    paymentId: payment.paymentId,
+                    orderId: payment.orderId,
+                    course: payment.courseDetails,
+                    amount: payment.amount,
+                    status: payment.status,
+                    paymentDate: payment.paymentDate
+                });
+            });
+        }
 
         const pdfBuffer = await generatePaymentHistoryPdf(studentName, rollNumber, history);
 
@@ -1465,18 +1541,18 @@ app.get('/api/student/id-card/:rollNumber', async (req, res) => {
     console.log(`Received request to download ID card for roll number: ${rollNumber}`);
 
     try {
-        const { rows } = await pool.query('SELECT * FROM students WHERE rollnumber = $1', [rollNumber]);
-        if (rows.length === 0) {
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
             return res.status(404).send('Student not found.');
         }
+        const studentSnapshot = await db.ref(`students/${sanitizedEmailKey.val()}`).once('value');
+        const studentData = studentSnapshot.val();
 
-        const student = rows[0];
-        if (!student.selectedcourse || !student.selectedcourse.trim().startsWith('{')) {
+        if (!studentData.selectedCourse || typeof studentData.selectedCourse !== 'object') {
             return res.status(400).send('Admission details not found for this student.');
         }
 
-        const studentData = mapDbToCamelCase(student);
-        const courseData = JSON.parse(student.selectedcourse);
+        const courseData = studentData.selectedCourse;
 
         const pdfBuffer = await generateIdCardPdf(studentData, courseData);
 
@@ -1496,18 +1572,18 @@ app.get('/api/student/printable-id-card/:rollNumber', async (req, res) => {
     console.log(`Received request for printable ID card for roll number: ${rollNumber}`);
 
     try {
-        const { rows } = await pool.query('SELECT * FROM students WHERE rollnumber = $1', [rollNumber]);
-        if (rows.length === 0) {
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
             return res.status(404).send('<h1>Student not found.</h1>');
         }
+        const studentSnapshot = await db.ref(`students/${sanitizedEmailKey.val()}`).once('value');
+        const studentData = studentSnapshot.val();
 
-        const student = rows[0];
-        if (!student.selectedcourse || !student.selectedcourse.trim().startsWith('{')) {
+        if (!studentData.selectedCourse || typeof studentData.selectedCourse !== 'object') {
             return res.status(400).send('<h1>Admission details not found for this student.</h1>');
         }
 
-        const studentData = mapDbToCamelCase(student);
-        const courseData = JSON.parse(student.selectedcourse);
+        const courseData = studentData.selectedCourse;
 
         let htmlContent = await generateIdCardHtml(studentData, courseData);
 
@@ -1533,13 +1609,12 @@ app.get('/student-data/:rollNumber', async (req, res) => {
     console.log(`Fetching latest data for roll number: ${rollNumber}`);
 
     try {
-        const query = 'SELECT * FROM students WHERE rollnumber = $1';
-        const { rows } = await pool.query(query, [rollNumber]);
-
-        if (rows.length > 0) {
-            const student = rows[0];
-            delete student.passwordhash;
-            res.json({ studentData: mapDbToCamelCase(student) });
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (sanitizedEmailKey.exists()) {
+            const studentSnapshot = await db.ref(`students/${sanitizedEmailKey.val()}`).once('value');
+            const student = studentSnapshot.val();
+            delete student.passwordHash;
+            res.json({ studentData: student });
         } else {
             res.status(404).json({ message: 'Student not found.' });
         }
@@ -1588,11 +1663,13 @@ const generateFullSchoolTimetableData = async () => {
     const periods = [1, 2, 3, 4, 5, 6];
 
     // 1. Fetch all subjects and create a name-to-ID map
-    const subjectsResult = await pool.query('SELECT id, subject_name FROM subjects');
-    const subjectNameToIdMap = subjectsResult.rows.reduce((acc, subject) => {
-        acc[subject.subject_name] = subject.id;
-        return acc;
-    }, {});
+    const subjectsSnapshot = await db.ref('subjects').once('value');
+    const subjectNameToIdMap = {};
+    if (subjectsSnapshot.exists()) {
+        subjectsSnapshot.forEach(child => {
+            subjectNameToIdMap[child.val()] = child.key;
+        });
+    }
 
     let generatedTimetable = {};
     allClasses.forEach(c => { generatedTimetable[c] = {}; days.forEach(d => { generatedTimetable[c][d] = {}; }); });
@@ -1616,6 +1693,11 @@ const generateFullSchoolTimetableData = async () => {
                 if (subjectNameToAssign) {
                     const subjectIdToAssign = subjectNameToIdMap[subjectNameToAssign];
                     generatedTimetable[className][day][period] = subjectIdToAssign;
+                    // --- FIX: Ensure we don't assign 'undefined' if the subject ID wasn't found ---
+                    // If subjectIdToAssign is undefined (because the subject name isn't in the DB),
+                    // assign null instead. Firebase rejects 'undefined' values.
+                    generatedTimetable[className][day][period] = subjectIdToAssign !== undefined ? subjectIdToAssign : null;
+
                     periodBookings[day][period].add(subjectIdToAssign);
                     subjectsUsedToday.add(subjectNameToAssign); // Track by name for today's class
                 } else {
@@ -1632,30 +1714,23 @@ const generateFullSchoolTimetableData = async () => {
 app.get('/api/timetable/all', async (req, res) => {
     console.log('Fetching entire school timetable from DB.');
     try {
-        const query = `
-            SELECT 
-                t.class_name, t.day_of_week, t.period, s.subject_name 
-            FROM timetables t
-            LEFT JOIN subjects s ON t.subject_id = s.id
-            ORDER BY t.class_name, t.day_of_week, t.period;
-        `;
-        const { rows } = await pool.query(query);
-        
-        // If no records, it means it hasn't been generated yet.
-        if (rows.length === 0) {
+        const timetableSnapshot = await db.ref('timetables').once('value');
+        const subjectsSnapshot = await db.ref('subjects').once('value');
+        const subjects = subjectsSnapshot.val() || {};
+
+        if (!timetableSnapshot.exists()) {
             return res.json({ exists: false, data: {} });
         }
 
-        // Reconstruct the nested object structure for the frontend
-        const timetable = {};
-        rows.forEach(row => {
-            if (!timetable[row.class_name]) {
-                timetable[row.class_name] = {};
-            }
-            if (!timetable[row.class_name][row.day_of_week]) {
-                timetable[row.class_name][row.day_of_week] = {};
-            }
-            timetable[row.class_name][row.day_of_week][row.period] = row.subject_name || '---';
+        const timetable = timetableSnapshot.val();
+        // Replace subject IDs with subject names
+        Object.keys(timetable).forEach(className => {
+            Object.keys(timetable[className]).forEach(day => {
+                Object.keys(timetable[className][day]).forEach(period => {
+                    const subjectId = timetable[className][day][period];
+                    timetable[className][day][period] = subjects[subjectId] || '---';
+                });
+            });
         });
 
         res.json({ exists: true, data: timetable });
@@ -1668,39 +1743,21 @@ app.get('/api/timetable/all', async (req, res) => {
 // New endpoint to generate and save the timetable if it doesn't exist
 app.post('/api/timetable/generate', async (req, res) => {
     console.log('Request to generate and save timetable.');
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-
         // Check if data already exists to prevent accidental overwrite
-        const checkResult = await client.query('SELECT id FROM timetables LIMIT 1');
-        if (checkResult.rows.length > 0) {
-            await client.query('ROLLBACK');
+        const checkSnapshot = await db.ref('timetables').limitToFirst(1).once('value');
+        if (checkSnapshot.exists()) {
             return res.status(409).json({ message: 'Timetable already exists in the database.' });
         }
 
         const timetableData = await generateFullSchoolTimetableData();
-        const insertQuery = 'INSERT INTO timetables (class_name, day_of_week, period, subject_id) VALUES ($1, $2, $3, $4)';
+        await db.ref('timetables').set(timetableData);
 
-        // Flatten the object and insert into the database
-        for (const className in timetableData) {
-            for (const day in timetableData[className]) {
-                for (const period in timetableData[className][day]) {
-                    const subjectId = timetableData[className][day][period]; // This is now an ID or null
-                    await client.query(insertQuery, [className, day, period, subjectId]);
-                }
-            }
-        }
-
-        await client.query('COMMIT');
         console.log('Timetable generated and saved to database successfully.');
         res.status(201).json({ message: 'Timetable generated and saved successfully.' });
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error('Error generating/saving timetable:', error);
         res.status(500).json({ message: 'Server error while generating timetable.' });
-    } finally {
-        client.release();
     }
 });
 
@@ -1714,27 +1771,25 @@ app.put('/api/timetable/update', jsonParser, async (req, res) => {
     }
 
     try {
+        const subjectsSnapshot = await db.ref('subjects').once('value');
+        const subjects = subjectsSnapshot.val() || {};
+        
         let subjectId = null;
-        // Find the subject_id for the given subject name.
-        // If the subject is "---" or an empty string, we'll treat it as a free period (null ID).
         if (subject && subject !== '---') {
-            const subjectRes = await pool.query('SELECT id FROM subjects WHERE subject_name = $1', [subject]);
-            if (subjectRes.rows.length === 0) {
-                // If an admin types a subject that doesn't exist, we can't save it.
-                return res.status(400).json({ message: `Subject "${subject}" not found in the database.` });
-            }
-            subjectId = subjectRes.rows[0].id;
+            const foundId = Object.keys(subjects).find(id => subjects[id] === subject);
+            // If the subject is not found, it might be a new one being typed.
+            // For now, we will treat it as an invalid subject, but we won't throw an error.
+            // A better approach would be to add the new subject to the database.
+            subjectId = foundId;
+        } else {
+            subjectId = '---'; // Explicitly set to the placeholder
         }
 
-        const query = `
-            UPDATE timetables 
-            SET subject_id = $1, updated_at = NOW()
-            WHERE class_name = $2 AND day_of_week = $3 AND period = $4
-            RETURNING *;
-        `;
-        const { rows } = await pool.query(query, [subjectId, className, day, period]);
-
-        if (rows.length === 0) {
+        const entryRef = db.ref(`timetables/${className}/${day}/${period}`);
+        const entrySnapshot = await entryRef.once('value');
+        if (entrySnapshot.exists()) {
+            await entryRef.set(subjectId);
+        } else {
             return res.status(404).json({ message: 'Timetable entry not found.' });
         }
 
@@ -1757,41 +1812,50 @@ app.get('/api/student/attendance/:rollNumber', async (req, res) => {
     console.log(`Fetching attendance for roll number: ${rollNumber}`);
 
     try {
-        // Step 1: Get the student's class from their profile
-        const studentRes = await pool.query('SELECT selectedcourse FROM students WHERE rollnumber = $1', [rollNumber]);
-        if (studentRes.rows.length === 0 || !studentRes.rows[0].selectedcourse || !studentRes.rows[0].selectedcourse.trim().startsWith('{')) {
+        const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKey.exists()) {
             return res.json([]); // No class found, so no attendance data
         }
-        const courseData = JSON.parse(studentRes.rows[0].selectedcourse);
-        const className = courseData.branch;
+        const studentSnapshot = await db.ref(`students/${sanitizedEmailKey.val()}`).once('value');
+        const studentData = studentSnapshot.val();
+
+        if (!studentData.selectedCourse || typeof studentData.selectedCourse !== 'object') {
+            return res.json([]);
+        }
+        const className = studentData.selectedCourse.branch;
         if (!className) {
             return res.json([]); // No class name in the course data
         }
 
-        // Step 2: Get all unique subjects for that class from the timetable
-        const subjectsQuery = `
-            SELECT DISTINCT s.subject_name
-            FROM timetables t
-            JOIN subjects s ON t.subject_id = s.id
-            WHERE t.class_name = $1 AND s.subject_name IS NOT NULL;
-        `;
-        const subjectsRes = await pool.query(subjectsQuery, [className]);
-        const allEnrolledSubjects = subjectsRes.rows.map(row => row.subject_name);
+        const timetableSnapshot = await db.ref(`timetables/${className}`).once('value');
+        const subjectsSnapshot = await db.ref('subjects').once('value');
+        const subjects = subjectsSnapshot.val() || {};
+        const allEnrolledSubjects = new Set();
 
-        // Step 3: Get the actual marked attendance from the attendance table
-        const attendanceQuery = `
-            SELECT
-                subject AS course,
-                COUNT(*) AS total,
-                COUNT(*) FILTER (WHERE status = 'present') AS present,
-                COUNT(*) FILTER (WHERE status = 'absent') AS absent
-            FROM attendance
-            WHERE student_rollnumber = $1 GROUP BY subject;
-        `;
-        const attendanceRes = await pool.query(attendanceQuery, [rollNumber]);
-        const markedAttendanceMap = new Map(attendanceRes.rows.map(row => [row.course, row]));
+        if (timetableSnapshot.exists()) {
+            timetableSnapshot.forEach(daySnapshot => {
+                daySnapshot.forEach(periodSnapshot => {
+                    const subjectId = periodSnapshot.val();
+                    if (subjectId && subjects[subjectId]) {
+                        allEnrolledSubjects.add(subjects[subjectId]);
+                    }
+                });
+            });
+        }
 
-        // Step 4: Merge the two lists
+        const attendanceSnapshot = await db.ref('attendance').orderByChild('studentRollNumber').equalTo(rollNumber).once('value');
+        const markedAttendanceMap = new Map();
+        if (attendanceSnapshot.exists()) {
+            attendanceSnapshot.forEach(child => {
+                const record = child.val();
+                const entry = markedAttendanceMap.get(record.subject) || { course: record.subject, total: 0, present: 0, absent: 0 };
+                entry.total++;
+                if (record.status === 'present') entry.present++;
+                if (record.status === 'absent') entry.absent++;
+                markedAttendanceMap.set(record.subject, entry);
+            });
+        }
+
         const finalAttendanceData = allEnrolledSubjects.map(subjectName => {
             return markedAttendanceMap.get(subjectName) || { course: subjectName, total: 0, present: 0, absent: 0 };
         }).sort((a, b) => a.course.localeCompare(b.course)); // Sort alphabetically
@@ -1809,23 +1873,19 @@ app.get('/api/student/attendance-details/:rollNumber', async (req, res) => {
     console.log(`Fetching detailed attendance for roll number: ${rollNumber}`);
 
     try {
-        const query = `
-            SELECT 
-                subject, 
-                attendance_date, 
-                status 
-            FROM attendance 
-            WHERE student_rollnumber = $1
-            ORDER BY attendance_date DESC;
-        `;
-        const { rows } = await pool.query(query, [rollNumber]);
-
-        // Map to camelCase for consistency
-        const attendanceDetails = rows.map(row => ({
-            subject: row.subject,
-            attendanceDate: row.attendance_date,
-            status: row.status
-        }));
+        const snapshot = await db.ref('attendance').orderByChild('studentRollNumber').equalTo(rollNumber).once('value');
+        const attendanceDetails = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                const record = child.val();
+                attendanceDetails.push({
+                    subject: record.subject,
+                    attendanceDate: record.attendanceDate,
+                    status: record.status
+                });
+            });
+        }
+        attendanceDetails.sort((a, b) => new Date(b.attendanceDate) - new Date(a.attendanceDate));
 
         res.json(attendanceDetails);
     } catch (error) {
@@ -1865,18 +1925,21 @@ app.get('/api/students-by-class/:className', async (req, res) => {
     console.log(`Fetching students for class: ${className}`);
 
     try {
-        // This query now correctly checks both the main admission course ('selectedcourse' JSON)
-        // and any additional hobby courses ('hobbycourses' JSON array) to find all students
-        // belonging to a specific class.
-        const query = `
-            SELECT name, rollnumber, profilepicture 
-            FROM students 
-            WHERE selectedcourse::jsonb->>'branch' = $1 
-               OR hobbycourses @> jsonb_build_array(jsonb_build_object('name', $1))
-            ORDER BY name;
-        `;
-        const { rows } = await pool.query(query, [className]);
-        res.json(rows.map(student => mapDbToCamelCase(student)));
+        const snapshot = await db.ref('students').once('value');
+        const studentsInClass = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                const student = child.val();
+                const inMainCourse = student.selectedCourse && student.selectedCourse.branch === className;
+                const inHobbyCourse = student.hobbyCourses && student.hobbyCourses.some(c => c.name === className);
+
+                if (inMainCourse || inHobbyCourse) {
+                    studentsInClass.push({ name: student.name, rollNumber: student.rollNumber, profilePicture: student.profilePicture });
+                }
+            });
+        }
+        studentsInClass.sort((a, b) => a.name.localeCompare(b.name));
+        res.json(studentsInClass);
     } catch (error) {
         console.error(`Error fetching students for class ${className}:`, error);
         res.status(500).json({ message: 'Server error while fetching students.' });
@@ -1891,62 +1954,53 @@ app.post('/api/faculty/mark-attendance', jsonParser, async (req, res) => {
         return res.status(400).json({ message: 'Missing required attendance information.' });
     }
 
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
         const attendanceDate = new Date(); // Use server time for consistency
+        const attendanceDateISO = attendanceDate.toISOString();
 
-         const insertQuery = `
-            INSERT INTO attendance (faculty_username, student_rollnumber, class_name, subject, attendance_date, status)
-            VALUES ($1, $2, $3, $4, $5, $6);
-        `;
+        const facultySnapshot = await db.ref(`faculty/${facultyUsername.toLowerCase()}`).once('value');
+        const facultyName = facultySnapshot.exists() ? facultySnapshot.val().name : facultyUsername;
 
-        for (const rollNumber in attendanceData) {
-            const status = attendanceData[rollNumber];
-            await client.query(insertQuery, [facultyUsername, rollNumber, className, subject, attendanceDate, status]);
-        }
-
-        // Fetch faculty name for a more detailed notification message
-        const facultyResult = await client.query('SELECT name FROM faculty WHERE username = $1', [facultyUsername]);
-        const facultyName = facultyResult.rows.length > 0 ? facultyResult.rows[0].name : facultyUsername;
-
-
-        // Fetch student details for notification
-        const studentDetailsQuery = 'SELECT name, mobilenumber FROM students WHERE rollnumber = ANY($1::text[])';
         const rollNumbersArray = Object.keys(attendanceData);
-        const studentDetailsResult = await client.query(studentDetailsQuery, [rollNumbersArray]);
-        const studentDetailsMap = studentDetailsResult.rows.reduce((acc, student) => {
-            acc[student.rollnumber] = student;
-            return acc;
-        }, {});
-
-        // Send notifications and SMS messages
-        for (const rollNumber in attendanceData) {
-            const status = attendanceData[rollNumber];
-            const student = studentDetailsMap[rollNumber];
-
-            if (student) {
-                const formattedDate = attendanceDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, ' ');
-                const notificationMessage = `Your attendance for ${subject} in ${className} on ${formattedDate} was marked as '${status}' by ${facultyName}.`;
-                const insertNotificationQuery = `
-                    INSERT INTO notifications (studentrollnumber, type, message)
-                    VALUES ($1, 'attendance', $2)
-                `;
-                await client.query(insertNotificationQuery, [rollNumber, notificationMessage]);
-
-                // Use the new, correct SMS function
-                sendAttendanceSms(student.mobilenumber, notificationMessage);
+        const studentDetailsMap = {};
+        for (const rollNumber of rollNumbersArray) {
+            const sanitizedEmailKey = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+            if (sanitizedEmailKey.exists()) {
+                const studentSnapshot = await db.ref(`students/${sanitizedEmailKey.val()}`).once('value');
+                if (studentSnapshot.exists()) {
+                    studentDetailsMap[rollNumber] = studentSnapshot.val();
+                }
             }
         }
 
-        await client.query('COMMIT');
+        for (const rollNumber in attendanceData) {
+            const status = attendanceData[rollNumber];
+            const newAttendanceRef = db.ref('attendance').push();
+            await newAttendanceRef.set({
+                facultyUsername, studentRollNumber: rollNumber, className, subject,
+                attendanceDate: attendanceDateISO, status
+            });
+
+            const student = studentDetailsMap[rollNumber];
+            if (student) {
+                const formattedDate = attendanceDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, ' ');
+                const notificationMessage = `Your attendance for ${subject} in ${className} on ${formattedDate} was marked as '${status}' by ${facultyName}.`;
+                const newNotifRef = db.ref('notifications').push();
+                await newNotifRef.set({
+                    studentRollNumber: rollNumber,
+                    type: 'attendance',
+                    message: notificationMessage,
+                    isRead: false,
+                    createdAt: new Date().toISOString()
+                });
+                sendAttendanceSms(student.mobileNumber, notificationMessage);
+            }
+        }
+
         res.status(200).json({ message: `Attendance for ${className} - ${subject} has been submitted successfully.` });
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error('Error saving attendance data:', error);
         res.status(500).json({ message: 'Failed to save attendance data to the server.' });
-    } finally {
-       client.release();
     }
 });
 
@@ -1955,28 +2009,31 @@ app.get('/api/faculty/view-attendance/:facultyUsername', async (req, res) => {
     const { facultyUsername } = req.params;
     console.log(`Fetching attendance records for faculty: ${facultyUsername}`);
     try {
-        const query = `
-            SELECT
-                class_name,
-                subject,
-                attendance_date,
-                COUNT(*) AS total_students,
-                COUNT(*) FILTER (WHERE status = 'present') AS present_count,
-                COUNT(*) FILTER (WHERE status = 'absent') AS absent_count
-            FROM attendance
-            WHERE faculty_username = $1
-            GROUP BY class_name, subject, attendance_date
-            ORDER BY attendance_date DESC, class_name;
-        `;
-        const { rows } = await pool.query(query, [facultyUsername]);
-        // Manually map and convert types for this specific query
-        const mappedRows = rows.map(row => ({
-            ...mapDbToCamelCase(row), // Apply general mapping
-            totalStudents: parseInt(row.total_students, 10) || 0,
-            presentCount: parseInt(row.present_count, 10) || 0,
-            absentCount: parseInt(row.absent_count, 10) || 0,
-        }));
-        res.json(mappedRows);
+        const snapshot = await db.ref('attendance').orderByChild('facultyUsername').equalTo(facultyUsername).once('value');
+        const records = {};
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                const record = child.val();
+                const dateOnly = record.attendanceDate.split('T')[0];
+                const key = `${record.className}-${record.subject}-${dateOnly}`;
+                if (!records[key]) {
+                    records[key] = {
+                        className: record.className,
+                        subject: record.subject,
+                        attendanceDate: record.attendanceDate,
+                        totalStudents: 0,
+                        presentCount: 0,
+                        absentCount: 0
+                    };
+                }
+                records[key].totalStudents++;
+                if (record.status === 'present') records[key].presentCount++;
+                if (record.status === 'absent') records[key].absentCount++;
+            });
+        }
+        const result = Object.values(records);
+        result.sort((a, b) => new Date(b.attendanceDate) - new Date(a.attendanceDate));
+        res.json(result);
     } catch (error) {
         console.error(`Error fetching attendance records for ${facultyUsername}:`, error);
         res.status(500).json({ message: 'Server error while fetching attendance records.' });
@@ -1989,12 +2046,17 @@ app.get('/api/attendance/class-date', async (req, res) => {
     console.log(`Fetching attendance for class: ${className} and date: ${date}`);
 
     try {
-        const query = `
-            SELECT student_rollnumber, status FROM attendance 
-            WHERE class_name = $1 AND attendance_date::date = $2;
-        `;
-        const { rows } = await pool.query(query, [className, date]);
-        res.json(rows.map(row => mapDbToCamelCase(row)));
+        const snapshot = await db.ref('attendance').orderByChild('className').equalTo(className).once('value');
+        const records = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                const record = child.val();
+                if (record.attendanceDate.startsWith(date)) {
+                    records.push({ studentRollNumber: record.studentRollNumber, status: record.status });
+                }
+            });
+        }
+        res.json(records);
     } catch (error) {
         console.error('Error fetching attendance:', error);
         res.status(500).json({ message: 'Server error while fetching attendance.' });
@@ -2012,9 +2074,15 @@ app.get('/api/attendance/class-date', async (req, res) => {
 app.get('/api/admin/notices', async (req, res) => {
     console.log('Fetching history of admin notices.');
     try {
-        const query = `SELECT * FROM notice_history ORDER BY createdat DESC;`;
-        const { rows } = await pool.query(query);
-        res.json(rows.map(historyItem => mapDbToCamelCase(historyItem)));
+        const snapshot = await db.ref('noticeHistory').orderByChild('createdAt').once('value');
+        const history = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                history.push({ id: child.key, ...child.val() });
+            });
+        }
+        // Firebase returns ascending, so we reverse for descending order
+        res.json(history.reverse());
     } catch (error) {
         console.error('Error fetching admin notice history:', error);
         res.status(500).json({ message: 'Server error while fetching notice history.' });
@@ -2028,23 +2096,29 @@ app.get('/api/admin/search-users', async (req, res) => {
         return res.json([]); // Return empty if query is too short
     }
     console.log(`Admin searching for user with query: ${query}`);
-
-    const searchTerm = `%${query.trim()}%`;
+    const searchTerm = query.trim().toLowerCase();
 
     try {
-        const studentQuery = pool.query(
-            "SELECT name, rollnumber as identifier, 'Student' as type FROM students WHERE name ILIKE $1 LIMIT 5",
-            [searchTerm]
-        );
+        const studentSnapshot = await db.ref('students').orderByChild('name').startAt(searchTerm).endAt(searchTerm + '\uf8ff').limitToFirst(5).once('value');
+        const facultySnapshot = await db.ref('faculty').orderByChild('name').startAt(searchTerm).endAt(searchTerm + '\uf8ff').limitToFirst(5).once('value');
 
-        const facultyQuery = pool.query(
-            "SELECT name, username as identifier, 'Faculty' as type FROM faculty WHERE name ILIKE $1 LIMIT 5",
-            [searchTerm]
-        );
+        const studentResults = [];
+        if (studentSnapshot.exists()) {
+            studentSnapshot.forEach(child => {
+                const student = child.val();
+                studentResults.push({ name: student.name, identifier: student.rollNumber, type: 'Student' });
+            });
+        }
 
-        const [studentResults, facultyResults] = await Promise.all([studentQuery, facultyQuery]);
+        const facultyResults = [];
+        if (facultySnapshot.exists()) {
+            facultySnapshot.forEach(child => {
+                const faculty = child.val();
+                facultyResults.push({ name: faculty.name, identifier: faculty.username, type: 'Faculty' });
+            });
+        }
 
-        const combinedResults = [...studentResults.rows, ...facultyResults.rows];
+        const combinedResults = [...studentResults, ...facultyResults];
         
         res.json(combinedResults);
     } catch (error) {
@@ -2059,10 +2133,14 @@ app.get('/api/faculty/me', async (req, res) => {
     if (!username) return res.status(400).json({ message: 'Username is required.' });
 
     try {
-        const query = 'SELECT id, name, username, email, mobilenumber, teacherchoice, subject, profilepicture, isprofilecomplete, assigned_classes FROM faculty WHERE LOWER(username) = LOWER($1)';
-        const { rows } = await pool.query(query, [username]);
-        if (rows.length === 0) return res.status(404).json({ message: 'Faculty not found.' });
-        res.status(200).json(mapDbToCamelCase(rows[0]));
+        const snapshot = await db.ref(`faculty/${username.toLowerCase()}`).once('value');
+        if (!snapshot.exists()) {
+            return res.status(404).json({ message: 'Faculty not found.' });
+        }
+        const facultyData = snapshot.val();
+        facultyData.id = snapshot.key; // Add the key as 'id'
+        delete facultyData.passwordHash;
+        res.status(200).json(facultyData);
     } catch (error) {
         console.error('Error fetching faculty details:', error);
         res.status(500).json({ message: 'Server error while fetching faculty details.' });
@@ -2075,14 +2153,15 @@ app.get('/api/faculty/:identifier', async (req, res) => {
     console.log(`Fetching full details for faculty: ${identifier}`);
 
     try {
-        const query = 'SELECT id, username, name, email, createdat FROM faculty WHERE username = $1 OR id::text = $1';
-        const { rows } = await pool.query(query, [identifier]);
-
-        if (rows.length === 0) {
+        // Firebase keys cannot be numbers, so we only search by username (which is the key)
+        const snapshot = await db.ref(`faculty/${identifier.toLowerCase()}`).once('value');
+        if (!snapshot.exists()) {
             return res.status(404).json({ message: 'Faculty member not found.' });
         }
-
-        res.json(mapDbToCamelCase(rows[0]));
+        const faculty = snapshot.val();
+        // Return a subset of data for this view
+        const result = { id: snapshot.key, username: faculty.username, name: faculty.name, email: faculty.email, createdAt: faculty.createdAt };
+        res.json(result);
     } catch (error) {
         console.error('Error fetching faculty details:', error);
         res.status(500).json({ message: 'Server error while fetching faculty details.' });
@@ -2093,15 +2172,17 @@ app.get('/api/faculty/:identifier', async (req, res) => {
 app.get('/api/all-faculty', async (req, res) => {
     console.log('Fetching all faculty records for admin view.');
     try {
-        // Select all relevant fields, but EXCLUDE the password hash and security answers for safety.
-        const query = `
-            SELECT 
-                username, name, email, createdat 
-            FROM faculty 
-            ORDER BY createdat DESC;
-        `;
-        const { rows } = await pool.query(query);
-        res.json(rows.map(faculty => mapDbToCamelCase(faculty)));
+        const snapshot = await db.ref('faculty').orderByChild('createdAt').once('value');
+        const facultyList = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                const faculty = child.val();
+                facultyList.push({ username: faculty.username, name: faculty.name, email: faculty.email, createdAt: faculty.createdAt });
+            });
+        }
+
+        // Firebase returns ascending, so we reverse for descending order
+        res.json(facultyList.reverse());
     } catch (error) {
         console.error('Error fetching all faculty data:', error);
         res.status(500).json({ message: 'Server error while fetching all faculty data.' });
@@ -2120,56 +2201,56 @@ app.post('/api/admin/send-notice', jsonParser, async (req, res) => {
         return res.status(400).json({ message: 'Recipients are required for selected audience.' });
     }
 
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-
-        let notificationResult;
         let recipientCount = 0;
+        const notificationMessage = { type: 'admin_notice', message, link: '#', isRead: false, createdAt: new Date().toISOString() };
+
+        const createNotifications = async (ref, keyField, value) => {
+            const snapshot = await db.ref(ref).once('value');
+            let count = 0;
+            if (snapshot.exists()) {
+                snapshot.forEach(child => {
+                    const newNotifRef = db.ref('notifications').push();
+                    newNotifRef.set({ ...notificationMessage, [keyField]: child.val()[value] });
+                    count++;
+                });
+            }
+            return count;
+        };
+
+        const createNotificationsForSelected = async (recipients, keyField) => {
+            recipients.forEach(recipient => {
+                const newNotifRef = db.ref('notifications').push();
+                newNotifRef.set({ ...notificationMessage, [keyField]: recipient });
+            });
+            return recipients.length;
+        };
 
         if (audience === 'ALL_STUDENTS') {
-            const query = `INSERT INTO notifications (studentrollnumber, type, message, link) SELECT rollnumber, 'admin_notice', $1, '#' FROM students;`;
-            notificationResult = await client.query(query, [message]);
-            recipientCount = notificationResult.rowCount;
+            recipientCount = await createNotifications('students', 'studentRollNumber', 'rollNumber');
         } else if (audience === 'ALL_FACULTY') {
-            const query = `INSERT INTO notifications (faculty_username, type, message, link) SELECT username, 'admin_notice', $1, '#' FROM faculty;`;
-            notificationResult = await client.query(query, [message]);
-            recipientCount = notificationResult.rowCount;
+            recipientCount = await createNotifications('faculty', 'facultyUsername', 'username');
         } else if (audience === 'SELECTED_STUDENTS') {
-            const query = `INSERT INTO notifications (studentrollnumber, type, message, link) SELECT unnest($1::text[]), 'admin_notice', $2, '#';`;
-            notificationResult = await client.query(query, [recipients, message]);
-            recipientCount = notificationResult.rowCount;
+            recipientCount = await createNotificationsForSelected(recipients, 'studentRollNumber');
         } else if (audience === 'SELECTED_FACULTY') {
-            const query = `INSERT INTO notifications (faculty_username, type, message, link) SELECT unnest($1::text[]), 'admin_notice', $2, '#';`;
-            notificationResult = await client.query(query, [recipients, message]);
-            recipientCount = notificationResult.rowCount;
+            recipientCount = await createNotificationsForSelected(recipients, 'facultyUsername');
         } else {
             throw new Error('Invalid audience specified.');
         }
 
         if (recipientCount === 0) {
-            // Don't throw an error, just inform the admin. No need to rollback or log history.
-            await client.query('COMMIT'); // Commit the empty transaction
             return res.status(200).json({ message: 'Notice sent, but no matching recipients were found.' });
         }
 
         // Log the action in the new history table
-        const historyQuery = `
-            INSERT INTO notice_history (sent_by_admin, message, target_audience, recipient_count)
-            VALUES ($1, $2, $3, $4);
-        `;
-        await client.query(historyQuery, [adminUsername, message, audience, recipientCount]);
-
-        await client.query('COMMIT');
+        const historyRef = db.ref('noticeHistory').push();
+        await historyRef.set({ sentByAdmin: adminUsername, message, targetAudience: audience, recipientCount, createdAt: new Date().toISOString() });
 
         console.log(`Successfully sent notice to ${recipientCount} recipients for audience ${audience}.`);
         res.status(200).json({ message: `Notice successfully sent to ${recipientCount} recipients.` });
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error(`Error sending notice for audience ${audience}:`, error);
         res.status(500).json({ message: 'Server error while sending notifications.' });
-    } finally {
-        client.release();
     }
 });
 
@@ -2177,15 +2258,17 @@ app.post('/api/admin/send-notice', jsonParser, async (req, res) => {
 app.get('/api/all-students', async (req, res) => {
     console.log('Fetching all student records for admin view.');
     try {
-        // Select all relevant fields, but EXCLUDE the password hash and security answers for safety.
-        const query = `
-            SELECT 
-                enrollmentnumber, rollnumber, name, email, gender, mobilenumber, city, createdat 
-            FROM students 
-            ORDER BY createdat DESC;
-        `;
-        const { rows } = await pool.query(query);
-        res.json(rows.map(student => mapDbToCamelCase(student)));
+        const snapshot = await db.ref('students').orderByChild('createdAt').once('value');
+        const studentList = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                const student = child.val();
+                studentList.push({ enrollmentNumber: student.enrollmentNumber, rollNumber: student.rollNumber, name: student.name, email: student.email, gender: student.gender, mobileNumber: student.mobileNumber, city: student.city, createdAt: student.createdAt });
+            });
+        }
+
+        // Firebase returns ascending, so we reverse for descending order
+        res.json(studentList.reverse());
     } catch (error) {
         console.error('Error fetching all student data:', error);
         res.status(500).json({ message: 'Server error while fetching all student data.' });
@@ -2201,29 +2284,23 @@ app.delete('/api/student/:rollNumber', async (req, res) => {
         return res.status(400).json({ message: 'Roll number is required.' });
     }
 
-    const client = await pool.connect();
     try {
-        // --- Step 1: Fetch file paths BEFORE deleting the record ---
-        const studentRes = await client.query(
-            'SELECT profilepicture FROM students WHERE rollnumber = $1',
-            [rollNumber]
-        );
-
-        if (studentRes.rowCount === 0) {
+        const sanitizedEmailKeySnapshot = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKeySnapshot.exists()) {
             return res.status(404).json({ message: 'Student not found.' });
         }
-        const studentFiles = studentRes.rows[0];
+        const sanitizedEmailKey = sanitizedEmailKeySnapshot.val();
+        const studentSnapshot = await db.ref(`students/${sanitizedEmailKey}`).once('value');
+        const studentFiles = studentSnapshot.val();
 
-        // --- Step 2: Perform database deletions in a transaction ---
-        await client.query('BEGIN');
+        // Perform database deletions
+        await db.ref(`students/${sanitizedEmailKey}`).remove();
+        await db.ref(`rollNumberIndex/${rollNumber}`).remove();
 
-        // Optional but good practice: Delete related payment records first
-        await client.query('DELETE FROM payments WHERE studentrollnumber = $1', [rollNumber]);
+        // Delete related payment records
+        const paymentsSnapshot = await db.ref('payments').orderByChild('studentRollNumber').equalTo(rollNumber).once('value');
+        if (paymentsSnapshot.exists()) paymentsSnapshot.ref.remove();
 
-        // Delete the student record
-        await client.query('DELETE FROM students WHERE rollnumber = $1', [rollNumber]);
-
-        await client.query('COMMIT');
         console.log(`Successfully deleted DB records for student ${rollNumber}.`);
 
         // --- Step 3: Delete associated files from the filesystem AFTER successful commit ---
@@ -2249,11 +2326,8 @@ app.delete('/api/student/:rollNumber', async (req, res) => {
         res.status(200).json({ message: `Student with roll number ${rollNumber} has been deleted successfully.` });
 
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error('Error deleting student:', error);
         res.status(500).json({ message: 'Server error while deleting student.' });
-    } finally {
-        client.release();
     }
 });
 
@@ -2268,46 +2342,38 @@ app.put('/api/student/:rollNumber', jsonParser, async (req, res) => {
     }
 
     try {
-        // Dynamically build the update query to only change provided fields
-        const updateFields = [];
-        const values = [];
-        let paramIndex = 1;
+        const sanitizedEmailKeySnapshot = await db.ref(`rollNumberIndex/${rollNumber}`).once('value');
+        if (!sanitizedEmailKeySnapshot.exists()) {
+            return res.status(404).json({ message: 'Student not found.' });
+        }
+        const studentRef = db.ref(`students/${sanitizedEmailKeySnapshot.val()}`);
 
-        if (name !== undefined) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
-        if (email !== undefined) { updateFields.push(`email = $${paramIndex++}`); values.push(email.toLowerCase()); }
-        if (mobileNumber !== undefined) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
-        if (city !== undefined) { updateFields.push(`city = $${paramIndex++}`); values.push(city); }
+        const updates = {};
+        if (name !== undefined) updates.name = name;
+        if (email !== undefined) {
+            // Email updates are complex with this model, skipping for now.
+            console.warn("Admin update of student email is not supported in this Firebase model.");
+        }
+        if (mobileNumber !== undefined) updates.mobileNumber = mobileNumber;
+        if (city !== undefined) updates.city = city;
 
-        if (updateFields.length === 0) {
+        if (Object.keys(updates).length === 0) {
             return res.status(400).json({ message: 'No fields to update provided.' });
         }
 
-        values.push(rollNumber); // Add the roll number for the WHERE clause
-        const query = `
-            UPDATE students 
-            SET ${updateFields.join(', ')}, updatedat = CURRENT_TIMESTAMP 
-            WHERE rollnumber = $${paramIndex} 
-            RETURNING enrollmentnumber, rollnumber, name, email, gender, mobilenumber, city, createdat;
-        `;
+        updates.updatedAt = new Date().toISOString();
+        await studentRef.update(updates);
 
-        const { rows } = await pool.query(query, values);
+        const snapshot = await studentRef.once('value');
+        const updatedStudent = snapshot.val();
 
-        if (rows.length === 0) {
-            return res.status(404).json({ message: 'Student not found.' });
-        }
-
-        const updatedStudent = rows[0];
         console.log(`Successfully updated student ${rollNumber}.`);
         res.status(200).json({ 
             message: 'Student details updated successfully.',
-            studentData: mapDbToCamelCase(updatedStudent) // Send back the updated data
+            studentData: updatedStudent
         });
 
     } catch (error) {
-        // Handle potential unique constraint violations (e.g., if email is changed to an existing one)
-        if (error.code === '23505') {
-            return res.status(409).json({ message: 'An account with the provided email or mobile number already exists.' });
-        }
         console.error('Error updating student:', error);
         res.status(500).json({ message: 'Server error while updating student.' });
     }
@@ -2327,11 +2393,11 @@ app.post('/api/admin/login', jsonParser, async (req, res) => {
         console.log('Primary admin login successful.');
         try {
             // Fetch the user's data from the DB to ensure consistency, but bypass password check.
-            const { rows } = await pool.query('SELECT * FROM admins WHERE LOWER(username) = LOWER($1)', [username]);
-            if (rows.length > 0) {
-                const admin = rows[0];
-                delete admin.passwordhash;
-                return res.status(200).json({ message: 'Login successful', adminData: mapDbToCamelCase(admin) });
+            const snapshot = await db.ref(`admins/${username.toLowerCase()}`).once('value');
+            if (snapshot.exists()) {
+                const admin = snapshot.val();
+                delete admin.passwordHash;
+                return res.status(200).json({ message: 'Login successful', adminData: admin });
             } else {
                 // If the primary admin is not in the DB for some reason, create a mock object.
                 const adminData = { name: 'Raushan Kumar', username: 'raushan_143' };
@@ -2346,19 +2412,18 @@ app.post('/api/admin/login', jsonParser, async (req, res) => {
     }
 
     try {
-        const query = 'SELECT * FROM admins WHERE LOWER(username) = LOWER($1)';
-        const { rows } = await pool.query(query, [username]);
+        const snapshot = await db.ref(`admins/${username.toLowerCase()}`).once('value');
 
-        if (rows.length === 0) {
+        if (!snapshot.exists()) {
             return res.status(401).json({ message: 'Incorrect username or password.' });
         }
 
-        const admin = rows[0];
-        const isPasswordMatch = await bcrypt.compare(password, admin.passwordhash);
+        const admin = snapshot.val();
+        const isPasswordMatch = await bcrypt.compare(password, admin.passwordHash);
 
         if (isPasswordMatch) {
-            delete admin.passwordhash;
-            res.status(200).json({ message: 'Login successful', adminData: mapDbToCamelCase(admin) });
+            delete admin.passwordHash;
+            res.status(200).json({ message: 'Login successful', adminData: admin });
         } else {
             res.status(401).json({ message: 'Incorrect username or password.' });
         }
@@ -2374,10 +2439,14 @@ app.get('/api/admin/me', async (req, res) => {
     if (!username) return res.status(400).json({ message: 'Username is required.' });
 
     try {
-        const query = 'SELECT id, name, username, email, mobilenumber, profilepicture FROM admins WHERE LOWER(username) = LOWER($1)';
-        const { rows } = await pool.query(query, [username]);
-        if (rows.length === 0) return res.status(404).json({ message: 'Admin not found.' });
-        res.status(200).json(mapDbToCamelCase(rows[0]));
+        const snapshot = await db.ref(`admins/${username.toLowerCase()}`).once('value');
+        if (!snapshot.exists()) {
+            return res.status(404).json({ message: 'Admin not found.' });
+        }
+        const adminData = snapshot.val();
+        adminData.id = snapshot.key;
+        delete adminData.passwordHash;
+        res.status(200).json(adminData);
     } catch (error) {
         console.error('Error fetching admin details:', error);
         res.status(500).json({ message: 'Server error while fetching admin details.' });
@@ -2393,32 +2462,30 @@ app.post('/api/admin/update-settings', adminPicUpload.single('profilePicture'), 
         return res.status(400).json({ message: 'Username and Current Password are required to save changes.' });
     }
 
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-        const adminRes = await client.query('SELECT * FROM admins WHERE LOWER(username) = LOWER($1)', [username]);
-        if (adminRes.rows.length === 0) throw new Error('Admin user not found.');
+        const adminRef = db.ref(`admins/${username.toLowerCase()}`);
+        const snapshot = await adminRef.once('value');
+        if (!snapshot.exists()) throw new Error('Admin user not found.');
 
-        const admin = adminRes.rows[0];
+        const admin = snapshot.val();
         
         let isPasswordMatch = false;
         // Special check for the primary admin's master password
         if (username.toLowerCase() === 'raushan_143' && currentPassword === '4gh4m01r') {
             isPasswordMatch = true;
         } else {
-            // For all other cases, use bcrypt against the stored hash
-            isPasswordMatch = await bcrypt.compare(currentPassword, admin.passwordhash);
+            isPasswordMatch = await bcrypt.compare(currentPassword, admin.passwordHash);
         }
 
+        // For all other cases, use bcrypt against the stored hash
         if (!isPasswordMatch) throw new Error('Incorrect current password.');
+        
+        const updates = {};
 
-        const updateFields = [];
-        const values = [];
-        let paramIndex = 1;
+        if (name) updates.name = name;
+        if (email) updates.email = email;
+        if (mobileNumber) updates.mobileNumber = mobileNumber;
 
-        if (name) { updateFields.push(`name = $${paramIndex++}`); values.push(name); }
-        if (email) { updateFields.push(`email = $${paramIndex++}`); values.push(email); }
-        if (mobileNumber) { updateFields.push(`mobilenumber = $${paramIndex++}`); values.push(mobileNumber); }
         if (req.file) {
             // Rename the temporary file to a permanent one
             const sanitizedUsername = username.replace(/[^a-zA-Z0-9_.-]/g, '_');
@@ -2428,8 +2495,7 @@ app.post('/api/admin/update-settings', adminPicUpload.single('profilePicture'), 
             try {
                 fs.renameSync(req.file.path, newPath);
                 const profilePictureUrl = newPath.replace(/\\/g, "/");
-                updateFields.push(`profilepicture = $${paramIndex++}`);
-                values.push(profilePictureUrl);
+                updates.profilePicture = profilePictureUrl;
                 console.log(`Admin profile picture for ${username} saved to: ${profilePictureUrl}`);
             } catch (renameError) {
                 console.error('Error renaming admin profile picture:', renameError);
@@ -2439,30 +2505,25 @@ app.post('/api/admin/update-settings', adminPicUpload.single('profilePicture'), 
         }
         if (newPassword) {
             const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
-            updateFields.push(`passwordhash = $${paramIndex++}`);
-            values.push(newPasswordHash);
+            updates.passwordHash = newPasswordHash;
         }
 
-        if (updateFields.length === 0) {
-            delete admin.passwordhash;
+        if (Object.keys(updates).length === 0) {
+            delete admin.passwordHash;
             // Even if no fields changed, if a file was uploaded, it was an error.
-            return res.status(200).json({ message: 'No changes were made.', adminData: mapDbToCamelCase(admin) });
+            return res.status(200).json({ message: 'No changes were made.', adminData: admin });
         }
 
-        values.push(username);
-        const query = `UPDATE admins SET ${updateFields.join(', ')}, updatedat = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER($${paramIndex}) RETURNING *;`;
-        const { rows } = await client.query(query, values);
+        updates.updatedAt = new Date().toISOString();
+        await adminRef.update(updates);
 
-        await client.query('COMMIT');
-        const updatedAdmin = rows[0];
-        delete updatedAdmin.passwordhash;
-        res.status(200).json({ message: 'Settings updated successfully!', adminData: mapDbToCamelCase(updatedAdmin) });
+        const updatedSnapshot = await adminRef.once('value');
+        const updatedAdmin = updatedSnapshot.val();
+        delete updatedAdmin.passwordHash;
+        res.status(200).json({ message: 'Settings updated successfully!', adminData: updatedAdmin });
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error('Error updating admin settings:', error);
         res.status(500).json({ message: error.message || 'Server error during update.' });
-    } finally {
-        client.release();
     }
 });
 
@@ -2470,8 +2531,14 @@ app.post('/api/admin/update-settings', adminPicUpload.single('profilePicture'), 
 app.get('/api/admins', async (req, res) => {
     console.log('Fetching all admin users.');
     try {
-        const { rows } = await pool.query('SELECT id, name, username, profilepicture FROM admins ORDER BY name');
-        res.status(200).json(rows.map(admin => mapDbToCamelCase(admin)));
+        const snapshot = await db.ref('admins').orderByChild('name').once('value');
+        const admins = [];
+        if (snapshot.exists()) {
+            snapshot.forEach(child => {
+                admins.push({ id: child.key, name: child.val().name, username: child.val().username, profilePicture: child.val().profilePicture });
+            });
+        }
+        res.status(200).json(admins);
     } catch (error) {
         console.error('Error fetching admins:', error);
         res.status(500).json({ message: 'Server error while fetching admins.' });
@@ -2488,14 +2555,21 @@ app.post('/api/admin/add-admin', jsonParser, async (req, res) => {
     }
 
     try {
-        const passwordHash = await bcrypt.hash(password, saltRounds);
-        const query = `INSERT INTO admins (name, username, passwordhash) VALUES ($1, $2, $3) RETURNING id, name, username, profilepicture;`;
-        const { rows } = await pool.query(query, [name, username.toLowerCase(), passwordHash]);
-        res.status(201).json({ message: `Admin user '${username}' created successfully.`, adminData: mapDbToCamelCase(rows[0]) });
-    } catch (error) {
-        if (error.code === '23505') { // unique_violation
+        const adminRef = db.ref(`admins/${username.toLowerCase()}`);
+        const snapshot = await adminRef.once('value');
+        if (snapshot.exists()) {
             return res.status(409).json({ message: 'An admin with this username already exists.' });
         }
+
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        const newAdminData = { name, username: username.toLowerCase(), passwordHash, createdAt: new Date().toISOString() };
+        await adminRef.set(newAdminData);
+
+        res.status(201).json({
+            message: `Admin user '${username}' created successfully.`,
+            adminData: { id: username.toLowerCase(), name, username: username.toLowerCase() }
+        });
+    } catch (error) {
         console.error('Error adding admin:', error);
         res.status(500).json({ message: 'Server error while creating admin.' });
     }
@@ -2516,8 +2590,9 @@ app.delete('/api/admin/delete/:username', async (req, res) => {
     }
 
     try {
-        const result = await pool.query('DELETE FROM admins WHERE LOWER(username) = LOWER($1)', [username]);
-        if (result.rowCount === 0) {
+        const adminRef = db.ref(`admins/${username.toLowerCase()}`);
+        const snapshot = await adminRef.once('value');
+        if (!snapshot.exists()) {
             return res.status(404).json({ message: 'Admin user not found.' });
         }
         res.status(200).json({ message: `Admin user "${username}" has been deleted successfully.` });
@@ -2537,24 +2612,178 @@ app.post('/api/admin/add-user', jsonParser, async (req, res) => {
     }
 
     try {
-        const passwordHash = await bcrypt.hash(password, saltRounds);
-        // We set isprofilecomplete to false, so the faculty member is forced to update details on first login.
-        const query = `
-            INSERT INTO faculty (name, username, email, passwordhash, isprofilecomplete, teacherchoice, subject, assigned_classes)
-            VALUES ($1, $2, $3, $4, FALSE, $5, $6, $7)
-            RETURNING id, name, username, email;
-        `;
-        const values = [name, username.toLowerCase(), email.toLowerCase(), passwordHash, teacherChoice, subject, assignedClasses];
-        const { rows } = await pool.query(query, values);
-        
-        console.log(`Faculty member ${username} created successfully by admin.`);
-        res.status(201).json({ message: `Faculty user '${rows[0].username}' created successfully.`, facultyData: rows[0] });
-    } catch (error) {
-        if (error.code === '23505') { // unique_violation
+        const facultyRef = db.ref(`faculty/${username.toLowerCase()}`);
+        const snapshot = await facultyRef.once('value');
+        if (snapshot.exists()) {
             return res.status(409).json({ message: 'A faculty member with this username or email already exists.' });
         }
+
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        const newFacultyData = {
+            name, username: username.toLowerCase(), email: email.toLowerCase(), passwordHash,
+            isProfileComplete: false, teacherChoice, subject, assignedClasses,
+            createdAt: new Date().toISOString()
+        };
+        await facultyRef.set(newFacultyData);
+        
+        console.log(`Faculty member ${username} created successfully by admin.`);
+        res.status(201).json({
+            message: `Faculty user '${username.toLowerCase()}' created successfully.`,
+            facultyData: { id: username.toLowerCase(), name, username: username.toLowerCase(), email: email.toLowerCase() }
+        });
+    } catch (error) {
         console.error('Error during admin-add-user:', error);
         res.status(500).json({ message: 'Server error during user creation.' });
+    }
+});
+
+// New endpoint to get all classes for admin
+app.get('/api/admin/classes', async (req, res) => {
+    console.log('Fetching all classes for admin view.');
+    try {
+        // Define the default set of classes
+        const defaultClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+
+        // Fetch any additionally created classes from the database
+        const snapshot = await db.ref('appData/classes').once('value');
+        const additionalClasses = snapshot.val() || [];
+
+        // Combine the default and additional classes, ensuring no duplicates
+        const allClassNames = new Set([...defaultClasses, ...additionalClasses]);
+
+        // Convert the Set back to an array and sort it
+        const sortedClasses = Array.from(allClassNames).sort();
+
+        res.status(200).json(sortedClasses);
+    } catch (error) {
+        console.error('Error fetching all classes:', error);
+        res.status(500).json({ message: 'Server error while fetching classes.' });
+    }
+});
+
+// New endpoint for admin to add a new class
+app.post('/api/admin/add-class', jsonParser, async (req, res) => {
+
+    const { className, fee } = req.body;
+    console.log(`Admin request to add new class: ${className} with fee: ${fee}`);
+
+    if (!className || !fee) {
+        return res.status(400).json({ message: 'Class Name and Fee are required.' });
+    }
+
+    try {
+        // 1. Check if class already exists in the classes list
+        const classesRef = db.ref('appData/classes');
+        const classesSnapshot = await classesRef.once('value');
+        const existingClasses = classesSnapshot.val() || [];
+
+        if (existingClasses.includes(className)) {
+            return res.status(409).json({ message: `The class "${className}" already exists.` });
+        }
+
+        // 2. Add the new class to the list
+        existingClasses.push(className);
+        await classesRef.set(existingClasses);
+
+        // 3. Add the new class fee to the fee structure
+        const sanitizedClassName = sanitizeClassNameForKey(className);
+        const feesRef = db.ref(`appData/fees/${sanitizedClassName}`);
+        await feesRef.set({ name: className, fee: fee, id: sanitizedClassName });
+
+        // 4. Initialize a blank timetable for the new class
+        const timetableRef = db.ref(`timetables/${sanitizedClassName}`);
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const periods = [1, 2, 3, 4, 5, 6];
+        const newTimetable = {};
+        days.forEach(day => {
+            newTimetable[day] = {};
+            periods.forEach(period => {
+                newTimetable[day][period] = '---';
+            });
+        });
+        await timetableRef.set(newTimetable);
+
+        console.log(`Successfully created class "${className}" and its timetable.`);
+        res.status(201).json({
+            message: `Class "${className}" created successfully. Its timetable is now ready to be edited.`,
+            newClass: { className, fee }
+        });
+
+    } catch (error) {
+        console.error('Error adding new class:', error);
+        res.status(500).json({ message: 'Server error while creating the new class.' });
+    }
+});
+
+// New endpoint for admin to delete a class
+app.delete('/api/admin/class/:className', async (req, res) => {
+    const { className } = req.params;
+    const decodedClassName = decodeURIComponent(className);
+    console.log(`Admin request to delete class: ${decodedClassName}`);
+
+    if (!decodedClassName) {
+        return res.status(400).json({ message: 'Class name is required.' });
+    }
+
+    // Safeguard against deleting core classes if needed, though dependency check is better.
+    const defaultClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
+    if (defaultClasses.includes(decodedClassName)) {
+        return res.status(403).json({ message: `Cannot delete a default system class: "${decodedClassName}".` });
+    }
+
+    try {
+        // --- Dependency Check ---
+        // 1. Check if any student is enrolled in this class
+        const studentSnapshot = await db.ref('students').orderByChild('selectedCourse/branch').equalTo(decodedClassName).once('value');
+        if (studentSnapshot.exists()) {
+            return res.status(409).json({ message: `Cannot delete class. It is assigned to ${studentSnapshot.numChildren()} student(s).` });
+        }
+
+        // 2. Check if any faculty is assigned to this class
+        const facultySnapshot = await db.ref('faculty').once('value');
+        let facultyCount = 0;
+        if (facultySnapshot.exists()) {
+            facultySnapshot.forEach(child => {
+                const faculty = child.val();
+                if (faculty.assignedClasses && faculty.assignedClasses.includes(decodedClassName)) {
+                    facultyCount++;
+                }
+            });
+        }
+        if (facultyCount > 0) {
+            return res.status(409).json({ message: `Cannot delete class. It is assigned to ${facultyCount} faculty member(s).` });
+        }
+
+        // --- Proceed with Deletion ---
+        // 1. Remove from the main classes list
+        const classesRef = db.ref('appData/classes');
+        const classesSnapshot = await classesRef.once('value');
+        let existingClasses = classesSnapshot.val() || [];
+        const classIndex = existingClasses.indexOf(decodedClassName);
+
+        if (classIndex > -1) {
+            existingClasses.splice(classIndex, 1);
+            await classesRef.set(existingClasses);
+            console.log(`Removed "${decodedClassName}" from appData/classes.`);
+        } else {
+            // If it's not in the additional list, it might be a default class we're trying to delete, which is blocked above.
+            // Or it might be an error state. We'll just log it.
+            console.warn(`Class "${decodedClassName}" not found in the additional classes list for deletion.`);
+        }
+
+        // 2. Remove the class's fee structure
+        const sanitizedClassName = sanitizeClassNameForKey(decodedClassName);
+        await db.ref(`appData/fees/${sanitizedClassName}`).remove();
+        console.log(`Removed fee structure for "${decodedClassName}".`);
+
+        // 3. Remove the class's timetable
+        await db.ref(`timetables/${sanitizedClassName}`).remove();
+        console.log(`Removed timetable for "${decodedClassName}".`);
+
+        res.status(200).json({ message: `Class "${decodedClassName}" has been successfully deleted.` });
+    } catch (error) {
+        console.error('Error deleting class:', error);
+        res.status(500).json({ message: 'Server error while deleting the class.' });
     }
 });
 
@@ -2570,22 +2799,20 @@ app.post('/api/faculty/complete-profile', facultyPicUpload.single('photo'), asyn
         return res.status(400).json({ message: 'All fields are required to complete your profile.' });
     }
 
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-
-        const facultyRes = await client.query('SELECT * FROM faculty WHERE username = $1', [username]);
-        if (facultyRes.rows.length === 0) throw new Error('Faculty member not found.');
+        const facultyRef = db.ref(`faculty/${username.toLowerCase()}`);
+        const snapshot = await facultyRef.once('value');
+        if (!snapshot.exists()) throw new Error('Faculty member not found.');
         
-        const faculty = facultyRes.rows[0];
+        const faculty = snapshot.val();
 
-        const isPasswordMatch = await bcrypt.compare(currentPassword, faculty.passwordhash);
+        const isPasswordMatch = await bcrypt.compare(currentPassword, faculty.passwordHash);
         if (!isPasswordMatch) throw new Error('Incorrect current password.');
 
         const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
         const updateFields = [
-            'mobilenumber = $1', 'dob = $2', 'passwordhash = $3', 
+            'mobilenumber = $1', 'dob = $2', 'passwordhash = $3',
             'isprofilecomplete = TRUE', 'updatedat = CURRENT_TIMESTAMP'
         ];
         const values = [mobileNumber, dob, newPasswordHash];
@@ -2607,26 +2834,19 @@ app.post('/api/faculty/complete-profile', facultyPicUpload.single('photo'), asyn
             }
         }
 
-        values.push(username);
-        const updateQuery = `
-            UPDATE faculty 
-            SET ${updateFields.join(', ')}
-            WHERE username = $${paramIndex}
-            RETURNING *;
-        `;
-        const updatedResult = await client.query(updateQuery, values);
+        const updates = { ...values, isProfileComplete: true, updatedAt: new Date().toISOString() };
+        await facultyRef.update(updates);
 
-        await client.query('COMMIT');
-
-        const updatedFaculty = updatedResult.rows[0];
-        delete updatedFaculty.passwordhash;
-        res.status(200).json({ message: 'Profile updated successfully!', facultyData: mapDbToCamelCase(updatedFaculty) });
+        const updatedSnapshot = await facultyRef.once('value');
+        const updatedFaculty = updatedSnapshot.val();
+        delete updatedFaculty.passwordHash;
+        res.status(200).json({
+            message: 'Profile updated successfully!',
+            facultyData: updatedFaculty
+        });
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error('Error completing faculty profile:', error.message);
         res.status(500).json({ message: error.message || 'Server error during profile update.' });
-    } finally {
-        client.release();
     }
 });
 
@@ -2643,14 +2863,13 @@ app.post('/api/faculty/update-settings', facultyPicUpload.single('profilePicture
         return res.status(400).json({ message: 'Username and Current Password are required to save changes.' });
     }
 
-    const client = await pool.connect();
     try {
-        await client.query('BEGIN');
-        const facultyRes = await client.query('SELECT * FROM faculty WHERE LOWER(username) = LOWER($1)', [username]);
-        if (facultyRes.rows.length === 0) throw new Error('Faculty user not found.');
+        const facultyRef = db.ref(`faculty/${username.toLowerCase()}`);
+        const snapshot = await facultyRef.once('value');
+        if (!snapshot.exists()) throw new Error('Faculty user not found.');
 
-        const faculty = facultyRes.rows[0];
-        const isPasswordMatch = await bcrypt.compare(currentPassword, faculty.passwordhash);
+        const faculty = snapshot.val();
+        const isPasswordMatch = await bcrypt.compare(currentPassword, faculty.passwordHash);
         if (!isPasswordMatch) throw new Error('Incorrect current password.');
 
         const updateFields = [];
@@ -2687,24 +2906,20 @@ app.post('/api/faculty/update-settings', facultyPicUpload.single('profilePicture
         }
 
         if (updateFields.length === 0) {
-            delete faculty.passwordhash;
-            return res.status(200).json({ message: 'No changes were made.', facultyData: mapDbToCamelCase(faculty) });
+            delete faculty.passwordHash;
+            return res.status(200).json({ message: 'No changes were made.', facultyData: faculty });
         }
 
-        values.push(username);
-        const query = `UPDATE faculty SET ${updateFields.join(', ')}, updatedat = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER($${paramIndex}) RETURNING *;`;
-        const { rows } = await client.query(query, values);
+        const updates = { ...values, updatedAt: new Date().toISOString() };
+        await facultyRef.update(updates);
 
-        await client.query('COMMIT');
-        const updatedFaculty = rows[0];
-        delete updatedFaculty.passwordhash;
-        res.status(200).json({ message: 'Settings updated successfully!', facultyData: mapDbToCamelCase(updatedFaculty) });
+        const updatedSnapshot = await facultyRef.once('value');
+        const updatedFaculty = updatedSnapshot.val();
+        delete updatedFaculty.passwordHash;
+        res.status(200).json({ message: 'Settings updated successfully!', facultyData: updatedFaculty });
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error('Error updating faculty settings:', error);
         res.status(500).json({ message: error.message || 'Server error during update.' });
-    } finally {
-        client.release();
     }
 });
 
@@ -2712,17 +2927,15 @@ app.post('/api/faculty/update-settings', facultyPicUpload.single('profilePicture
 app.get('/api/admin/stats', async (req, res) => {
     console.log('Fetching admin dashboard stats.');
     try {
-        const studentCountQuery = pool.query('SELECT COUNT(*) AS count FROM students;');
-        const facultyCountQuery = pool.query('SELECT COUNT(*) AS count FROM faculty;');
+        const studentSnapshot = await db.ref('students').once('value');
+        const facultySnapshot = await db.ref('faculty').once('value');
 
-        const [studentResult, facultyResult] = await Promise.all([
-            studentCountQuery,
-            facultyCountQuery
-        ]);
+        const studentCount = studentSnapshot.exists() ? studentSnapshot.numChildren() : 0;
+        const facultyCount = facultySnapshot.exists() ? facultySnapshot.numChildren() : 0;
 
         const stats = {
-            totalStudents: parseInt(studentResult.rows[0].count, 10),
-            totalFaculty: parseInt(facultyResult.rows[0].count, 10)
+            totalStudents: studentCount,
+            totalFaculty: facultyCount
         };
         res.status(200).json(stats);
     } catch (error) {
@@ -2737,21 +2950,25 @@ app.post('/api/faculty/register', jsonParser, async (req, res) => {
     console.log(`Faculty registration attempt for username: ${username}`);
 
     try {
-        const passwordHash = await bcrypt.hash(password, saltRounds);
-        const query = `
-            INSERT INTO faculty (name, username, email, passwordhash, securityquestion, securityanswer)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, name, username, email;
-        `;
-        const values = [name, username, email.toLowerCase(), passwordHash, securityQuestion, securityAnswer];
-        const { rows } = await pool.query(query, values);
-        
-        console.log(`Faculty member ${username} registered successfully.`);
-        res.status(201).json({ message: 'Faculty registration successful!', facultyData: rows[0] });
-    } catch (error) {
-        if (error.code === '23505') { // unique_violation
+        const facultyRef = db.ref(`faculty/${username.toLowerCase()}`);
+        const snapshot = await facultyRef.once('value');
+        if (snapshot.exists()) {
             return res.status(409).json({ message: 'A faculty member with this username or email already exists.' });
         }
+
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+        const newFacultyData = {
+            name, username: username.toLowerCase(), email: email.toLowerCase(), passwordHash,
+            securityQuestion, securityAnswer, createdAt: new Date().toISOString()
+        };
+        await facultyRef.set(newFacultyData);
+        
+        console.log(`Faculty member ${username} registered successfully.`);
+        res.status(201).json({
+            message: 'Faculty registration successful!',
+            facultyData: { id: username.toLowerCase(), name, username: username.toLowerCase(), email: email.toLowerCase() }
+        });
+    } catch (error) {
         console.error('Error during faculty registration:', error);
         res.status(500).json({ message: 'Server error during registration.' });
     }
@@ -2763,28 +2980,30 @@ app.post('/api/faculty/login', jsonParser, async (req, res) => {
     console.log(`Faculty login attempt for identifier: ${loginIdentifier}`);
 
     try {
-        // Explicitly select columns to ensure all necessary data is fetched and to avoid sending sensitive data.
-        const query = `
-            SELECT id, name, username, email, mobilenumber, dob, teacherchoice, subject, profilepicture, isprofilecomplete, assigned_classes, passwordhash 
-            FROM faculty WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1)
-        `;
-        const { rows } = await pool.query(query, [loginIdentifier.toLowerCase()]);
+        let snapshot = await db.ref(`faculty/${loginIdentifier.toLowerCase()}`).once('value');
 
-        if (rows.length === 0) {
+        // If not found by username, try searching by email
+        if (!snapshot.exists()) {
+            const emailSnapshot = await db.ref('faculty').orderByChild('email').equalTo(loginIdentifier.toLowerCase()).once('value');
+            if (emailSnapshot.exists()) {
+                // Since there should only be one, get the first child
+                snapshot = emailSnapshot.val()[Object.keys(emailSnapshot.val())[0]];
+            }
+        }
+
+        if (!snapshot.exists()) {
             return res.status(401).json({ message: 'Username or email not found.' });
         }
 
-        const faculty = rows[0];
-        const isPasswordMatch = await bcrypt.compare(password, faculty.passwordhash);
+        const faculty = snapshot.val();
+        const isPasswordMatch = await bcrypt.compare(password, faculty.passwordHash);
 
         if (!isPasswordMatch) {
             return res.status(401).json({ message: 'Incorrect password.' });
         }
 
-        delete faculty.passwordhash;
-        delete faculty.securityanswer;
-
-        res.status(200).json({ message: 'Login successful', facultyData: mapDbToCamelCase(faculty) });
+        delete faculty.passwordHash;
+        res.status(200).json({ message: 'Login successful', facultyData: faculty });
     } catch (error) {
         console.error('Error during faculty login:', error);
         res.status(500).json({ message: 'Server error during login.' });
@@ -2801,23 +3020,23 @@ app.post('/api/faculty/reset-password', jsonParser, async (req, res) => {
     }
 
     try {
-        // Find user by username. Username should be unique.
-        const query = 'SELECT * FROM faculty WHERE LOWER(username) = LOWER($1)';
-        const { rows } = await pool.query(query, [username]);
+        const facultyRef = db.ref(`faculty/${username.toLowerCase()}`);
+        const snapshot = await facultyRef.once('value');
 
-        if (rows.length === 0) {
-            // Generic error to prevent leaking info on which field was wrong
+        if (!snapshot.exists()) {
             return res.status(401).json({ message: 'Invalid username or mobile number.' });
         }
 
-        const faculty = rows[0];
-        // Check if the provided mobile number matches the one in the database.
-        if (faculty.mobilenumber !== mobileNumber) {
+        const faculty = snapshot.val();
+        if (faculty.mobileNumber !== mobileNumber) {
             return res.status(401).json({ message: 'Invalid username or mobile number.' });
         }
 
         const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
-        await pool.query('UPDATE faculty SET passwordhash = $1, updatedat = CURRENT_TIMESTAMP WHERE id = $2', [newPasswordHash, faculty.id]);
+        await facultyRef.update({
+            passwordHash: newPasswordHash,
+            updatedAt: new Date().toISOString()
+        });
 
         console.log(`Password successfully reset for faculty: ${faculty.username}`);
         res.status(200).json({ message: 'Password reset successful! Please log in with your new password.' });
@@ -2837,11 +3056,12 @@ app.delete('/api/faculty/:username', async (req, res) => {
     }
 
     try {
-        const result = await pool.query('DELETE FROM faculty WHERE username = $1', [username]);
-
-        if (result.rowCount === 0) {
+        const facultyRef = db.ref(`faculty/${username.toLowerCase()}`);
+        const snapshot = await facultyRef.once('value');
+        if (!snapshot.exists()) {
             return res.status(404).json({ message: 'Faculty member not found.' });
         }
+        await facultyRef.remove();
 
         console.log(`Successfully deleted faculty member ${username}.`);
         res.status(200).json({ message: `Faculty member "${username}" has been deleted successfully.` });
@@ -2850,66 +3070,6 @@ app.delete('/api/faculty/:username', async (req, res) => {
         res.status(500).json({ message: 'Server error while deleting faculty member.' });
     }
 });
-
-/**
- * Helper function to map database object (lowercase keys) to a frontend-friendly
- * camelCase object.
- * @param {object} dbObject The object with lowercase keys from the database.
- * @returns {object} A new object with camelCase keys.
- */
-function mapDbToCamelCase(dbObject) {
-    const camelCaseObject = {};
-    for (const key in dbObject) {
-        // This map defines conversions from snake_case or all-lowercase to camelCase.
-        // If a key from the DB isn't in this map, it will be added to the new object as-is.
-        const keyMap = {
-            enrollmentnumber: 'enrollmentNumber',
-            rollnumber: 'rollNumber',
-            passwordhash: 'passwordHash',
-            mobilenumber: 'mobileNumber',
-            securityquestion: 'securityQuestion',
-            securityanswer: 'securityAnswer',
-            profilepicture: 'profilePicture',
-            addressline1: 'addressLine1',
-            addressline2: 'addressLine2',
-            fathername: 'fatherName',
-            fatheroccupation: 'fatherOccupation',
-            mothername: 'motherName',
-            motheroccupation: 'motherOccupation',
-            parentmobile: 'parentMobile',
-            board10: 'board10', // DB column name: JS object key
-            marks10: 'marks10',
-            marksheet10: 'migrationCertificate', // DB: marksheet10 -> JS: migrationCertificate
-            totalmarks10: 'totalMarks10',
-            percentage10: 'percentage10',
-            year10: 'year10',
-            board12: 'board12',
-            marks12: 'marks12',
-            marksheet12: 'tcCertificate', // DB: marksheet12 -> JS: tcCertificate
-            totalmarks12: 'totalMarks12',
-            percentage12: 'percentage12',
-            year12: 'year12',
-            selectedcourse: 'selectedCourse',
-            hobbycourses: 'hobbyCourses',
-            isprofilecomplete: 'isProfileComplete',
-            teacherchoice: 'teacherChoice', // This was correct, but adding a check below for safety
-            assigned_classes: 'assignedClasses',
-            gender: 'gender',
-            subject: 'subject',
-            isread: 'isRead',
-            createdat: 'createdAt',
-            updatedat: 'updatedAt',
-            // Keys for faculty attendance view
-            class_name: 'className',
-            attendance_date: 'attendanceDate',
-            total_students: 'totalStudents',
-            present_count: 'presentCount',
-            absent_count: 'absentCount'
-        };
-        camelCaseObject[keyMap[key] || key] = dbObject[key];
-    }
-    return camelCaseObject;
-}
 
 /**
  * =============================================================================

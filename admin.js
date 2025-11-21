@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const allAdminsView = document.getElementById('all-admins-view');
     const usersManagementView = document.getElementById('users-management-view');
     const allTimetablesView = document.getElementById('all-timetables-view');
+    const departmentsView = document.getElementById('departments-view'); // New view
     const backToUsersFromStudentsBtn = document.getElementById('backToUsersFromStudentsBtn');
     const backToUsersFromFacultyBtn = document.getElementById('backToUsersFromFacultyBtn'); // This ID is now in the HTML
     const backToUsersFromAdminsBtn = document.getElementById('backToUsersFromAdminsBtn');
@@ -31,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminLogoutBtn = document.getElementById('adminLogoutBtn');
     const sideNavTimetableLink = document.getElementById('sideNavTimetableLink');
     const sideNavUsersLink = document.getElementById('sideNavUsersLink');
+    const sideNavDepartmentsLink = document.getElementById('sideNavDepartmentsLink'); // New link
     const sideNavAvatar = document.getElementById('sideNavAvatar');
     const sideNavSettingsLink = document.getElementById('sideNavSettingsLink');
     const sideNavPostNoticeBtn = document.getElementById('sideNavPostNoticeBtn');
@@ -96,6 +98,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const timetableDefaultActions = document.getElementById('timetableDefaultActions');
     const timetableEditActions = document.getElementById('timetableEditActions');
 
+    // --- Add Class Modal Elements ---
+    const openAddClassModalBtn = document.getElementById('openAddClassModalBtn');
+    const addClassModalOverlay = document.getElementById('addClassModalOverlay');
+    // New button from the departments view
+    const openAddClassModalBtnFromDept = document.getElementById('openAddClassModalBtnFromDept');
+    const backToDashboardFromDeptsBtn = document.getElementById('backToDashboardFromDeptsBtn');
+    const closeAddClassModalBtn = document.getElementById('closeAddClassModalBtn');
+    const addClassForm = document.getElementById('addClassForm');
+
+    // --- Remove Class Modal Elements ---
+    const removeClassModalOverlay = document.getElementById('removeClassModalOverlay');
+    const closeRemoveClassModalBtn = document.getElementById('closeRemoveClassModalBtn');
+    const confirmRemoveClassBtn = document.getElementById('confirmRemoveClassBtn');
+    const classNameToRemoveSpan = document.getElementById('classNameToRemove');
+
     // --- User Detail Modal Elements ---
     const userDetailModalOverlay = document.getElementById('userDetailModalOverlay');
     const userDetailName = document.getElementById('userDetailName');
@@ -116,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentAdminData = null; // To store admin data locally
     let schoolTimetable = null; // To store the generated full school timetable
+    let schoolClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12']; // Default classes
 
     const populateSideNavHeader = (adminData) => {
         const sideNavName = document.getElementById('sideNavName');
@@ -217,10 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchDashboardStats = async () => {
         const kpiTotalStudents = document.getElementById('kpiTotalStudents');
         const kpiTotalFaculty = document.getElementById('kpiTotalFaculty');
+        const kpiActiveCourses = document.getElementById('kpiActiveCourses');
 
-        if (!kpiTotalStudents || !kpiTotalFaculty) return;
+        if (!kpiTotalStudents || !kpiTotalFaculty || !kpiActiveCourses) return;
 
         try {
+            // Fetch student and faculty stats
             const response = await fetch('/api/admin/stats');
             const stats = await response.json();
 
@@ -231,10 +251,19 @@ document.addEventListener('DOMContentLoaded', () => {
             kpiTotalStudents.textContent = stats.totalStudents;
             kpiTotalFaculty.textContent = stats.totalFaculty;
 
+            // Fetch class count
+            const classResponse = await fetch('/api/admin/classes');
+            const classes = await classResponse.json();
+            if (!classResponse.ok) {
+                throw new Error(classes.message || 'Failed to fetch classes.');
+            }
+            kpiActiveCourses.textContent = classes.length;
+
         } catch (error) {
             console.error('Error fetching dashboard stats:', error);
             kpiTotalStudents.textContent = 'Error';
             kpiTotalFaculty.textContent = 'Error';
+            kpiActiveCourses.textContent = 'Error';
         }
     };
 
@@ -379,6 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         allAdminsView.style.display = 'none';
         usersManagementView.style.display = 'none';
         allTimetablesView.style.display = 'none';
+        departmentsView.style.display = 'none';
 
         if (viewToShow === 'dashboard') {
             mainDashboardView.style.display = 'block';
@@ -399,6 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (viewToShow === 'timetables') {
             allTimetablesView.style.display = 'block';
             setActiveNavLink('sideNavTimetableLink');
+            loadClassesIntoTimetablesView(); // New function call
         } else if (viewToShow === 'users-management') {
             usersManagementView.style.display = 'block';
             setActiveNavLink('sideNavUsersLink');
@@ -414,6 +445,10 @@ document.addEventListener('DOMContentLoaded', () => {
             allFacultyView.style.display = 'block';
             fetchAllFaculty();
             setActiveNavLink('sideNavUsersLink');
+        } else if (viewToShow === 'departments') {
+            departmentsView.style.display = 'block';
+            loadAndDisplayClasses();
+            setActiveNavLink('sideNavDepartmentsLink');
         }
     };
     const revertActiveLinkToView = () => {
@@ -423,6 +458,8 @@ document.addEventListener('DOMContentLoaded', () => {
             setActiveNavLink('sideNavUsersLink');
         } else if (allTimetablesView.style.display === 'block') {
             setActiveNavLink('sideNavTimetableLink');
+        } else if (departmentsView.style.display === 'block') {
+            setActiveNavLink('sideNavDepartmentsLink');
         } else {
             setActiveNavLink('sideNavDashboardLink'); // Fallback
         }
@@ -475,6 +512,15 @@ document.addEventListener('DOMContentLoaded', () => {
         sideNavTimetableLink.addEventListener('click', (e) => {
             e.preventDefault();
             showView('timetables');
+            closeNav(); // Close the side nav
+        });
+    }
+
+    // Open Departments view from side nav
+    if (sideNavDepartmentsLink) {
+        sideNavDepartmentsLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            showView('departments');
             closeNav(); // Close the side nav
         });
     }
@@ -633,6 +679,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new FormData(saveAdminSettingsForm);
             formData.delete('confirmPassword'); // Not needed by server
 
+            // --- FIX ---
+            // Since the username input is readonly, its value is not included in FormData by default.
+            // We must manually append it to ensure the server knows which admin to update.
+            const username = document.getElementById('editAdminUsername').value;
+            formData.append('username', username);
+
             const submitBtn = saveAdminSettingsForm.querySelector('.submit-btn');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Saving...';
@@ -705,6 +757,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (backToDashboardFromTimetablesBtn) {
         backToDashboardFromTimetablesBtn.addEventListener('click', () => showView('dashboard'));
+    }
+
+    if (backToDashboardFromDeptsBtn) {
+        backToDashboardFromDeptsBtn.addEventListener('click', () => showView('dashboard'));
     }
 
     // --- Notification Panel Logic ---
@@ -1084,26 +1140,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 addFacultyError.style.display = 'none';
 
                 // Ensure timetable data is loaded before populating subjects
-                await generateFullSchoolTimetable();
+                // await generateFullSchoolTimetable(); // This is now handled by fetching classes
 
                 const classContainer = document.getElementById('addFacultyAssignedClasses');
-                const subjectSelect = document.getElementById('addFacultySubject');
+                classContainer.innerHTML = '<p>Loading classes...</p>'; // Show loading message
 
-                // Populate classes
-                const allClasses = ['Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Class 11', 'Class 12'];
-                classContainer.innerHTML = ''; // Clear previous
-                allClasses.forEach(c => {
-                    const classDiv = document.createElement('div');
-                    classDiv.className = 'class-selection-option';
-                    classDiv.dataset.value = c;
-                    classDiv.textContent = c;
-                    classContainer.appendChild(classDiv);
-                });
+                try {
+                    // Fetch the up-to-date list of all classes from the server
+                    const response = await fetch('/api/admin/classes');
+                    if (!response.ok) throw new Error('Failed to fetch classes.');
+                    const fetchedClasses = await response.json();
 
-                // Populate subjects
-                const uniqueSubjects = getAllUniqueSubjects(schoolTimetable);
-                subjectSelect.innerHTML = '<option value="" disabled selected>-- Select Primary Subject --</option>';
-                uniqueSubjects.forEach(s => { subjectSelect.innerHTML += `<option value="${s}">${s}</option>`; });
+                    // Populate classes
+                    classContainer.innerHTML = ''; // Clear loading message
+                    fetchedClasses.forEach(c => {
+                        const classDiv = document.createElement('div');
+                        classDiv.className = 'class-selection-option';
+                        classDiv.dataset.value = c;
+                        classDiv.textContent = c;
+                        classContainer.appendChild(classDiv);
+                    });
+                } catch (error) {
+                    console.error('Error fetching classes for faculty modal:', error);
+                    classContainer.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                }
             }
         });
     }
@@ -1282,6 +1342,208 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- Add Class Modal Logic ---
+    if (openAddClassModalBtn) {
+        openAddClassModalBtn.addEventListener('click', () => {
+            if (addClassModalOverlay) {
+                addClassModalOverlay.style.display = 'flex';
+                addClassForm.reset();
+                document.getElementById('add-class-error').style.display = 'none';
+            }
+        });
+    }
+
+    // Open Add Class Modal from Departments view
+    if (openAddClassModalBtnFromDept) {
+        openAddClassModalBtnFromDept.addEventListener('click', () => {
+            if (addClassModalOverlay) addClassModalOverlay.style.display = 'flex';
+        });
+    }
+
+    if (closeAddClassModalBtn) {
+        closeAddClassModalBtn.addEventListener('click', () => {
+            if (addClassModalOverlay) addClassModalOverlay.style.display = 'none';
+        });
+    }
+
+    if (addClassForm) {
+        addClassForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const className = document.getElementById('newClassName').value.trim();
+            const classFee = document.getElementById('newClassFee').value;
+            const errorEl = document.getElementById('add-class-error');
+            const submitBtn = addClassForm.querySelector('.submit-btn');
+
+            if (!className || !classFee) {
+                errorEl.textContent = 'Class Name and Fee are required.';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+            errorEl.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/admin/add-class', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ className, fee: parseInt(classFee, 10) })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+
+                alert(result.message);
+                addClassModalOverlay.style.display = 'none';
+
+                // Clear the timetable cache so it gets re-fetched with the new class
+                schoolTimetable = null;
+
+                // Refresh the class lists in both the Timetable and Departments views
+                // to show the newly added class immediately.
+                loadClassesIntoTimetablesView();
+                loadAndDisplayClasses();
+
+            } catch (error) {
+                errorEl.textContent = error.message;
+                errorEl.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Class';
+            }
+        });
+    }
+
+    // --- Remove Class Modal Logic ---
+    const openRemoveClassModal = (className) => {
+        if (!removeClassModalOverlay) return;
+        classNameToRemoveSpan.textContent = className;
+        confirmRemoveClassBtn.dataset.className = className; // Store class name on the button
+        document.getElementById('remove-class-error').style.display = 'none';
+        removeClassModalOverlay.style.display = 'flex';
+    };
+
+    if (closeRemoveClassModalBtn) {
+        closeRemoveClassModalBtn.addEventListener('click', () => {
+            removeClassModalOverlay.style.display = 'none';
+        });
+    }
+
+    if (confirmRemoveClassBtn) {
+        confirmRemoveClassBtn.addEventListener('click', async (e) => {
+            const className = e.target.dataset.className;
+            const errorEl = document.getElementById('remove-class-error');
+            const submitBtn = e.target;
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Removing...';
+            errorEl.style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/admin/class/${encodeURIComponent(className)}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message);
+
+                alert(result.message);
+                removeClassModalOverlay.style.display = 'none';
+                // Clear the timetable cache so it gets re-fetched without the deleted class
+                schoolTimetable = null;
+
+                loadAndDisplayClasses(); // Refresh departments view
+                loadClassesIntoTimetablesView(); // Refresh timetable view
+            } catch (error) {
+                errorEl.textContent = `Error: ${error.message}`;
+                errorEl.style.display = 'block';
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Yes, Remove Class';
+            }
+        });
+    }
+
+    // --- New: Logic to load classes into the main Timetable view ---
+    const loadClassesIntoTimetablesView = async () => {
+        const container = document.getElementById('timetableGrid');
+        if (!container) return;
+
+        container.innerHTML = '<p>Loading classes...</p>';
+
+        try {
+            const response = await fetch('/api/admin/classes');
+            if (!response.ok) throw new Error('Failed to fetch classes.');
+            
+            const classes = await response.json();
+
+            if (classes.length === 0) {
+                container.innerHTML = '<p>No classes found.</p>';
+                return;
+            }
+
+            let gridHTML = '';
+            classes.forEach(className => {
+                gridHTML += `<a href="#" class="timetable-link" data-class="${className}">${className}</a>`;
+            });
+            container.innerHTML = gridHTML;
+
+            // Re-attach event listeners to the newly created links
+            container.querySelectorAll('.timetable-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openTimetableModal(e.target.dataset.class);
+                });
+            });
+        } catch (error) {
+            console.error('Error loading classes into timetable view:', error);
+            container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+        }
+    };
+
+    // --- New: Logic for Departments/Classes View ---
+    const loadAndDisplayClasses = async () => {
+        const container = document.getElementById('classListContainer');
+        if (!container) return;
+
+        container.innerHTML = '<p>Loading classes...</p>';
+
+        try {
+            const response = await fetch('/api/admin/classes');
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to fetch classes.');
+            }
+            const classes = await response.json();
+
+            if (classes.length === 0) {
+                container.innerHTML = '<p>No classes have been added yet.</p>';
+                return;
+            }
+
+            // Use the grid style from the Timetable view for consistency
+            let gridHTML = `<div class="timetable-grid">`;
+
+            classes.forEach(className => {
+                // We will make these links functional by adding the 'timetable-link' class
+                gridHTML += `<a href="#" class="timetable-link" data-class="${className}">${className}</a>`;
+            });
+
+            gridHTML += `</div>`;
+            container.innerHTML = gridHTML;
+
+            // --- Re-attach event listeners to the newly created links ---
+            // This is important because the links are created dynamically.
+            container.querySelectorAll('.timetable-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openRemoveClassModal(e.target.dataset.class);
+                });
+            });
+
+        } catch (error) {
+            console.error('Error loading classes:', error);
+            container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+        }
+    };
+
     // --- Timetable Modal Logic ---
     const generateFullSchoolTimetable = async () => {
         if (schoolTimetable) return; // Already fetched/generated
@@ -1325,15 +1587,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Generate the full school timetable once if it hasn't been done yet
         await generateFullSchoolTimetable();
-
+        
         timetableModalTitle.textContent = `Timetable for ${className}`;
 
         const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         timetableModalBody.innerHTML = ''; // Clear previous content
 
-        const classTimetable = schoolTimetable[className];
+        // Use the same sanitization logic as the backend to find the correct timetable key
+        const sanitizedClassName = className.replace(/[.#$[\]]/g, '_');
+        const classTimetable = schoolTimetable[sanitizedClassName];
+
         if (!classTimetable) {
-            timetableModalBody.innerHTML = '<tr><td colspan="8">Timetable data is not available for this class.</td></tr>';
+            timetableModalBody.innerHTML = `<tr><td colspan="8">Timetable data is not available for "${className}". Please check if the class was created correctly.</td></tr>`;
             return;
         }
 
@@ -1372,15 +1637,6 @@ document.addEventListener('DOMContentLoaded', () => {
         closeNav(); // Close side nav if open
     };
 
-    // Add listeners to all timetable class links (on dashboard or in timetable view)
-    document.querySelectorAll('.timetable-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const className = e.target.dataset.class;
-            openTimetableModal(className);
-        });
-    });
-
     // Close button
     if (closeTimetableModalBtn) {
         closeTimetableModalBtn.addEventListener('click', () => {
@@ -1412,7 +1668,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const rows = timetableModalBody.querySelectorAll('tr');
             const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
             let hasError = false;
-
+            const sanitizedClassName = className.replace(/[.#$[\]]/g, '_');
             const updatePromises = [];
 
             rows.forEach((row, dayIndex) => {
@@ -1427,15 +1683,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const subject = cells[i].textContent.trim();
 
                     // Update local cache
-                    if (schoolTimetable[className] && schoolTimetable[className][day]) {
-                        schoolTimetable[className][day][period] = subject;
+                    if (schoolTimetable[sanitizedClassName] && schoolTimetable[sanitizedClassName][day]) {
+                        schoolTimetable[sanitizedClassName][day][period] = subject;
                     }
 
                     // Create a promise for the update request
                     const promise = fetch('/api/timetable/update', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ className, day, period, subject })
+                        body: JSON.stringify({ className: sanitizedClassName, day, period, subject })
                     }).then(async response => {
                         if (!response.ok) { hasError = true; const err = await response.json(); console.error(`Failed to update ${className}, ${day}, Period ${period}: ${err.message}`); }
                     });

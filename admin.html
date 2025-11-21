@@ -504,6 +504,25 @@
         </div>
     </div>
 
+    <!-- Add Class Modal -->
+    <div id="addClassModalOverlay" class="password-overlay" style="display: none;">
+        <div class="password-modal">
+            <button id="closeAddClassModalBtn" class="close-modal-btn">&times;</button>
+            <h3>Add New Class</h3>
+            <p>Create a new class and set its annual fee. A blank timetable will be generated automatically.</p>
+            <form id="addClassForm">
+                <div class="form-group">
+                    <input type="text" id="newClassName" placeholder="Enter Class Name (e.g., Class 13)" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" id="newClassFee" placeholder="Enter Annual Fee (e.g., 1600000 for 16,000.00)" required>
+                </div>
+                <div class="form-actions"><button type="submit" class="submit-btn">Create Class</button></div>
+                <p id="add-class-error" class="error-message" style="margin-top: 1rem;"></p>
+            </form>
+        </div>
+    </div>
+
     <!-- Add Admin User Modal -->
     <div id="addAdminModalOverlay" class="password-overlay" style="display: none;">
         <div class="password-modal">
@@ -553,10 +572,8 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <select id="addFacultySubject" required>
-                        <option value="" disabled selected>-- Select Primary Subject --</option>
-                        <!-- Options will be populated by JS -->
-                    </select>
+                    <label for="addFacultySubject" style="text-align: left; margin-bottom: 0.5rem; font-weight: 600;">Primary Subject</label>
+                    <input type="text" id="addFacultySubject" placeholder="Enter subject (e.g., Mathematics)" required>
                 </div>
                 <div class="form-group">
                     <input type="text" id="addFacultyPassword" placeholder="Set Initial Password" required>
@@ -617,14 +634,14 @@
                 <table id="timetableModalTable" class="user-table-container">
                     <thead>
                         <tr>
-                            <th>Day</th>
-                            <th>Period 1<br><small>(9:00-9:40)</small></th>
-                            <th>Period 2<br><small>(9:40-10:20)</small></th>
-                            <th>Period 3<br><small>(10:20-11:00)</small></th>
-                            <th>Period 4<br><small>(11:00-11:40)</small></th>
-                            <th>Break<br><small>(11:40-12:10)</small></th>
-                            <th>Period 5<br><small>(12:10-12:50)</small></th>
-                            <th>Period 6<br><small>(12:50-1:30)</small></th>
+                            <th>Day/Time</th>
+                            <th>09:00-09:40</th> <!-- P1 -->
+                            <th>09:40-10:20</th> <!-- P2 -->
+                            <th>10:20-11:00</th> <!-- P3 -->
+                            <th>11:00-11:40</th> <!-- P4 -->
+                            <th class="break-cell">Break<br><small>(11:40-12:00)</small></th> <!-- Recess -->
+                            <th>12:00-12:40</th> <!-- P5 -->
+                            <th>12:40-13:20</th> <!-- P6 -->
                         </tr>
                     </thead>
                     <tbody id="timetableModalBody"></tbody>
@@ -706,7 +723,7 @@
                             <input type="file" id="adminProfilePictureInput" name="profilePicture" accept="image/*" style="display: none;">
                         </div>
                     </div>
-                    <div class="detail-grid" style="grid-template-columns: 1fr;"><div class="detail-group"><label for="editAdminName">Full Name</label><input type="text" id="editAdminName" name="name"></div><div class="detail-group"><label>Username</label><input type="text" id="editAdminUsername" name="username" readonly title="Username cannot be changed."></div><div class="detail-group"><label for="editAdminEmail">Email</label><input type="email" id="editAdminEmail" name="email"></div><div class="detail-group"><label for="editAdminMobile">Mobile Number</label><input type="tel" id="editAdminMobile" name="mobileNumber"></div></div>
+                    <div class="detail-grid" style="grid-template-columns: 1fr;"><div class="detail-group"><label for="editAdminName">Full Name</label><input type="text" id="editAdminName" name="name"></div><div class="detail-group"><label>Username</label><input type="text" id="editAdminUsername" readonly title="Username cannot be changed."></div><div class="detail-group"><label for="editAdminEmail">Email</label><input type="email" id="editAdminEmail" name="email"></div><div class="detail-group"><label for="editAdminMobile">Mobile Number</label><input type="tel" id="editAdminMobile" name="mobileNumber"></div></div>
                     <h4 style="margin-top: 2rem; margin-bottom: 1rem;">Change Password</h4>
                     <div class="detail-grid" style="grid-template-columns: 1fr;"><div class="detail-group"><label for="editAdminCurrentPassword">Current Password</label><input type="password" id="editAdminCurrentPassword" name="currentPassword" placeholder="Enter current password to save changes"></div><div class="detail-group"><label for="editAdminNewPassword">New Password</label><input type="password" id="editAdminNewPassword" name="newPassword" placeholder="Leave blank to keep current password"></div><div class="detail-group"><label for="editAdminConfirmPassword">Confirm New Password</label><input type="password" id="editAdminConfirmPassword" name="confirmPassword"></div></div>
                     <p id="admin-settings-error" class="error-message" style="text-align: center;"></p>
@@ -771,6 +788,20 @@
         </div>
     </div>
 
+    <!-- Remove Class Modal -->
+    <div id="removeClassModalOverlay" class="password-overlay" style="display: none;">
+        <div class="password-modal">
+            <button id="closeRemoveClassModalBtn" class="close-modal-btn">&times;</button>
+            <h3>Remove Class</h3>
+            <p>Are you sure you want to permanently remove the class: <strong id="classNameToRemove" style="color: var(--btn-danger-bg);"></strong>?</p>
+            <p style="font-size: 0.9rem; color: var(--text-color-light);">This action cannot be undone. The class will be removed from timetables, fee structures, and registration options.</p>
+            <div class="form-actions">
+                <button id="confirmRemoveClassBtn" class="submit-btn" style="background-color: var(--btn-danger-bg);">Yes, Remove Class</button>
+            </div>
+            <p id="remove-class-error" class="error-message" style="margin-top: 1rem;"></p>
+        </div>
+    </div>
+
     <div id="sideNavOverlay" class="side-nav-overlay"></div>
     <nav id="adminSideNav" class="side-nav">
         <div class="side-nav-header">
@@ -781,8 +812,7 @@
         <ul>
             <li><a href="#" id="sideNavDashboardLink"><span class="nav-icon">📊</span> Dashboard</a></li>
             <li><a href="#" id="sideNavUsersLink"><span class="nav-icon">👥</span> Users</a></li>
-            <li><a href="#"><span class="nav-icon">📚</span> Courses</a></li>
-            <li><a href="#"><span class="nav-icon">🏢</span> Departments</a></li>
+            <li><a href="#" id="sideNavDepartmentsLink"><span class="nav-icon">🏢</span> Departments(Classes)</a></li>
             <li><a href="#" id="sideNavTimetableLink"><span class="nav-icon">📅</span> Timetable</a></li>
             <li><a href="#"><span class="nav-icon">✅</span> Attendance</a></li>
             <li><a href="#"><span class="nav-icon">📝</span> Exams & Results</a></li>
@@ -826,7 +856,7 @@
                     <div class="kpi-row">
                         <div class="kpi-card"><span class="kpi-title">Total Students</span><span id="kpiTotalStudents" class="kpi-value">...</span><span class="kpi-icon">🧑‍🎓</span></div>
                         <div class="kpi-card"><span class="kpi-title">Total Faculty</span><span id="kpiTotalFaculty" class="kpi-value">...</span><span class="kpi-icon">🧑‍🏫</span></div>
-                        <div class="kpi-card"><span class="kpi-title">Active Courses</span><span class="kpi-value">42</span><span class="kpi-icon">📚</span></div>
+                        <div class="kpi-card"><span class="kpi-title">Active Courses</span><span id="kpiActiveCourses" class="kpi-value">...</span><span class="kpi-icon">📚</span></div>
                         <div class="kpi-card"><span class="kpi-title">Pending Approvals</span><span class="kpi-value">5</span><span class="kpi-icon">⏳</span></div>
                         <div class="kpi-card"><span class="kpi-title">Today's Classes</span><span class="kpi-value">32</span><span class="kpi-icon">📅</span></div>
                     </div>
@@ -924,26 +954,32 @@
                     </div>
                 </div>
             </div>
+            <div id="departments-view" style="display: none;">
+                <div class="admin-dashboard">
+                    <div class="dashboard-panel">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h3>All Classes (Departments)</h3>
+                            <button id="openAddClassModalBtnFromDept" class="submit-btn" style="width: auto;">+ Add New Class</button>
+                        </div>
+                        <div id="classListContainer" class="user-table-container">
+                            <!-- Class list will be populated here by JS -->
+                        </div>
+                        <div class="back-link-container">
+                            <button id="backToDashboardFromDeptsBtn" class="back-btn">Back to Dashboard</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
             <div id="all-timetables-view" style="display: none;">
                 <div class="admin-dashboard">
                     <div class="dashboard-panel">
-                        <h3>Class Timetables</h3>
-                        <div class="timetable-grid">
-                            <a href="#" class="timetable-link" data-class="Nursery">Nursery</a>
-                            <a href="#" class="timetable-link" data-class="LKG">LKG</a>
-                            <a href="#" class="timetable-link" data-class="UKG">UKG</a>
-                            <a href="#" class="timetable-link" data-class="Class 1">Class 1</a>
-                            <a href="#" class="timetable-link" data-class="Class 2">Class 2</a>
-                            <a href="#" class="timetable-link" data-class="Class 3">Class 3</a>
-                            <a href="#" class="timetable-link" data-class="Class 4">Class 4</a>
-                            <a href="#" class="timetable-link" data-class="Class 5">Class 5</a>
-                            <a href="#" class="timetable-link" data-class="Class 6">Class 6</a>
-                            <a href="#" class="timetable-link" data-class="Class 7">Class 7</a>
-                            <a href="#" class="timetable-link" data-class="Class 8">Class 8</a>
-                            <a href="#" class="timetable-link" data-class="Class 9">Class 9</a>
-                            <a href="#" class="timetable-link" data-class="Class 10">Class 10</a>
-                            <a href="#" class="timetable-link" data-class="Class 11">Class 11</a>
-                            <a href="#" class="timetable-link" data-class="Class 12">Class 12</a>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h3>Class Timetables</h3>
+                        </div>
+                        <div id="timetableGrid" class="timetable-grid">
+                            <!-- Class links will be populated here by admin.js -->
                         </div>
                         <div class="back-link-container">
                             <button id="backToDashboardFromTimetablesBtn" class="back-btn">Back to Dashboard</button>

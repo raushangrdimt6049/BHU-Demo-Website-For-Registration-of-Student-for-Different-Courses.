@@ -210,6 +210,47 @@
             .hero-content p { font-size: 1.1rem; }
         }
     </style>
+    <style>
+        /* --- Timetable Styles --- */
+        .timetable-section {
+            max-width: 1200px;
+            margin: 0 auto 4rem auto;
+            padding: 2rem;
+            background: var(--bg-main);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px var(--header-shadow);
+        }
+        .timetable-section h3 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--btn-bg);
+            font-size: 1.75rem;
+        }
+        .timetable-container {
+            overflow-x: auto; /* For responsiveness on small screens */
+        }
+        .timetable-container table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+        .timetable-container th, .timetable-container td {
+            border: 1px solid var(--input-border);
+            padding: 0.8rem;
+            min-width: 120px;
+        }
+        .timetable-container thead {
+            background-color: var(--readonly-bg);
+        }
+        .timetable-container thead th {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        .timetable-container tbody th {
+            background-color: var(--readonly-bg);
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
 
@@ -258,6 +299,14 @@
                 <p><strong>Email:</strong> <a href="mailto:info@davpgcvns.ac.in">info@davpgcvns.ac.in</a></p>
             </div>
         </div>
+
+        <section class="timetable-section">
+            <h3>Weekly Timetable</h3>
+            <div class="timetable-container">
+                <!-- Timetable will be dynamically loaded here by timetable-loader.js -->
+                <p style="text-align: center; padding: 2rem;">Loading Timetable...</p>
+            </div>
+        </section>
     </main>
 
     <!-- Global Search Modal -->
@@ -275,6 +324,12 @@
         </div>
     </div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <!-- Custom Scripts -->
+    <script src="timetable-loader.js"></script>
     <script src="theme.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {

@@ -21,6 +21,16 @@
         .header-branding {
             justify-content: center; /* Center the logo */
         }
+        /* New styles for the Date of Birth group */
+        .dob-group {
+            display: flex;
+            gap: 10px; /* Adds space between the dropdowns */
+            width: 100%;
+        }
+        /* Distribute space between the dropdowns */
+        .dob-group select:nth-child(1) { flex: 1; } /* Day */
+        .dob-group select:nth-child(2) { flex: 2; } /* Month */
+        .dob-group select:nth-child(3) { flex: 1.5; } /* Year */
     </style>
 </head>
 <body>
