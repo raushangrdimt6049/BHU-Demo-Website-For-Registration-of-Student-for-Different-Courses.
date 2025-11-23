@@ -286,8 +286,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (facultyLogoutBtn) {
         facultyLogoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            sessionStorage.clear();
-            window.location.replace('faculty-login.html');
+            const modal = document.getElementById('logoutConfirmModal');
+
+            const performLogout = () => {
+                sessionStorage.clear();
+                window.location.href = 'faculty-login.html'; // Use href for a standard navigation
+            };
+
+            if (modal) {
+                modal.classList.add('active');
+                const confirmBtn = document.getElementById('logoutConfirmBtn');
+                const cancelBtn = document.getElementById('logoutCancelBtn');
+                
+                // Use .onclick for simplicity, ensuring only one action is tied to the button
+                confirmBtn.onclick = performLogout;
+                cancelBtn.onclick = () => modal.classList.remove('active');
+
+            } else {
+                // Fallback to a simple browser confirmation if the modal is not in the HTML
+                if (confirm('Are you sure you want to log out?')) {
+                    performLogout();
+                }
+            }
         });
     }
 

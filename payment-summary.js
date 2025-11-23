@@ -7,9 +7,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // The selectedCourse is now stored as a stringified JSON inside the studentData after payment.
-    if (!studentData.selectedCourse || !studentData.selectedCourse.trim().startsWith('{')) {
+    // The selectedCourse is now stored as a direct object inside the studentData after payment.
+    // We check if it's a valid object with a paymentStatus of 'paid'.
+    if (!studentData.selectedCourse || typeof studentData.selectedCourse !== 'object' || studentData.selectedCourse.paymentStatus !== 'paid') {
         alert('Payment details not found in your profile. Please check your payment history or contact support.');
+        sessionStorage.setItem('navigationAllowed', 'true'); // Allow navigation back to home
         window.location.href = 'home.html';
         return;
     }
@@ -36,7 +38,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     try {
-        const selectedCourse = JSON.parse(studentData.selectedCourse);
+        // The course data is already an object within studentData.
+        const selectedCourse = studentData.selectedCourse;
 
         // --- Populate Profile Picture ---
         const profilePictureImg = document.getElementById('profilePicture');
@@ -134,7 +137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.addEventListener('click', (e) => {
         const link = e.target.closest('a');
         // Ensure it's a valid, internal link before setting the flag.
-        if (link && link.href && link.hostname === window.location.hostname) {
+        if (link && link.href && (link.hostname === window.location.hostname || !link.hostname)) {
             // Exclude the logout button from this logic.
             if (link.id !== 'logoutBtnMenu') {
                 sessionStorage.setItem('navigationAllowed', 'true');

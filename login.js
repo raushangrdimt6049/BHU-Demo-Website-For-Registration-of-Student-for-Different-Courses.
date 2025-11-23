@@ -70,8 +70,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // This logic ensures that students who have completed their admission
             // are taken directly to their dashboard view upon logging in.
             let isPaid = false;
-            if (student.selectedCourse && student.selectedCourse.trim().startsWith('{')) {
-                try { isPaid = JSON.parse(student.selectedCourse).paymentStatus === 'paid'; } catch (e) { /* Ignore parsing errors */ }
+            // Check if selectedCourse is an object and has the paymentStatus property
+            if (student.selectedCourse && typeof student.selectedCourse === 'object') {
+                if (student.selectedCourse.paymentStatus === 'paid') {
+                    isPaid = true;
+                }
             }
             window.location.replace('home.html');
 

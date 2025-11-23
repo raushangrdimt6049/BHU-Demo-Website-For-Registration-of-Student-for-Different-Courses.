@@ -1,23 +1,3 @@
-// --- Course Data with Fees ---
-// In a real application, this would likely come from a server API call.
-const CLASSES = {
-    "Nursery": { name: "Nursery", fee: 500000 },
-    "LKG": { name: "LKG", fee: 550000 },
-    "UKG": { name: "UKG", fee: 600000 },
-    "Class 1": { name: "Class 1", fee: 700000 },
-    "Class 2": { name: "Class 2", fee: 750000 },
-    "Class 3": { name: "Class 3", fee: 800000 },
-    "Class 4": { name: "Class 4", fee: 850000 },
-    "Class 5": { name: "Class 5", fee: 900000 },
-    "Class 6": { name: "Class 6", fee: 1000000 },
-    "Class 7": { name: "Class 7", fee: 1050000 },
-    "Class 8": { name: "Class 8", fee: 1100000 },
-    "Class 9": { name: "Class 9", fee: 1250000 },
-    "Class 10": { name: "Class 10", fee: 1300000 },
-    "Class 11": { name: "Class 11", fee: 1500000 },
-    "Class 12": { name: "Class 12", fee: 1550000 }
-};
-
 // This listener handles scenarios where a page is restored from the browser's
 // back-forward cache (bfcache). It forces a full reload to ensure the
 // security script in the <head> always runs.
@@ -53,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // This function contains the main logic for setting up the page.
-    const initializePage = () => {
+    const initializePage = async () => {
         // Also check if previous steps have been filled first
         const studentData = JSON.parse(sessionStorage.getItem('currentStudent'));
         if (!studentData || !studentData.profilePicture || !studentData.signature || !studentData.migrationCertificate || !studentData.tcCertificate) {
@@ -74,40 +54,57 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // --- Dynamically populate the class list with radio buttons ---
-        Object.keys(CLASSES).forEach(key => {
-            const course = CLASSES[key];
-            const radioId = `class-${key.replace(/\s+/g, '-')}`;
+        // --- Fetch and populate the class list dynamically ---
+        try {
+            classSelectionContainer.innerHTML = '<p>Loading available classes...</p>';
+            const response = await fetch('/api/courses');
+            if (!response.ok) {
+                throw new Error('Failed to load courses from the server.');
+            }
+            const courses = await response.json();
+            classSelectionContainer.innerHTML = ''; // Clear loading message
 
-            const checkWrapper = document.createElement('label');
-            checkWrapper.className = 'radio-option';
-            checkWrapper.htmlFor = radioId;
+            if (courses.length === 0) {
+                classSelectionContainer.innerHTML = '<p>No classes are available for registration at this time. Please check back later.</p>';
+                return;
+            }
 
-            const checkInput = document.createElement('input');
-            checkInput.type = 'radio';
-            checkInput.name = 'selectedClass';
-            checkInput.value = key;
-            checkInput.id = radioId;
+            courses.forEach(course => {
+                const radioId = `class-${course.id}`;
 
-            const nameSpan = document.createElement('span');
-            nameSpan.className = 'course-name';
-            nameSpan.textContent = course.name;
+                const checkWrapper = document.createElement('label');
+                checkWrapper.className = 'radio-option';
+                checkWrapper.htmlFor = radioId;
 
-            const feeSpan = document.createElement('span');
-            feeSpan.className = 'course-fee';
-            feeSpan.textContent = `₹${(course.fee / 100).toLocaleString('en-IN')}`;
+                const checkInput = document.createElement('input');
+                checkInput.type = 'radio';
+                checkInput.name = 'selectedClass';
+                checkInput.value = JSON.stringify({ name: course.name, fee: course.fee }); // Store full object
+                checkInput.id = radioId;
 
-            checkWrapper.appendChild(checkInput);
-            checkWrapper.appendChild(nameSpan);
-            checkWrapper.appendChild(feeSpan);
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'course-name';
+                nameSpan.textContent = course.name;
 
-            classSelectionContainer.appendChild(checkWrapper);
-        });
+                const feeSpan = document.createElement('span');
+                feeSpan.className = 'course-fee';
+                // The fee from the DB is a whole number, so we divide by 100 for display
+                feeSpan.textContent = `₹${(course.fee / 100).toLocaleString('en-IN')}`;
+
+                checkWrapper.appendChild(checkInput);
+                checkWrapper.appendChild(nameSpan);
+                checkWrapper.appendChild(feeSpan);
+
+                classSelectionContainer.appendChild(checkWrapper);
+            });
+        } catch (error) {
+            console.error('Error loading courses:', error);
+            classSelectionContainer.innerHTML = `<p style="color: red;">Could not load courses. Please try refreshing the page.</p>`;
+        }
 
         // --- Handle selection limit and highlighting ---
         classSelectionContainer.addEventListener('change', (event) => {
             if (event.target.type === 'radio') {
-                // Remove 'selected' from all other options
                 classSelectionContainer.querySelectorAll('.radio-option').forEach(label => {
                     label.classList.remove('selected');
                 });
@@ -129,12 +126,12 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.disabled = true;
             spinner.style.display = 'inline-block';
             buttonText.textContent = 'Saving...';            
-            const selectedKey = selectedRadio.value;
-            const selectedClassData = CLASSES[selectedKey];
+            // The value is now a JSON string of the course object
+            const selectedClassData = JSON.parse(selectedRadio.value);
 
             const selectionData = {
                 level: "School Admission",
-                branch: selectedClassData.name, // e.g., "Class 5"
+                branch: selectedClassData.name,
                 amount: selectedClassData.fee
             };
 

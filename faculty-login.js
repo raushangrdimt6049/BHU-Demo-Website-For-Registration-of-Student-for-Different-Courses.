@@ -1,7 +1,15 @@
-// Security check: if already logged in, redirect to dashboard
-if (sessionStorage.getItem('currentFaculty')) {
-    window.location.replace('faculty.html');
-}
+// This listener handles scenarios where a page is restored from the browser's
+// back-forward cache (bfcache). It forces a full reload to ensure the
+// security script below always runs.
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+
+// --- Security Check ---
+// If a faculty member is already logged in, redirect them to the dashboard.
+if (sessionStorage.getItem('currentFaculty')) { window.location.replace('faculty.html'); }
 
 // Clear form on page show
 window.addEventListener('pageshow', (event) => {

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LMS Portal</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="https://media.collegedekho.com/media/img/institute/logo/1436976975.jpg" type="image/jpeg">
+    <link rel="icon" href="/BHU Logo 1.png" type="image/jpeg">
     <script>
         // --- Immediate Theme Application (Flicker-Free) ---
         (function() {
@@ -300,13 +300,6 @@
             </div>
         </div>
 
-        <section class="timetable-section">
-            <h3>Weekly Timetable</h3>
-            <div class="timetable-container">
-                <!-- Timetable will be dynamically loaded here by timetable-loader.js -->
-                <p style="text-align: center; padding: 2rem;">Loading Timetable...</p>
-            </div>
-        </section>
     </main>
 
     <!-- Global Search Modal -->
@@ -324,12 +317,23 @@
         </div>
     </div>
 
+    <!-- Universal Logout Confirmation Modal -->
+    <div id="logoutConfirmModal" class="confirm-modal-overlay">
+        <div class="confirm-modal-content">
+            <h4>Confirm Logout</h4>
+            <p>Are you sure you want to log out?</p>
+            <div class="confirm-modal-actions">
+                <button id="logoutCancelBtn" class="submit-btn cancel-btn">Cancel</button>
+                <button id="logoutConfirmBtn" class="submit-btn confirm-btn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <!-- Custom Scripts -->
-    <script src="timetable-loader.js"></script>
     <script src="theme.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {

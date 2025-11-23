@@ -476,8 +476,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (adminLogoutBtn) {
         adminLogoutBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            // For consistency with other portals, logout should return to the main index page.
-            window.location.href = 'index.html';
+            const modal = document.getElementById('logoutConfirmModal');
+
+            const performLogout = () => {
+                sessionStorage.removeItem('currentAdminUsername'); // Clear admin session
+                window.location.href = 'index.html';
+            };
+
+            if (modal) {
+                modal.classList.add('active');
+                const confirmBtn = document.getElementById('logoutConfirmBtn');
+                const cancelBtn = document.getElementById('logoutCancelBtn');
+                confirmBtn.onclick = performLogout;
+                cancelBtn.onclick = () => modal.classList.remove('active');
+            } else {
+                // Fallback to a simple browser confirmation if the modal is not in the HTML
+                if (confirm('Are you sure you want to log out?')) {
+                    performLogout();
+                }
+            }
         });
     }
 

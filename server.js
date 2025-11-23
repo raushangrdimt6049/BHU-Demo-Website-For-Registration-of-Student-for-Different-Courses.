@@ -121,6 +121,69 @@ const sanitizeEmail = (email) => email.replace(/[.#$[\]]/g, '_');
 // --- Helper function to sanitize class names for Firebase keys ---
 const sanitizeClassNameForKey = (className) => className.replace(/[.#$[\]]/g, '_');
 
+// --- Ensure Default Fees Exist on Startup ---
+const ensureDefaultFeesExist = async () => {
+    console.log("Checking for default fee structures in Realtime Database...");
+    const feesRef = db.ref('appData/fees');
+    const snapshot = await feesRef.once('value');
+    const existingFees = snapshot.val() || {};
+
+    const defaultClassesWithFees = {
+        "Nursery": 500000, "LKG": 550000, "UKG": 600000,
+        "Class 1": 700000, "Class 2": 750000, "Class 3": 800000,
+        "Class 4": 850000, "Class 5": 900000, "Class 6": 1000000,
+        "Class 7": 1050000, "Class 8": 1100000, "Class 9": 1250000,
+        "Class 10": 1300000, "Class 11": 1500000, "Class 12": 1550000
+    };
+
+    const updates = {};
+    let updatesNeeded = false;
+
+    for (const className in defaultClassesWithFees) {
+        const sanitizedName = sanitizeClassNameForKey(className);
+        // Check if a fee structure for this sanitized class name already exists
+        if (!existingFees[sanitizedName]) {
+            console.log(`Default fee for '${className}' not found. Preparing to add.`);
+            updates[sanitizedName] = {
+                id: sanitizedName,
+                name: className,
+                fee: defaultClassesWithFees[className]
+            };
+            updatesNeeded = true;
+        }
+    }
+
+    if (updatesNeeded) {
+        try {
+            await feesRef.update(updates);
+            console.log("Successfully added missing default fee structures.");
+        } catch (dbError) {
+            console.error("Error adding default fee structures:", dbError);
+        }
+    } else {
+        console.log("All default fee structures already exist. Skipping initialization.");
+    }
+};
+ensureDefaultFeesExist().catch(err => console.error("Failed to ensure default fees exist:", err));
+
+// --- Helper function to convert DB snake_case keys to camelCase ---
+const mapDbToCamelCase = (obj) => {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(mapDbToCamelCase);
+  }
+
+  return Object.keys(obj).reduce((acc, key) => {
+    const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+    // Recursively map nested objects, but don't map the keys of the nested object itself if it's not a plain object
+    acc[camelKey] = mapDbToCamelCase(obj[key]);
+    return acc;
+  }, {});
+};
+
 pool = {
     query: () => { throw new Error("PostgreSQL 'pool.query' is deprecated. Use Firebase methods instead."); }
 };
@@ -510,11 +573,10 @@ async function generateAdmissionSummaryPdf(studentData, courseData, orderId) {
         headless: chromium.headless,
         ignoreHTTPSErrors: true,
     };
-    // For local development, puppeteer can find a local chrome install.
-    // For production (like on Render), we must use the path from @sparticuz/chromium.
-    if (chromium.headless) {
-        launchOptions.executablePath = await chromium.executablePath();
-    }
+    // Always use the executable path from @sparticuz/chromium for consistency
+    // across local development and production server environments.
+    launchOptions.executablePath = await chromium.executablePath();
+
     const browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
 
@@ -716,9 +778,8 @@ async function sendPaymentReceiptEmail(studentData, courseData, orderId) {
             headless: chromium.headless,
             ignoreHTTPSErrors: true,
         };
-        if (chromium.headless) {
-            launchOptions.executablePath = await chromium.executablePath();
-        }
+        // Always use the executable path from @sparticuz/chromium
+        launchOptions.executablePath = await chromium.executablePath();
         const browser = await puppeteer.launch(launchOptions);
         const page = await browser.newPage();
 
@@ -802,9 +863,8 @@ async function generatePaymentHistoryPdf(studentName, rollNumber, history) {
         headless: chromium.headless,
         ignoreHTTPSErrors: true,
     };
-    if (chromium.headless) {
-        launchOptions.executablePath = await chromium.executablePath();
-    }
+    // Always use the executable path from @sparticuz/chromium
+    launchOptions.executablePath = await chromium.executablePath();
     const browser = await puppeteer.launch(launchOptions);
     const page = await browser.newPage();
     await page.setContent(historyHtmlContent, { waitUntil: 'networkidle0' });
@@ -3068,6 +3128,39 @@ app.delete('/api/faculty/:username', async (req, res) => {
     } catch (error) {
         console.error('Error deleting faculty:', error);
         res.status(500).json({ message: 'Server error while deleting faculty member.' });
+    }
+});
+
+/**
+ * =============================================================================
+ * COURSE & FEE ENDPOINTS
+ * =============================================================================
+ */
+
+// New endpoint to get all available courses and their fees
+app.get('/api/courses', async (req, res) => {
+    console.log('Fetching all available courses and fees.');
+    try {
+        const feesSnapshot = await db.ref('appData/fees').once('value');
+        if (!feesSnapshot.exists()) {
+            return res.json([]); // Return empty array if no fees are set up
+        }
+
+        const feesData = feesSnapshot.val();
+        const courses = Object.values(feesData).map(course => ({
+            id: course.id,
+            name: course.name,
+            fee: course.fee
+        }));
+
+        // Sort courses logically if possible (e.g., Nursery, LKG, UKG, Class 1, etc.)
+        // This is a simple sort, can be made more robust if needed.
+        courses.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+        res.status(200).json(courses);
+    } catch (error) {
+        console.error('Error fetching courses:', error);
+        res.status(500).json({ message: 'Server error while fetching courses.' });
     }
 });
 

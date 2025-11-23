@@ -898,8 +898,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sideNavLogoutBtn) {
             sideNavLogoutBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                sessionStorage.clear();
-                window.location.replace('index.html');
+                const modal = document.getElementById('logoutConfirmModal');
+                if (modal) {
+                    modal.classList.add('active');
+
+                    const confirmBtn = document.getElementById('logoutConfirmBtn');
+                    const cancelBtn = document.getElementById('logoutCancelBtn');
+
+                    const confirmHandler = () => {
+                        sessionStorage.clear();
+                        window.location.replace('index.html');
+                    };
+
+                    const cancelHandler = () => {
+                        modal.classList.remove('active');
+                        confirmBtn.removeEventListener('click', confirmHandler);
+                        cancelBtn.removeEventListener('click', cancelHandler);
+                    };
+
+                    confirmBtn.addEventListener('click', confirmHandler, { once: true });
+                    cancelBtn.addEventListener('click', cancelHandler, { once: true });
+                }
             });
         }
 
@@ -1092,17 +1111,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Determine Application State (Selected vs. Paid) ---
         let parsedCourse = {};
         let isPaid = false;
-        if (studentData.selectedCourse && studentData.selectedCourse.trim().startsWith('{')) {
-            try {
-                parsedCourse = JSON.parse(studentData.selectedCourse);
-                if (parsedCourse.paymentStatus === 'paid') {
-                    isPaid = true;
-                } else {
-                    // Course is selected but not paid. Set it in sessionStorage for the preview/payment pages.
-                    sessionStorage.setItem('selectedCourse', studentData.selectedCourse);
-                }
-            } catch (e) {
-                console.error("Could not parse selectedCourse from studentData", e);
+        // Check if selectedCourse is an object.
+        if (studentData.selectedCourse && typeof studentData.selectedCourse === 'object') {
+            parsedCourse = studentData.selectedCourse; // It's already an object
+
+            if (parsedCourse.paymentStatus === 'paid') {
+                isPaid = true;
+            } else {
+                // Course is selected but not paid.
+                // Stringify it before setting in sessionStorage for the preview/payment pages.
+                sessionStorage.setItem('selectedCourse', JSON.stringify(parsedCourse));
             }
         }
 
@@ -1114,11 +1132,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Re-parse the course data from the latest student object to ensure it's up-to-date.
                 // This is crucial for the dashboard to render correctly after payment.
                 (function() {
-                    try {
-                        if (studentData.selectedCourse && studentData.selectedCourse.trim().startsWith('{')) {
-                            parsedCourse = JSON.parse(studentData.selectedCourse);
-                        }
-                    } catch (e) { console.error("Could not re-parse course data for dashboard rendering.", e); }
+                    if (studentData.selectedCourse && typeof studentData.selectedCourse === 'object') {
+                        parsedCourse = studentData.selectedCourse;
+                    }
                 })(),
                 { title: 'Dashboard', keywords: 'home main', action: { type: 'function', func: () => { closeModal(searchModalOverlay); } } },
                 { title: 'My Courses', keywords: 'my courses subjects enrolled', action: { type: 'function', func: openMyCoursesModal } },

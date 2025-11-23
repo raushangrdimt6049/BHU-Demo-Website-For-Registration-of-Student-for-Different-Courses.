@@ -18,12 +18,21 @@
         })();
     </script>
     <script>
-        // --- Security Check ---
-        // This script runs before the DOM is loaded. It checks if a faculty member is logged in.
-        // If not, it immediately redirects them to the login page. This prevents any
-        // part of the faculty portal from flashing on the screen for unauthenticated users.
+        // --- Security Check & Refresh Logout ---
+        // This script runs before the DOM is loaded to prevent the page from rendering for unauthenticated users.
         (function() {
-            if (!sessionStorage.getItem('currentFaculty')) {
+            // Use the Performance Navigation Timing API to check how the page was accessed.
+            const navigationEntries = performance.getEntriesByType("navigation");
+            const isRefresh = navigationEntries.length > 0 && navigationEntries[0].type === 'reload';
+
+            if (isRefresh) {
+                // If the page is being refreshed, log the user out by clearing the session
+                // and redirecting them to the login page.
+                sessionStorage.clear();
+                window.location.replace('faculty-login.html');
+            } else if (!sessionStorage.getItem('currentFaculty')) {
+                // For any other navigation (e.g., direct access), if the user is not logged in,
+                // redirect them to the login page.
                 window.location.replace('faculty-login.html');
             }
         })();
